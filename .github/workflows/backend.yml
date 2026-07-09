@@ -46,7 +46,9 @@ jobs:
           timeout: 30s
           command_timeout: 2m
           sync: true
+
           script: |
             echo "Connected"
             whoami
             hostname
+            pwd
