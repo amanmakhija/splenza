@@ -1,0 +1,18 @@
+package com.splitwise.app.repository;
+
+import com.splitwise.app.entity.Settlement;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.UUID;
+
+public interface SettlementRepository extends JpaRepository<Settlement, UUID> {
+    List<Settlement> findByGroupIdOrderBySettledAtDesc(UUID groupId);
+
+    @Query("select s from Settlement s where s.group is null and " +
+           "((s.paidBy.id = :u1 and s.paidTo.id = :u2) or (s.paidBy.id = :u2 and s.paidTo.id = :u1)) " +
+           "order by s.settledAt desc")
+    List<Settlement> findDirectSettlementsBetween(@Param("u1") UUID u1, @Param("u2") UUID u2);
+}

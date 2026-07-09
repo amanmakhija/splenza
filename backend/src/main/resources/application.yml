@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: splitwise-backend
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/splitwise}
+    username: ${SPRING_DATASOURCE_USERNAME:splitwise}
+    password: ${SPRING_DATASOURCE_PASSWORD:splitwise_dev_password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8080
+  error:
+    include-message: always
+
+jwt:
+  secret: ${JWT_SECRET:dev_only_secret_key_please_change_me_32chars}
+  expiration-ms: ${JWT_EXPIRATION_MS:900000}          # 15 min access token
+  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:splitwise-receipts}
+    region: ${AWS_REGION:ap-south-1}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.splitwise.app: DEBUG
+    org.springframework.security: INFO
