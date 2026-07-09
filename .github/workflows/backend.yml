@@ -42,10 +42,10 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          debug: true
           timeout: 30s
           command_timeout: 2m
-          debug: true
-
+          sync: true
           script: |
             echo "Connected"
             whoami
