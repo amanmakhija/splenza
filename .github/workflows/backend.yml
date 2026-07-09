@@ -42,20 +42,11 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 5m
+          timeout: 30s
+          command_timeout: 2m
+          debug: true
+
           script: |
-            echo "===== Connected ====="
-
+            echo "Connected"
             whoami
-
-            pwd
-
-            docker --version
-
-            docker compose version
-
-            ls -la ~/splentra
-
-            cd ~/splentra
-
-            git status
+            hostname
