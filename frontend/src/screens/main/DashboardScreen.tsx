@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Bell } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
-import { DashboardSummary } from "@/types/api";
-import { Logo } from "@/components/Logo";
+import { DashboardSummary, NotificationCount } from "@/types/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { brand } from "@/theme/colors";
 import { MainStackParamList } from "@/navigation/types";
@@ -27,6 +26,13 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 async function fetchSummary(): Promise<DashboardSummary> {
   const { data } = await apiClient.get<DashboardSummary>(
     "/api/v1/balances/summary",
+  );
+  return data;
+}
+
+async function fetchNotificationCount(): Promise<NotificationCount> {
+  const { data } = await apiClient.get<NotificationCount>(
+    "/api/v1/notifications/unread-count",
   );
   return data;
 }
@@ -41,7 +47,27 @@ export function DashboardScreen() {
     queryFn: fetchSummary,
   });
 
+  const { data: notificationData, refetch: notificationRefetch } = useQuery({
+    queryKey: ["notification-count"],
+    queryFn: fetchNotificationCount,
+    staleTime: 60 * 1000,
+  });
+
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
+
+  const greeting = () => {
+    const hour = new Date().getHours();
+
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([refetch(), notificationRefetch()]);
+    }, [refetch, notificationRefetch]),
+  );
 
   return (
     <SafeAreaView
@@ -62,7 +88,7 @@ export function DashboardScreen() {
           </View>
           <View>
             <Text style={[styles.greeting, { color: theme.textSecondary }]}>
-              Welcome back
+              {greeting()}
             </Text>
             <Text style={[styles.name, { color: theme.textPrimary }]}>
               {user?.name ?? ""}
@@ -74,10 +100,19 @@ export function DashboardScreen() {
             onPress={() => navigation.navigate("Notifications")}
             style={[
               styles.bellButton,
-              { backgroundColor: theme.surface, borderColor: theme.border },
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
             ]}
           >
             <Bell size={18} color={theme.textPrimary} />
+
+            {notificationData && notificationData?.count > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notificationData.count}</Text>
+              </View>
+            )}
           </Pressable>
           <ThemeToggle size={40} />
         </View>
@@ -159,9 +194,17 @@ export function DashboardScreen() {
         )}
         ListEmptyComponent={
           !isLoading ? (
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              No friend balances yet - add friends and start splitting expenses.
-            </Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyEmoji}>💸</Text>
+
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
+                No balances yet
+              </Text>
+
+              <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
+                Add your first expense to start tracking balances.
+              </Text>
+            </View>
           ) : null
         }
       />
@@ -174,10 +217,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    alignItems: "flex-start",
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -189,20 +232,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  greeting: { fontSize: 12 },
-  name: { fontSize: 18, fontWeight: "700" },
-  listContent: { paddingHorizontal: 20, paddingBottom: 32 },
-  summaryCard: { borderRadius: 20, padding: 24, marginBottom: 20 },
+  greeting: {
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 0.3,
+  },
+
+  name: {
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -0.8,
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 120,
+  },
+  summaryCard: {
+    borderRadius: 28,
+    padding: 28,
+    marginBottom: 28,
+    overflow: "hidden",
+  },
   summaryLabel: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 13,
-    marginBottom: 4,
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 15,
+    fontWeight: "500",
   },
   summaryAmount: {
     color: "#fff",
-    fontSize: 34,
-    fontWeight: "800",
-    marginBottom: 20,
+    fontSize: 48,
+    fontWeight: "900",
+    letterSpacing: -2,
+    marginVertical: 18,
   },
   summaryRow: { flexDirection: "row", justifyContent: "space-between" },
   summarySubLabel: {
@@ -210,25 +271,75 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 2,
   },
-  summarySubAmount: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  summarySubAmount: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "800",
+  },
   friendRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
+    gap: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 16,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
   },
-  friendName: { flex: 1, fontSize: 15, fontWeight: "600" },
-  friendAmount: { fontSize: 13, fontWeight: "700" },
+  friendName: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  friendAmount: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
   emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
-  avatarText: { fontSize: 20, fontWeight: "800" },
+  avatarText: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#FF3B30",
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 80,
+  },
+  emptyEmoji: {
+    fontSize: 54,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  emptySubtitle: {
+    marginTop: 8,
+    textAlign: "center",
+    fontSize: 15,
+    lineHeight: 22,
+    paddingHorizontal: 32,
+  },
 });

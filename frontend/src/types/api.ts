@@ -127,6 +127,10 @@ export interface DashboardSummary {
   friendBalances: FriendBalanceResponse[];
 }
 
+export interface NotificationCount {
+  count: number;
+}
+
 export interface Settlement {
   id: string;
   groupId: string | null;

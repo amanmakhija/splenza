@@ -392,7 +392,7 @@ export function ImportCsvScreen() {
             <Text
               style={[styles.stepDescription, { color: theme.textSecondary }]}
             >
-              Match each name from the CSV to a Splentra account. Exactly one
+              Match each name from the CSV to a Splenza account. Exactly one
               must be mapped to you.
             </Text>
 

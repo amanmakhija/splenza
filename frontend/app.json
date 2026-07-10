@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Splentra",
-    "slug": "splentra",
-    "scheme": "splentra",
+    "name": "Splenza",
+    "slug": "splenza",
+    "scheme": "splenza",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,10 +15,10 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.splentra.app"
+      "bundleIdentifier": "com.splenza.app"
     },
     "android": {
-      "package": "com.splentra.app",
+      "package": "com.splenza.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F172A"
@@ -40,7 +40,7 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://api.amanmakhija.in"
+      "apiBaseUrl": "https://api.splenza.in"
     }
   }
 }

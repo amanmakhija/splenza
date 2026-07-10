@@ -32,7 +32,7 @@ export function ProfileScreen() {
     },
     { label: "Preferred currency", value: "INR", onPress: () => {} },
     { label: "Privacy policy", value: "", onPress: () => {} },
-    { label: "About Splentra", value: "", onPress: () => {} },
+    { label: "About Splenza", value: "", onPress: () => {} },
   ];
 
   return (
@@ -115,7 +115,7 @@ export function ProfileScreen() {
       <View style={styles.footer}>
         <Logo size={28} variant="mark" />
         <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-          Splentra v1.0.0
+          Splenza v1.0.0
         </Text>
       </View>
     </SafeAreaView>

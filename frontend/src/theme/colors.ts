@@ -1,5 +1,5 @@
 /**
- * Splentra brand palette. Keep this as the single source of truth - tailwind.config.js
+ * Splenza brand palette. Keep this as the single source of truth - tailwind.config.js
  * mirrors these values for className usage, this file is for direct style/JS usage
  * (SVG fills, animated values, chart colors, etc. where Tailwind classes don't reach).
  */
@@ -8,7 +8,7 @@ export const brand = {
   secondaryBlue: "#4F46E5",
   accentGreen: "#22C55E",
   dark: "#0F172A",
-  light: "#F8FAFC"
+  light: "#F8FAFC",
 } as const;
 
 export type ThemeMode = "light" | "dark";
@@ -44,7 +44,7 @@ export const lightTheme: AppTheme = {
   accent: brand.accentGreen,
   danger: "#EF4444",
   success: brand.accentGreen,
-  warning: "#F59E0B"
+  warning: "#F59E0B",
 };
 
 export const darkTheme: AppTheme = {
@@ -61,7 +61,8 @@ export const darkTheme: AppTheme = {
   accent: brand.accentGreen,
   danger: "#F87171",
   success: "#4ADE80",
-  warning: "#FBBF24"
+  warning: "#FBBF24",
 };
 
-export const getTheme = (mode: ThemeMode): AppTheme => (mode === "dark" ? darkTheme : lightTheme);
+export const getTheme = (mode: ThemeMode): AppTheme =>
+  mode === "dark" ? darkTheme : lightTheme;

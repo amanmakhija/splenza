@@ -1,4 +1,4 @@
-# Splentra — Mobile App (React Native + Expo)
+# Splenza — Mobile App (React Native + Expo)
 
 ## Stack
 React Native (Expo SDK 51) · TypeScript · React Navigation · Zustand · TanStack Query ·
