@@ -1,8 +1,18 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Pressable,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
+import { Bell } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
@@ -10,40 +20,79 @@ import { DashboardSummary } from "@/types/api";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { brand } from "@/theme/colors";
+import { MainStackParamList } from "@/navigation/types";
+
+type Nav = NativeStackNavigationProp<MainStackParamList>;
 
 async function fetchSummary(): Promise<DashboardSummary> {
-  const { data } = await apiClient.get<DashboardSummary>("/api/v1/balances/summary");
+  const { data } = await apiClient.get<DashboardSummary>(
+    "/api/v1/balances/summary",
+  );
   return data;
 }
 
 export function DashboardScreen() {
   const { theme } = useAppTheme();
+  const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["dashboard-summary"],
-    queryFn: fetchSummary
+    queryFn: fetchSummary,
   });
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
 
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.flex, { backgroundColor: theme.background }]}
+      edges={["top"]}
+    >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Logo size={36} variant="mark" />
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.avatarText, { color: theme.primary }]}>
+              {user?.name?.charAt(0).toUpperCase() ?? "?"}
+            </Text>
+          </View>
           <View>
-            <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back</Text>
-            <Text style={[styles.name, { color: theme.textPrimary }]}>{user?.name ?? ""}</Text>
+            <Text style={[styles.greeting, { color: theme.textSecondary }]}>
+              Welcome back
+            </Text>
+            <Text style={[styles.name, { color: theme.textPrimary }]}>
+              {user?.name ?? ""}
+            </Text>
           </View>
         </View>
-        <ThemeToggle size={40} />
+        <View style={styles.headerRight}>
+          <Pressable
+            onPress={() => navigation.navigate("Notifications")}
+            style={[
+              styles.bellButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Bell size={18} color={theme.textPrimary} />
+          </Pressable>
+          <ThemeToggle size={40} />
+        </View>
       </View>
 
       <FlatList
         data={data?.friendBalances ?? []}
         keyExtractor={(item) => item.friendId}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={theme.primary}
+          />
+        }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <LinearGradient
@@ -54,38 +103,59 @@ export function DashboardScreen() {
           >
             <Text style={styles.summaryLabel}>Net balance</Text>
             <Text style={styles.summaryAmount}>
-              {isLoading ? "—" : `${(data?.netBalance ?? 0) >= 0 ? "+" : "-"}${formatAmount(data?.netBalance ?? 0)}`}
+              {isLoading
+                ? "—"
+                : `${(data?.netBalance ?? 0) >= 0 ? "+" : "-"}${formatAmount(data?.netBalance ?? 0)}`}
             </Text>
             <View style={styles.summaryRow}>
               <View>
                 <Text style={styles.summarySubLabel}>You are owed</Text>
-                <Text style={styles.summarySubAmount}>{formatAmount(data?.totalYouAreOwed ?? 0)}</Text>
+                <Text style={styles.summarySubAmount}>
+                  {formatAmount(data?.totalYouAreOwed ?? 0)}
+                </Text>
               </View>
               <View>
                 <Text style={styles.summarySubLabel}>You owe</Text>
-                <Text style={styles.summarySubAmount}>{formatAmount(data?.totalYouOwe ?? 0)}</Text>
+                <Text style={styles.summarySubAmount}>
+                  {formatAmount(data?.totalYouOwe ?? 0)}
+                </Text>
               </View>
             </View>
           </LinearGradient>
         }
         renderItem={({ item }) => (
-          <View style={[styles.friendRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[styles.avatar, { backgroundColor: theme.background }]}>
+          <Pressable
+            onPress={() =>
+              navigation.navigate("FriendDetail", {
+                friendId: item.friendId,
+                friendName: item.friendName,
+              })
+            }
+            style={[
+              styles.friendRow,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={[styles.avatar, { backgroundColor: theme.background }]}
+            >
               <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
                 {item.friendName.charAt(0).toUpperCase()}
               </Text>
             </View>
-            <Text style={[styles.friendName, { color: theme.textPrimary }]}>{item.friendName}</Text>
+            <Text style={[styles.friendName, { color: theme.textPrimary }]}>
+              {item.friendName}
+            </Text>
             <Text
               style={[
                 styles.friendAmount,
-                { color: item.netAmount >= 0 ? theme.success : theme.danger }
+                { color: item.netAmount >= 0 ? theme.success : theme.danger },
               ]}
             >
               {item.netAmount >= 0 ? "owes you " : "you owe "}
               {formatAmount(item.netAmount)}
             </Text>
-          </View>
+          </Pressable>
         )}
         ListEmptyComponent={
           !isLoading ? (
@@ -107,17 +177,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16
+    paddingBottom: 16,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
   greeting: { fontSize: 12 },
   name: { fontSize: 18, fontWeight: "700" },
   listContent: { paddingHorizontal: 20, paddingBottom: 32 },
   summaryCard: { borderRadius: 20, padding: 24, marginBottom: 20 },
-  summaryLabel: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginBottom: 4 },
-  summaryAmount: { color: "#fff", fontSize: 34, fontWeight: "800", marginBottom: 20 },
+  summaryLabel: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  summaryAmount: {
+    color: "#fff",
+    fontSize: 34,
+    fontWeight: "800",
+    marginBottom: 20,
+  },
   summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-  summarySubLabel: { color: "rgba(255,255,255,0.75)", fontSize: 12, marginBottom: 2 },
+  summarySubLabel: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 12,
+    marginBottom: 2,
+  },
   summarySubAmount: { color: "#fff", fontSize: 16, fontWeight: "700" },
   friendRow: {
     flexDirection: "row",
@@ -126,10 +218,17 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 10
+    marginBottom: 10,
   },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   friendName: { flex: 1, fontSize: 15, fontWeight: "600" },
   friendAmount: { fontSize: 13, fontWeight: "700" },
-  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 }
+  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
+  avatarText: { fontSize: 20, fontWeight: "800" },
 });

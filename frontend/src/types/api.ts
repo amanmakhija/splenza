@@ -142,10 +142,54 @@ export interface Settlement {
 
 export interface NotificationDto {
   id: string;
-  type: "FRIEND_REQUEST" | "GROUP_ADDED" | "EXPENSE_ADDED" | "EXPENSE_EDITED" | "SETTLEMENT";
+  type:
+    | "FRIEND_REQUEST"
+    | "GROUP_ADDED"
+    | "EXPENSE_ADDED"
+    | "EXPENSE_EDITED"
+    | "SETTLEMENT";
   title: string;
   body: string | null;
   referenceId: string | null;
   read: boolean;
   createdAt: string;
+}
+
+// ---- CSV Import ----
+
+export interface ImportRow {
+  date: string; // YYYY-MM-DD
+  description: string;
+  category: string;
+  cost: number;
+  currency: string;
+  memberValues: Record<string, number>;
+}
+
+export interface ParsedCsv {
+  members: string[];
+  rows: ImportRow[];
+}
+
+export interface ExecuteImportPayload {
+  groupId?: string | null;
+  newGroupName?: string | null;
+  memberMapping: Record<string, string>;
+  fileName?: string;
+  rows: ImportRow[];
+}
+
+export interface ImportRowError {
+  rowIndex: number;
+  description: string;
+  reason: string;
+}
+
+export interface ImportResultResponse {
+  importId: string;
+  groupId: string;
+  totalRows: number;
+  importedRows: number;
+  failedRows: number;
+  errors: ImportRowError[];
 }

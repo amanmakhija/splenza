@@ -11,8 +11,8 @@ interface LogoProps {
 }
 
 const sources = {
-  mark: require("../../assets/logo/splentra-logo-transparent.png"),
-  tile: require("../../assets/logo/splentra-logo-dark-bg.png")
+  mark: require("../../assets/logo/splentra-logo.svg"),
+  tile: require("../../assets/logo/splentra-logo.svg"),
 };
 
 export function Logo({ size = 64, variant = "mark", style }: LogoProps) {
