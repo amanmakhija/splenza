@@ -6,8 +6,9 @@ on:
       - main
     paths:
       - "backend/**"
-      - ".github/workflows/backend.yml"
       - "docker-compose.prod.yml"
+      - ".github/workflows/backend.yml"
+      - ".dockerignore"
 
 jobs:
   deploy:
@@ -48,8 +49,8 @@ jobs:
           script: |
             cd ~/splentra
 
-            docker pull ghcr.io/amanmakhija/splentra-backend:latest
+            docker compose -f docker-compose.prod.yml pull
 
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            docker image prune -f
+            docker image prune -af
