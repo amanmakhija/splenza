@@ -1,5 +1,9 @@
 package com.splitwise.app.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.splitwise.app.dto.auth.*;
 import com.splitwise.app.entity.PasswordResetToken;
 import com.splitwise.app.entity.RefreshToken;
@@ -10,15 +14,18 @@ import com.splitwise.app.repository.RefreshTokenRepository;
 import com.splitwise.app.repository.UserRepository;
 import com.splitwise.app.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.UUID;
 
 @Service
@@ -30,6 +37,25 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+
+    @Value("${google.oauth.client-id:}")
+    private String googleClientId;
+
+    private GoogleIdTokenVerifier googleVerifier;
+
+    private GoogleIdTokenVerifier googleVerifier() {
+        if (googleVerifier == null) {
+            if (googleClientId == null || googleClientId.isBlank()) {
+                throw new ApiException(
+                        "Google Sign-In isn't configured on this server yet (missing GOOGLE_OAUTH_CLIENT_ID)",
+                        HttpStatus.SERVICE_UNAVAILABLE);
+            }
+            googleVerifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+        }
+        return googleVerifier;
+    }
 
     @Transactional
     public AuthResponse signup(SignupRequest request) {
@@ -72,7 +98,6 @@ public class AuthService {
             throw ApiException.unauthorized("Refresh token expired, please log in again");
         }
 
-        // rotate: revoke old, issue new
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
 
@@ -92,12 +117,10 @@ public class AuthService {
             PasswordResetToken resetToken = PasswordResetToken.builder()
                     .user(user)
                     .tokenHash(hashToken(rawToken))
-                    .expiresAt(Instant.now().plusSeconds(3600)) // 1 hour
+                    .expiresAt(Instant.now().plusSeconds(3600))
                     .build();
             passwordResetTokenRepository.save(resetToken);
-            // TODO: send email with rawToken via an email provider (SES/SendGrid) - Phase 1 stub
         });
-        // Always return success to avoid leaking which emails are registered
     }
 
     @Transactional
@@ -117,7 +140,6 @@ public class AuthService {
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
 
-        // Invalidate all existing sessions
         refreshTokenRepository.deleteByUserId(user.getId());
     }
 
@@ -132,6 +154,50 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+    }
+
+    @Transactional
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        GoogleIdToken idToken;
+        try {
+            idToken = googleVerifier().verify(request.getIdToken());
+        } catch (GeneralSecurityException | java.io.IOException | IllegalArgumentException e) {
+            throw ApiException.unauthorized("Could not verify Google token");
+        }
+        if (idToken == null) {
+            throw ApiException.unauthorized("Invalid or expired Google token");
+        }
+
+        GoogleIdToken.Payload payload = idToken.getPayload();
+        String googleId = payload.getSubject();
+        String email = payload.getEmail();
+        Boolean emailVerified = payload.getEmailVerified();
+        String name = (String) payload.get("name");
+        String pictureUrl = (String) payload.get("picture");
+
+        if (email == null || Boolean.FALSE.equals(emailVerified)) {
+            throw ApiException.unauthorized("Google account email is not verified");
+        }
+
+        User user = userRepository.findByGoogleId(googleId)
+                .or(() -> userRepository.findByEmailAndDeletedFalse(email.toLowerCase()))
+                .orElseGet(() -> userRepository.save(User.builder()
+                .name(name != null ? name : email)
+                .email(email.toLowerCase())
+                .googleId(googleId)
+                .profilePictureUrl(pictureUrl)
+                .emailVerified(true)
+                .build()));
+
+        if (user.getGoogleId() == null) {
+            user.setGoogleId(googleId);
+            if (user.getProfilePictureUrl() == null) {
+                user.setProfilePictureUrl(pictureUrl);
+            }
+            userRepository.save(user);
+        }
+
+        return issueTokens(user);
     }
 
     private AuthResponse issueTokens(User user) {

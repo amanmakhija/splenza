@@ -30,8 +30,7 @@ public class AuthController {
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
-        // NOTE: wire up Google token verification (GoogleIdTokenVerifier) here before production use.
-        throw new UnsupportedOperationException("Google Sign-In verification not yet wired up - Phase 1 TODO");
+        return ResponseEntity.ok(authService.loginWithGoogle(request));
     }
 
     @PostMapping("/refresh")

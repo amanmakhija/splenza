@@ -16,10 +16,12 @@ import java.math.RoundingMode;
 import java.util.*;
 
 /**
- * Computes net balances from the immutable ledger of expenses + settlements, and produces a
- * minimal-transaction-count settlement plan ("debt simplification"), Splitwise-style.
+ * Computes net balances from the immutable ledger of expenses + settlements,
+ * and produces a minimal-transaction-count settlement plan ("debt
+ * simplification"), Splitwise-style.
  *
- * Convention: positive net = user is owed money. Negative net = user owes money.
+ * Convention: positive net = user is owed money. Negative net = user owes
+ * money.
  */
 @Service
 @RequiredArgsConstructor
@@ -65,29 +67,60 @@ public class BalanceService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Collective balance with a friend, aggregated across every shared group
+     * AND direct expenses/settlements - not just direct ones. For each expense
+     * involving both users, only the payer<->non-payer-participant relationship
+     * creates a pairwise debt (if a third person paid and both A and B merely
+     * participated, that expense contributes nothing to the A-B pair directly -
+     * the debt runs to the actual payer). This mirrors how Splitwise itself
+     * computes per-friend balances and is well-defined regardless of how many
+     * other people were on the expense.
+     */
     public FriendBalanceResponse getFriendBalance(UUID userId, UUID friendId) {
-        Map<UUID, BigDecimal> net = new HashMap<>();
-        Map<UUID, User> usersById = new HashMap<>();
-        net.put(userId, BigDecimal.ZERO);
-        net.put(friendId, BigDecimal.ZERO);
+        BigDecimal net = BigDecimal.ZERO;
 
-        for (Expense expense : expenseRepository.findDirectExpensesBetween(userId, friendId)) {
-            applyExpense(net, usersById, expense);
+        for (Expense expense : expenseRepository.findAllForUser(userId)) {
+            boolean friendInvolved = expense.getPaidBy().getId().equals(friendId)
+                    || expense.getParticipants().stream().anyMatch(p -> p.getUser().getId().equals(friendId));
+            if (!friendInvolved) {
+                continue;
+            }
+
+            boolean userIsPayer = expense.getPaidBy().getId().equals(userId);
+            boolean friendIsPayer = expense.getPaidBy().getId().equals(friendId);
+
+            if (userIsPayer && !friendIsPayer) {
+                BigDecimal friendShare = expense.getParticipants().stream()
+                        .filter(p -> p.getUser().getId().equals(friendId))
+                        .map(ExpenseParticipant::getShareAmount)
+                        .findFirst().orElse(BigDecimal.ZERO);
+                net = net.add(friendShare); // friend owes user their share
+            } else if (friendIsPayer && !userIsPayer) {
+                BigDecimal userShare = expense.getParticipants().stream()
+                        .filter(p -> p.getUser().getId().equals(userId))
+                        .map(ExpenseParticipant::getShareAmount)
+                        .findFirst().orElse(BigDecimal.ZERO);
+                net = net.subtract(userShare); // user owes friend their share
+            }
+            // if a third party paid and both are just participants, this expense doesn't create
+            // a direct A<->B debt - the money is owed to whoever actually paid.
         }
-        for (Settlement settlement : settlementRepository.findDirectSettlementsBetween(userId, friendId)) {
-            applySettlement(net, usersById, settlement);
+
+        for (Settlement settlement : settlementRepository.findAllSettlementsBetween(userId, friendId)) {
+            if (settlement.getPaidBy().getId().equals(userId)) {
+                net = net.add(settlement.getAmount()); // user paid friend -> user owes friend less
+            } else {
+                net = net.subtract(settlement.getAmount()); // friend paid user -> friend owes user less
+            }
         }
 
         User friend = userRepository.findById(friendId).orElseThrow();
-        // From `userId`'s perspective: positive net[userId] means userId is owed money overall,
-        // but we want "does friend owe user" specifically -> that's simply net[userId] restricted
-        // to this pair, which is what the filtered expense/settlement queries already give us.
-        BigDecimal userNet = net.getOrDefault(userId, BigDecimal.ZERO);
 
         return FriendBalanceResponse.builder()
                 .friendId(friendId)
                 .friendName(friend.getName())
-                .netAmount(userNet.setScale(2, RoundingMode.HALF_UP))
+                .netAmount(net.setScale(2, RoundingMode.HALF_UP))
                 .build();
     }
 
@@ -120,7 +153,6 @@ public class BalanceService {
     }
 
     // ---------------- internal helpers ----------------
-
     private void applyExpense(Map<UUID, BigDecimal> net, Map<UUID, User> usersById, Expense expense) {
         UUID payerId = expense.getPaidBy().getId();
         usersById.putIfAbsent(payerId, expense.getPaidBy());

@@ -72,4 +72,9 @@ public class GroupController {
     public ResponseEntity<List<GroupResponse>> listMine() {
         return ResponseEntity.ok(groupService.listForUser(SecurityUtils.getCurrentUserId()));
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<GroupResponse>> search(@RequestParam String query) {
+        return ResponseEntity.ok(groupService.searchGroups(SecurityUtils.getCurrentUserId(), query));
+    }
 }

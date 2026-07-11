@@ -4,9 +4,14 @@ import com.splitwise.app.dto.expense.*;
 import com.splitwise.app.entity.*;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.repository.*;
+import com.splitwise.app.dto.expense.*;
+import com.splitwise.app.entity.*;
+import com.splitwise.app.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +37,7 @@ public class ExpenseService {
 
         Category category = request.getCategoryId() != null
                 ? categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> ApiException.badRequest("Invalid category"))
+                        .orElseThrow(() -> ApiException.badRequest("Invalid category"))
                 : null;
 
         User paidBy = userRepository.findById(request.getPaidBy())
@@ -40,7 +45,7 @@ public class ExpenseService {
 
         Group group = request.getGroupId() != null
                 ? groupRepository.findById(request.getGroupId())
-                    .orElseThrow(() -> ApiException.badRequest("Invalid group"))
+                        .orElseThrow(() -> ApiException.badRequest("Invalid group"))
                 : null;
 
         User createdBy = userRepository.getReferenceById(actingUserId);
@@ -194,8 +199,33 @@ public class ExpenseService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ---- helpers ----
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> search(UUID userId, ExpenseSearchRequest filters) {
+        Specification<Expense> spec = Specification.where(ExpenseSpecifications.involvesUser(userId))
+                .and(ExpenseSpecifications.inGroup(filters.getGroupId()))
+                .and(ExpenseSpecifications.titleContains(filters.getQuery()))
+                .and(ExpenseSpecifications.categoryEquals(filters.getCategoryId()))
+                .and(ExpenseSpecifications.paidByEquals(filters.getPaidBy()))
+                .and(ExpenseSpecifications.dateFrom(filters.getDateFrom()))
+                .and(ExpenseSpecifications.dateTo(filters.getDateTo()))
+                .and(ExpenseSpecifications.amountMin(filters.getAmountMin()))
+                .and(ExpenseSpecifications.amountMax(filters.getAmountMax()));
 
+        Sort sort = switch (filters.getSort()) {
+            case OLDEST ->
+                Sort.by(Sort.Direction.ASC, "expenseDate");
+            case HIGHEST_AMOUNT ->
+                Sort.by(Sort.Direction.DESC, "amount");
+            case LOWEST_AMOUNT ->
+                Sort.by(Sort.Direction.ASC, "amount");
+            case LATEST ->
+                Sort.by(Sort.Direction.DESC, "expenseDate");
+        };
+
+        return expenseRepository.findAll(spec, sort).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    // ---- helpers ----
     private void validateParticipantsAndAccess(UUID actingUserId, UUID groupId, CreateExpenseRequest request) {
         if (request.getParticipants().isEmpty()) {
             throw ApiException.badRequest("An expense needs at least one participant");
@@ -252,12 +282,12 @@ public class ExpenseService {
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
                 .participants(e.getParticipants().stream().map(p -> ExpenseParticipantResponse.builder()
-                        .userId(p.getUser().getId())
-                        .userName(p.getUser().getName())
-                        .shareAmount(p.getShareAmount())
-                        .percentage(p.getPercentage())
-                        .shares(p.getShares())
-                        .build()).collect(Collectors.toList()))
+                .userId(p.getUser().getId())
+                .userName(p.getUser().getName())
+                .shareAmount(p.getShareAmount())
+                .percentage(p.getPercentage())
+                .shares(p.getShares())
+                .build()).collect(Collectors.toList()))
                 .build();
     }
 }

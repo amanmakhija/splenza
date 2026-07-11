@@ -15,8 +15,8 @@ public class OpenApiConfig {
     public OpenAPI splitwiseOpenAPI() {
         final String schemeName = "bearerAuth";
         return new OpenAPI()
-                .info(new Info().title("Splentra API").version("v1")
-                        .description("Backend API for Splentra - Phase 1"))
+                .info(new Info().title("Splenza API").version("v1")
+                        .description("Backend API for Splenza - Phase 1"))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
                 .components(new Components().addSecuritySchemes(schemeName,
                         new SecurityScheme().name(schemeName).type(SecurityScheme.Type.HTTP)

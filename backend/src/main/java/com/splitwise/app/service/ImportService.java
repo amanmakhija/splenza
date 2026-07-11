@@ -204,7 +204,7 @@ public class ImportService {
     // ---------------- validation / setup ----------------
     private void validateMapping(UUID actingUserId, Map<String, UUID> mapping) {
         if (mapping == null || mapping.isEmpty()) {
-            throw ApiException.badRequest("You must map every CSV member to a Splentra user");
+            throw ApiException.badRequest("You must map every CSV member to a Splenza user");
         }
         long selfCount = mapping.values().stream().filter(id -> id.equals(actingUserId)).count();
         if (selfCount != 1) {

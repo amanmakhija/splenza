@@ -29,7 +29,7 @@ public class ExpenseController {
 
     @PutMapping("/{expenseId}")
     public ResponseEntity<ExpenseResponse> update(@PathVariable UUID expenseId,
-                                                    @Valid @RequestBody UpdateExpenseRequest request) {
+            @Valid @RequestBody UpdateExpenseRequest request) {
         return ResponseEntity.ok(expenseService.update(SecurityUtils.getCurrentUserId(), expenseId, request));
     }
 
@@ -58,5 +58,10 @@ public class ExpenseController {
     @GetMapping("/me")
     public ResponseEntity<List<ExpenseResponse>> listMine() {
         return ResponseEntity.ok(expenseService.listForUser(SecurityUtils.getCurrentUserId()));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<ExpenseResponse>> search(ExpenseSearchRequest filters) {
+        return ResponseEntity.ok(expenseService.search(SecurityUtils.getCurrentUserId(), filters));
     }
 }

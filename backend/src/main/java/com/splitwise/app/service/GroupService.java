@@ -156,6 +156,14 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<GroupResponse> searchGroups(UUID userId, String query) {
+        String q = query.toLowerCase();
+        return listForUser(userId).stream()
+                .filter(g -> g.getName().toLowerCase().contains(q))
+                .collect(Collectors.toList());
+    }
+
     // ---------------- helpers ----------------
     private void addMemberInternal(Group group, UUID userId) {
         User user = userRepository.findById(userId)

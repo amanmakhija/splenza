@@ -35,7 +35,7 @@ server:
 
 jwt:
   secret: ${JWT_SECRET:dev_only_secret_key_please_change_me_32chars}
-  expiration-ms: ${JWT_EXPIRATION_MS:900000}          # 15 min access token
+  expiration-ms: ${JWT_EXPIRATION_MS:900000} # 15 min access token
   refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
 
 aws:
@@ -53,3 +53,11 @@ logging:
   level:
     com.splitwise.app: DEBUG
     org.springframework.security: INFO
+
+google:
+  oauth:
+    # Create this in Google Cloud Console > APIs & Services > Credentials > OAuth Client ID
+    # (type: Android, package name com.splenza.app, plus your release/debug SHA-1 fingerprints).
+    # For the ID token audience check to work, use the WEB client ID here (Google issues one
+    # automatically alongside the Android client) - see README for the full walkthrough.
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}

@@ -35,7 +35,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/amanmakhija/splentra-backend:latest
+          tags: ghcr.io/amanmakhija/splenza-backend:latest
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
@@ -47,7 +47,7 @@ jobs:
           command_timeout: 10m
 
           script: |
-            cd ~/splentra
+            cd ~/splenza
 
             docker compose -f docker-compose.prod.yml pull
 

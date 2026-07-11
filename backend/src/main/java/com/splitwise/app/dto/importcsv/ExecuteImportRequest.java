@@ -26,10 +26,10 @@ public class ExecuteImportRequest {
     private String newGroupName;
 
     /**
-     * CSV member column name -> Splentra user id. Exactly one entry must map to
+     * CSV member column name -> Splenza user id. Exactly one entry must map to
      * the acting user.
      */
-    @NotEmpty(message = "You must map every CSV member to a Splentra user")
+    @NotEmpty(message = "You must map every CSV member to a Splenza user")
     private Map<String, UUID> memberMapping;
 
     @Size(max = 255)

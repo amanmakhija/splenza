@@ -1,4 +1,4 @@
-# Splentra — Backend (Phase 1, in progress)
+# Splenza — Backend (Phase 1, in progress)
 
 Spring Boot 3 / Java 21 / PostgreSQL / JWT backend for a Splitwise alternative.
 
