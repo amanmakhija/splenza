@@ -33,4 +33,9 @@ public class BalanceController {
     public DashboardSummaryResponse getDashboardSummary() {
         return balanceService.getDashboardSummary(SecurityUtils.getCurrentUserId());
     }
+
+    @GetMapping("/groups")
+    public java.util.List<com.splitwise.app.dto.balance.GroupBalanceSummary> getGroupSummaries() {
+        return balanceService.getGroupSummariesForUser(SecurityUtils.getCurrentUserId());
+    }
 }

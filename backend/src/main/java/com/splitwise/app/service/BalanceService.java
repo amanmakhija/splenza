@@ -33,6 +33,7 @@ public class BalanceService {
     private final SettlementRepository settlementRepository;
     private final FriendRepository friendRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final GroupRepository groupRepository;
     private final UserRepository userRepository;
     private final DebtSimplificationService debtSimplificationService;
 
@@ -66,7 +67,6 @@ public class BalanceService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
     /**
      * Collective balance with a friend, aggregated across every shared group
      * AND direct expenses/settlements - not just direct ones. For each expense
@@ -77,6 +77,7 @@ public class BalanceService {
      * computes per-friend balances and is well-defined regardless of how many
      * other people were on the expense.
      */
+    @Transactional(readOnly = true)
     public FriendBalanceResponse getFriendBalance(UUID userId, UUID friendId) {
         BigDecimal net = BigDecimal.ZERO;
 
@@ -122,6 +123,30 @@ public class BalanceService {
                 .friendName(friend.getName())
                 .netAmount(net.setScale(2, RoundingMode.HALF_UP))
                 .build();
+    }
+
+    /**
+     * One row per group the user belongs to, with just their own net position
+     * in that group - used for the Groups list, which shows an amount per group
+     * rather than a member count.
+     */
+    @Transactional(readOnly = true)
+    public List<GroupBalanceSummary> getGroupSummariesForUser(UUID userId) {
+        List<GroupBalanceSummary> summaries = new ArrayList<>();
+        for (var group : groupRepository.findActiveGroupsForUser(userId)) {
+            GroupBalanceResponse groupBalances = getGroupBalances(group.getId());
+            BigDecimal myNet = groupBalances.getRawBalances().stream()
+                    .filter(b -> b.getUserId().equals(userId))
+                    .map(BalanceEntry::getNetAmount)
+                    .findFirst()
+                    .orElse(BigDecimal.ZERO);
+            summaries.add(GroupBalanceSummary.builder()
+                    .groupId(group.getId())
+                    .groupName(group.getName())
+                    .netAmount(myNet)
+                    .build());
+        }
+        return summaries;
     }
 
     @Transactional(readOnly = true)
@@ -171,9 +196,7 @@ public class BalanceService {
         usersById.putIfAbsent(payerId, settlement.getPaidBy());
         usersById.putIfAbsent(payeeId, settlement.getPaidTo());
 
-        // paidBy settled a debt -> their negative balance moves toward zero
         net.merge(payerId, settlement.getAmount(), BigDecimal::add);
-        // paidTo received money they were owed -> their positive balance moves toward zero
         net.merge(payeeId, settlement.getAmount().negate(), BigDecimal::add);
     }
 
@@ -189,5 +212,4 @@ public class BalanceService {
         }
         return result;
     }
-
 }

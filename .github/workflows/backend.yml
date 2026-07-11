@@ -47,7 +47,7 @@ jobs:
           command_timeout: 10m
 
           script: |
-            cd ~/splentra
+            cd ~/splenza
 
             git fetch origin
             git reset --hard origin/main
