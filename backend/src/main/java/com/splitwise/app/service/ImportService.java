@@ -142,13 +142,18 @@ public class ImportService {
         UUID payerId = mustMapUser(mapping, payerName);
         UUID payeeId = mustMapUser(mapping, payeeName);
 
+        User payerUser = userRepository.findById(payerId)
+                .orElseThrow(() -> new IllegalArgumentException("Mapped payer no longer exists"));
+        User payeeUser = userRepository.findById(payeeId)
+                .orElseThrow(() -> new IllegalArgumentException("Mapped payee no longer exists"));
+
         Settlement settlement = Settlement.builder()
                 .group(groupId != null ? groupRepository.getReferenceById(groupId) : null)
-                .paidBy(userRepository.getReferenceById(payerId))
-                .paidTo(userRepository.getReferenceById(payeeId))
+                .paidBy(payerUser)
+                .paidTo(payeeUser)
                 .amount(row.getCost().abs())
                 .currency(row.getCurrency() != null ? row.getCurrency() : "INR")
-                .note(row.getDescription() + " (imported)")
+                .note(payerUser.getName() + " paid " + payeeUser.getName() + " (imported)")
                 .settledAt(row.getDate().atStartOfDay(ZoneOffset.UTC).toInstant())
                 .createdBy(userRepository.getReferenceById(actingUserId))
                 .build();
