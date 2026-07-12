@@ -4,16 +4,14 @@ import com.splitwise.app.dto.expense.*;
 import com.splitwise.app.entity.*;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.repository.*;
-import com.splitwise.app.dto.expense.*;
-import com.splitwise.app.entity.*;
-import com.splitwise.app.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,6 +31,16 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseResponse create(UUID actingUserId, CreateExpenseRequest request) {
+        return create(actingUserId, request, true);
+    }
+
+    /**
+     * @param recordActivity pass false for bulk operations (CSV import) where a
+     * single summary activity entry is logged by the caller instead of one per
+     * expense.
+     */
+    @Transactional
+    public ExpenseResponse create(UUID actingUserId, CreateExpenseRequest request, boolean recordActivity) {
         validateParticipantsAndAccess(actingUserId, request.getGroupId(), request);
 
         Category category = request.getCategoryId() != null
@@ -79,10 +87,12 @@ public class ExpenseService {
 
         expense = expenseRepository.save(expense);
 
-        activityLogService.log(group != null ? group.getId() : null, actingUserId,
-                ActivityLog.ActionType.EXPENSE_CREATED, expense.getId(), null);
-
-        notificationService.notifyExpenseAdded(expense, actingUserId);
+        if (recordActivity) {
+            activityLogService.log(group != null ? group.getId() : null, actingUserId,
+                    ActivityLog.ActionType.EXPENSE_CREATED, expense.getId(),
+                    Map.of("title", expense.getTitle(), "amount", expense.getAmount()));
+            notificationService.notifyExpenseAdded(expense, actingUserId);
+        }
 
         return toResponse(expense);
     }
@@ -125,7 +135,8 @@ public class ExpenseService {
         existing = expenseRepository.save(existing);
 
         activityLogService.log(existing.getGroup() != null ? existing.getGroup().getId() : null, actingUserId,
-                ActivityLog.ActionType.EXPENSE_EDITED, existing.getId(), null);
+                ActivityLog.ActionType.EXPENSE_EDITED, existing.getId(),
+                Map.of("title", existing.getTitle(), "amount", existing.getAmount()));
         notificationService.notifyExpenseEdited(existing, actingUserId);
 
         return toResponse(existing);
@@ -143,7 +154,8 @@ public class ExpenseService {
         expenseRepository.save(expense);
 
         activityLogService.log(expense.getGroup() != null ? expense.getGroup().getId() : null, actingUserId,
-                ActivityLog.ActionType.EXPENSE_DELETED, expense.getId(), null);
+                ActivityLog.ActionType.EXPENSE_DELETED, expense.getId(),
+                Map.of("title", expense.getTitle(), "amount", expense.getAmount()));
     }
 
     @Transactional

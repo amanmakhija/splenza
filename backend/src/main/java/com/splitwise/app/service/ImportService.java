@@ -84,6 +84,9 @@ public class ImportService {
                 .build();
         history = importHistoryRepository.save(history);
 
+        activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.IMPORT_COMPLETED, history.getId(),
+                Map.of("totalRows", rows.size(), "importedRows", imported, "failedRows", failed));
+
         return ImportResultResponse.builder()
                 .importId(history.getId())
                 .groupId(groupId)
@@ -150,8 +153,6 @@ public class ImportService {
                 .createdBy(userRepository.getReferenceById(actingUserId))
                 .build();
         settlementRepository.save(settlement);
-
-        activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.SETTLEMENT_MADE, settlement.getId(), null);
     }
 
     private void processExpenseRow(UUID actingUserId, UUID groupId, ImportRowRequest row,
@@ -198,7 +199,7 @@ public class ImportService {
         req.setSplitType(Expense.SplitType.EXACT);
         req.setParticipants(participants);
 
-        expenseService.create(actingUserId, req);
+        expenseService.create(actingUserId, req, false);
     }
 
     // ---------------- validation / setup ----------------
@@ -209,6 +210,10 @@ public class ImportService {
         long selfCount = mapping.values().stream().filter(id -> id.equals(actingUserId)).count();
         if (selfCount != 1) {
             throw ApiException.badRequest("Map exactly one CSV column to yourself before importing");
+        }
+        Set<UUID> distinctTargets = new HashSet<>(mapping.values());
+        if (distinctTargets.size() != mapping.values().size()) {
+            throw ApiException.badRequest("Each CSV member must be mapped to a different person - the same person can't be mapped twice");
         }
         for (UUID userId : mapping.values()) {
             if (!userRepository.existsById(userId)) {

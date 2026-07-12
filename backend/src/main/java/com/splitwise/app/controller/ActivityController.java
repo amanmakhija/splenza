@@ -41,6 +41,7 @@ public class ActivityController {
                 .actorName(log.getActor().getName())
                 .actionType(log.getActionType().name())
                 .referenceId(log.getReferenceId())
+                .metadata(log.getMetadata())
                 .createdAt(log.getCreatedAt())
                 .build())
                 .collect(Collectors.toList());

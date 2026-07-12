@@ -12,7 +12,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "activity_log")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ActivityLog {
 
     @Id
@@ -45,6 +49,7 @@ public class ActivityLog {
 
     public enum ActionType {
         EXPENSE_CREATED, EXPENSE_EDITED, EXPENSE_DELETED,
-        MEMBER_JOINED, MEMBER_LEFT, SETTLEMENT_MADE
+        MEMBER_JOINED, MEMBER_LEFT, SETTLEMENT_MADE,
+        GROUP_CREATED, IMPORT_COMPLETED
     }
 }

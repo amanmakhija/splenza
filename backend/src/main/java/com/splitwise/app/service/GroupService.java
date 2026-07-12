@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -48,6 +49,9 @@ public class GroupService {
 
         groupMemberRepository.save(GroupMember.builder()
                 .group(group).user(creator).role(GroupMember.Role.ADMIN).build());
+
+        activityLogService.log(group.getId(), creatorId, ActivityLog.ActionType.GROUP_CREATED, group.getId(),
+                Map.of("groupName", group.getName()));
 
         if (request.getMemberIds() != null) {
             for (UUID memberId : request.getMemberIds()) {

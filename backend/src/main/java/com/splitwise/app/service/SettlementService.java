@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -63,7 +64,8 @@ public class SettlementService {
         settlement = settlementRepository.save(settlement);
 
         activityLogService.log(group != null ? group.getId() : null, actingUserId,
-                ActivityLog.ActionType.SETTLEMENT_MADE, settlement.getId(), null);
+                ActivityLog.ActionType.SETTLEMENT_MADE, settlement.getId(),
+                Map.of("amount", settlement.getAmount(), "paidByName", paidBy.getName(), "paidToName", paidTo.getName()));
         notificationService.notifySettlement(paidTo.getId(), paidBy.getName(), request.getAmount());
 
         return toResponse(settlement);
