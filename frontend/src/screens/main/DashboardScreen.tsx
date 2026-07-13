@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,22 +6,30 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  TextInput,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { LinearGradient } from "expo-linear-gradient";
-import { Bell } from "lucide-react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { Search, Bell, Plus, Users, X } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CompositeNavigationProp } from "@react-navigation/native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
-import { DashboardSummary, NotificationCount } from "@/types/api";
+import { DashboardSummary, FriendBalanceResponse, Group } from "@/types/api";
+import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { brand } from "@/theme/colors";
-import { MainStackParamList } from "@/navigation/types";
+import {
+  MainStackParamList,
+  DashboardStackParamList,
+} from "@/navigation/types";
 
-type Nav = NativeStackNavigationProp<MainStackParamList>;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<DashboardStackParamList>,
+  NativeStackNavigationProp<MainStackParamList>
+>;
 
 async function fetchSummary(): Promise<DashboardSummary> {
   const { data } = await apiClient.get<DashboardSummary>(
@@ -29,12 +37,16 @@ async function fetchSummary(): Promise<DashboardSummary> {
   );
   return data;
 }
-
-async function fetchNotificationCount(): Promise<NotificationCount> {
-  const { data } = await apiClient.get<NotificationCount>(
-    "/api/v1/notifications/unread-count",
-  );
+async function fetchGroups(): Promise<Group[]> {
+  const { data } = await apiClient.get<Group[]>("/api/v1/groups");
   return data;
+}
+
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export function DashboardScreen() {
@@ -42,84 +54,124 @@ export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
 
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSettled, setShowSettled] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: fetchSummary,
   });
-
-  const { data: notificationData, refetch: notificationRefetch } = useQuery({
-    queryKey: ["notification-count"],
-    queryFn: fetchNotificationCount,
-    staleTime: 60 * 1000,
+  const groupsQuery = useQuery({
+    queryKey: ["groups"],
+    queryFn: fetchGroups,
+    enabled: addModalOpen,
   });
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
 
-  const greeting = () => {
-    const hour = new Date().getHours();
+  const filteredFriends = useMemo(() => {
+    const all = data?.friendBalances ?? [];
+    const bySearch = searchQuery.trim()
+      ? all.filter((f) =>
+          f.friendName.toLowerCase().includes(searchQuery.toLowerCase()),
+        )
+      : all;
+    if (showSettled) return bySearch;
+    return bySearch.filter((f) => Math.abs(f.netAmount) >= 0.01);
+  }, [data?.friendBalances, searchQuery, showSettled]);
 
-    if (hour < 12) return "Good Morning";
-    if (hour < 17) return "Good Afternoon";
-    return "Good Evening";
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      Promise.all([refetch(), notificationRefetch()]);
-    }, [refetch, notificationRefetch]),
-  );
+  const settledCount = (data?.friendBalances ?? []).filter(
+    (f) => Math.abs(f.netAmount) < 0.01,
+  ).length;
+  const netBalance = data?.netBalance ?? 0;
+  const isOwed = netBalance >= 0;
 
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
       edges={["top"]}
     >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
+      {searchOpen ? (
+        <View style={styles.topBar}>
           <View
             style={[
-              styles.avatar,
+              styles.expandedSearchBox,
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.avatarText, { color: theme.primary }]}>
-              {user?.name?.charAt(0).toUpperCase() ?? "?"}
-            </Text>
+            <Search size={16} color={theme.textMuted} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search friends..."
+              placeholderTextColor={theme.textMuted}
+              autoFocus
+              style={[styles.expandedSearchInput, { color: theme.textPrimary }]}
+            />
           </View>
-          <View>
-            <Text style={[styles.greeting, { color: theme.textSecondary }]}>
-              {greeting()}
-            </Text>
-            <Text style={[styles.name, { color: theme.textPrimary }]}>
-              {user?.name ?? ""}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.headerRight}>
           <Pressable
-            onPress={() => navigation.navigate("Notifications")}
+            onPress={() => {
+              setSearchOpen(false);
+              setSearchQuery("");
+            }}
             style={[
-              styles.bellButton,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
+              styles.iconButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Bell size={18} color={theme.textPrimary} />
-
-            {notificationData && notificationData?.count > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{notificationData.count}</Text>
-              </View>
-            )}
+            <X size={18} color={theme.textSecondary} />
           </Pressable>
-          <ThemeToggle size={40} />
         </View>
+      ) : (
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() => setSearchOpen(true)}
+            style={[
+              styles.iconButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Search size={18} color={theme.textSecondary} />
+          </Pressable>
+          <View style={styles.topBarRight}>
+            <Pressable
+              onPress={() => navigation.navigate("Notifications")}
+              style={[
+                styles.iconButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Bell size={18} color={theme.textSecondary} />
+            </Pressable>
+            <ThemeToggle size={38} />
+          </View>
+        </View>
+      )}
+
+      <View style={styles.heroWrap}>
+        <View style={styles.heroLeft}>
+          <Logo size={28} />
+          <Text style={[styles.greetingText, { color: theme.textSecondary }]}>
+            {greeting()}, {user?.name?.split(" ")[0] ?? ""}
+          </Text>
+        </View>
+        <Text style={[styles.overallLabel, { color: theme.textSecondary }]}>
+          {isOwed ? "Overall, you're owed" : "Overall, you owe"}
+        </Text>
+        <Text
+          style={[
+            styles.overallAmount,
+            { color: isOwed ? theme.owed : theme.owe },
+          ]}
+        >
+          {isLoading ? "—" : formatAmount(netBalance)}
+        </Text>
       </View>
 
       <FlatList
-        data={data?.friendBalances ?? []}
+        data={filteredFriends}
         keyExtractor={(item) => item.friendId}
         refreshControl={
           <RefreshControl
@@ -129,36 +181,7 @@ export function DashboardScreen() {
           />
         }
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <LinearGradient
-            colors={[brand.primaryPurple, brand.secondaryBlue]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.summaryCard}
-          >
-            <Text style={styles.summaryLabel}>Net balance</Text>
-            <Text style={styles.summaryAmount}>
-              {isLoading
-                ? "—"
-                : `${(data?.netBalance ?? 0) >= 0 ? "+" : "-"}${formatAmount(data?.netBalance ?? 0)}`}
-            </Text>
-            <View style={styles.summaryRow}>
-              <View>
-                <Text style={styles.summarySubLabel}>You are owed</Text>
-                <Text style={styles.summarySubAmount}>
-                  {formatAmount(data?.totalYouAreOwed ?? 0)}
-                </Text>
-              </View>
-              <View>
-                <Text style={styles.summarySubLabel}>You owe</Text>
-                <Text style={styles.summarySubAmount}>
-                  {formatAmount(data?.totalYouOwe ?? 0)}
-                </Text>
-              </View>
-            </View>
-          </LinearGradient>
-        }
-        renderItem={({ item }) => (
+        renderItem={({ item }: { item: FriendBalanceResponse }) => (
           <Pressable
             onPress={() =>
               navigation.navigate("FriendDetail", {
@@ -172,9 +195,18 @@ export function DashboardScreen() {
             ]}
           >
             <View
-              style={[styles.avatar, { backgroundColor: theme.background }]}
+              style={[
+                styles.avatar,
+                { backgroundColor: theme.primaryContainer },
+              ]}
             >
-              <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
+              <Text
+                style={{
+                  color: theme.primary,
+                  fontWeight: "700",
+                  fontSize: 13,
+                }}
+              >
                 {item.friendName.charAt(0).toUpperCase()}
               </Text>
             </View>
@@ -184,162 +216,251 @@ export function DashboardScreen() {
             <Text
               style={[
                 styles.friendAmount,
-                { color: item.netAmount >= 0 ? theme.success : theme.danger },
+                {
+                  color:
+                    Math.abs(item.netAmount) < 0.01
+                      ? theme.textMuted
+                      : item.netAmount >= 0
+                        ? theme.owed
+                        : theme.owe,
+                },
               ]}
             >
-              {item.netAmount >= 0 ? "owes you " : "you owe "}
-              {formatAmount(item.netAmount)}
+              {Math.abs(item.netAmount) < 0.01
+                ? "settled up"
+                : item.netAmount >= 0
+                  ? `owes you ${formatAmount(item.netAmount)}`
+                  : `you owe ${formatAmount(item.netAmount)}`}
             </Text>
           </Pressable>
         )}
-        ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>💸</Text>
-
-              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
-                No balances yet
+        ListFooterComponent={
+          !showSettled && settledCount > 0 ? (
+            <View style={styles.settledWrap}>
+              <Text
+                style={{
+                  color: theme.textMuted,
+                  fontSize: 12,
+                  marginBottom: 10,
+                }}
+              >
+                Hiding {settledCount} friend{settledCount === 1 ? "" : "s"}{" "}
+                you're settled up with
               </Text>
-
-              <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
-                Add your first expense to start tracking balances.
-              </Text>
+              <Pressable
+                onPress={() => setShowSettled(true)}
+                style={[
+                  styles.showSettledButton,
+                  { borderColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: theme.textPrimary,
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
+                  Show {settledCount} settled-up friend
+                  {settledCount === 1 ? "" : "s"}
+                </Text>
+              </Pressable>
             </View>
           ) : null
         }
+        ListEmptyComponent={
+          !isLoading ? (
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+              No friend balances yet - add friends and start splitting expenses.
+            </Text>
+          ) : null
+        }
       />
+
+      <Pressable
+        onPress={() => setAddModalOpen(true)}
+        style={[styles.fab, { backgroundColor: theme.primary }]}
+      >
+        <Plus color="#fff" size={18} />
+        <Text style={styles.fabText}>Add expense</Text>
+      </Pressable>
+
+      <Modal
+        visible={addModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAddModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { backgroundColor: theme.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                Add an expense
+              </Text>
+              <Pressable onPress={() => setAddModalOpen(false)}>
+                <X size={22} color={theme.textMuted} />
+              </Pressable>
+            </View>
+            <Text
+              style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}
+            >
+              Pick a group
+            </Text>
+            <FlatList
+              data={groupsQuery.data ?? []}
+              keyExtractor={(g) => g.id}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    setAddModalOpen(false);
+                    navigation.navigate("CreateExpense", { groupId: item.id });
+                  }}
+                  style={styles.modalRow}
+                >
+                  <View
+                    style={[
+                      styles.avatar,
+                      { backgroundColor: theme.primaryContainer },
+                    ]}
+                  >
+                    <Users size={16} color={theme.primary} />
+                  </View>
+                  <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
+                    {item.name}
+                  </Text>
+                </Pressable>
+              )}
+              ListEmptyComponent={
+                <Text style={{ color: theme.textMuted, paddingVertical: 8 }}>
+                  No groups yet.
+                </Text>
+              }
+              ListFooterComponent={
+                <Text
+                  style={{
+                    color: theme.textMuted,
+                    fontSize: 12,
+                    marginTop: 16,
+                  }}
+                >
+                  To split with just one friend, open their profile and tap "Add
+                  expense" instead.
+                </Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: {
+  topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 24,
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  topBarRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
   },
-  greeting: {
-    fontSize: 14,
-    fontWeight: "500",
-    letterSpacing: 0.3,
+  expandedSearchBox: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 38,
+    marginRight: 8,
   },
-
-  name: {
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: -0.8,
+  expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
+  heroWrap: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  heroLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
   },
-  listContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
-  },
-  summaryCard: {
-    borderRadius: 28,
-    padding: 28,
-    marginBottom: 28,
-    overflow: "hidden",
-  },
-  summaryLabel: {
-    color: "rgba(255,255,255,0.75)",
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  summaryAmount: {
-    color: "#fff",
-    fontSize: 48,
-    fontWeight: "900",
-    letterSpacing: -2,
-    marginVertical: 18,
-  },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-  summarySubLabel: {
-    color: "rgba(255,255,255,0.75)",
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  summarySubAmount: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "800",
-  },
+  greetingText: { fontSize: 13, fontWeight: "500" },
+  overallLabel: { fontSize: 14, marginBottom: 2 },
+  overallAmount: { fontSize: 32, fontWeight: "700" },
+  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
   friendRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    borderRadius: 22,
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },
-  friendName: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  friendAmount: {
-    fontSize: 15,
-    fontWeight: "800",
+  friendName: { flex: 1, fontSize: 15, fontWeight: "600" },
+  friendAmount: { fontSize: 13, fontWeight: "600" },
+  settledWrap: { alignItems: "center", marginTop: 12 },
+  showSettledButton: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
   },
   emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  badge: {
+  fab: {
     position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: "#FF3B30",
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    right: 20,
+    bottom: 24,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 28,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  badgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
+  fabText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
   },
-  emptyContainer: {
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 80,
+    marginBottom: 8,
   },
-  emptyEmoji: {
-    fontSize: 54,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  emptySubtitle: {
-    marginTop: 8,
-    textAlign: "center",
-    fontSize: 15,
-    lineHeight: 22,
-    paddingHorizontal: 32,
+  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
   },
 });

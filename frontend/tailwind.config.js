@@ -4,13 +4,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#6C63FF",   // Primary Purple
-        secondary: "#4F46E5", // Secondary Blue
-        accent: "#22C55E",    // Accent Green
-        dark: "#0F172A",
-        light: "#F8FAFC"
-      }
-    }
+        primary: "#4B4FE0",
+        "primary-container": "#ECEBFB",
+        owed: "#1D9E75",
+        owe: "#E24B4A",
+        reminder: "#EF9F27",
+        surface: "#FAFAF8",
+        ink: "#111117",
+        "ink-secondary": "#6E6E67",
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };

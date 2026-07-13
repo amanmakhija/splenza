@@ -174,7 +174,23 @@ export function ImportCsvScreen() {
   const allMembersMapped = parsed
     ? parsed.members.every((m) => mapping[m])
     : false;
-  const canContinueFromMapping = allMembersMapped && selfMappedCount === 1;
+  const mappedValues = Object.values(mapping);
+  const hasDuplicateMapping =
+    new Set(mappedValues).size !== mappedValues.length;
+  const canContinueFromMapping =
+    allMembersMapped && selfMappedCount === 1 && !hasDuplicateMapping;
+
+  /** Candidates for a given CSV member, excluding anyone already mapped to a DIFFERENT member -
+   *  each Splenza account can only be used once across the whole mapping. */
+  const candidatesFor = (memberName: string | null) => {
+    if (!memberName) return [];
+    const usedByOthers = new Set(
+      Object.entries(mapping)
+        .filter(([name]) => name !== memberName)
+        .map(([, id]) => id),
+    );
+    return mappingCandidates.filter((c) => !usedByOthers.has(c.id));
+  };
 
   const setMemberMapping = (memberName: string, userId: string) => {
     setMapping((prev) => ({ ...prev, [memberName]: userId }));
@@ -444,6 +460,11 @@ export function ImportCsvScreen() {
               <Text style={[styles.errorText, { color: theme.danger }]}>
                 Exactly one member must be mapped to you.
               </Text>
+            ) : hasDuplicateMapping ? (
+              <Text style={[styles.errorText, { color: theme.danger }]}>
+                The same person is mapped to more than one CSV member - each
+                person can only be used once.
+              </Text>
             ) : null}
 
             <Button
@@ -472,7 +493,7 @@ export function ImportCsvScreen() {
                     Map "{pickerOpenFor}" to...
                   </Text>
                   <FlatList
-                    data={mappingCandidates}
+                    data={candidatesFor(pickerOpenFor)}
                     keyExtractor={(c) => c.id}
                     renderItem={({ item }) => (
                       <Pressable
@@ -489,8 +510,8 @@ export function ImportCsvScreen() {
                     )}
                     ListEmptyComponent={
                       <Text style={{ color: theme.textMuted, padding: 12 }}>
-                        No candidates available - add this person as a friend
-                        first.
+                        No candidates left - everyone available is already
+                        mapped to a different CSV member.
                       </Text>
                     }
                   />
@@ -637,9 +658,15 @@ export function ImportCsvScreen() {
             <Button
               title="View Group"
               onPress={() =>
-                navigation.replace("GroupDetail", {
-                  groupId: result.groupId,
-                  groupName: newGroupName || "Group",
+                navigation.navigate("Tabs", {
+                  screen: "Groups",
+                  params: {
+                    screen: "GroupDetail",
+                    params: {
+                      groupId: result.groupId,
+                      groupName: newGroupName || "Group",
+                    },
+                  },
                 })
               }
               style={{ marginTop: 24, width: "100%" }}

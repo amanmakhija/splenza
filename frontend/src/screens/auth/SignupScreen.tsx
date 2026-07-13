@@ -1,5 +1,13 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+} from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -13,8 +21,14 @@ import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthStackParamList } from "@/navigation/types";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
-type FormValues = { name: string; email: string; phoneNumber: string; password: string };
+type FormValues = {
+  name: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+};
 type Nav = NativeStackNavigationProp<AuthStackParamList, "Signup">;
 
 export function SignupScreen() {
@@ -25,8 +39,10 @@ export function SignupScreen() {
   const {
     control,
     handleSubmit,
-    formState: { errors }
-  } = useForm<FormValues>({ defaultValues: { name: "", email: "", phoneNumber: "", password: "" } });
+    formState: { errors },
+  } = useForm<FormValues>({
+    defaultValues: { name: "", email: "", phoneNumber: "", password: "" },
+  });
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -34,24 +50,34 @@ export function SignupScreen() {
         name: values.name,
         email: values.email,
         password: values.password,
-        phoneNumber: values.phoneNumber.trim() ? values.phoneNumber.trim() : undefined
-      })
+        phoneNumber: values.phoneNumber.trim()
+          ? values.phoneNumber.trim()
+          : undefined,
+      }),
   });
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.flex}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.topRow}>
             <View />
             <ThemeToggle />
           </View>
 
           <View style={styles.header}>
-            <Logo size={80} variant="mark" />
-            <Text style={[styles.title, { color: theme.textPrimary }]}>Create your account</Text>
+            <Logo size={80} />
+            <Text style={[styles.title, { color: theme.textPrimary }]}>
+              Create your account
+            </Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
               Split smarter with friends and family
             </Text>
@@ -60,9 +86,18 @@ export function SignupScreen() {
           <Controller
             control={control}
             name="name"
-            rules={{ required: "Name is required", minLength: { value: 2, message: "Name is too short" } }}
+            rules={{
+              required: "Name is required",
+              minLength: { value: 2, message: "Name is too short" },
+            }}
             render={({ field: { onChange, value } }) => (
-              <TextField label="Full name" value={value} onChangeText={onChange} placeholder="Alex Johnson" error={errors.name?.message} />
+              <TextField
+                label="Full name"
+                value={value}
+                onChangeText={onChange}
+                placeholder="Alex Johnson"
+                error={errors.name?.message}
+              />
             )}
           />
 
@@ -71,7 +106,10 @@ export function SignupScreen() {
             name="email"
             rules={{
               required: "Email is required",
-              pattern: { value: /^\S+@\S+\.\S+$/, message: "Enter a valid email" }
+              pattern: {
+                value: /^\S+@\S+\.\S+$/,
+                message: "Enter a valid email",
+              },
             }}
             render={({ field: { onChange, value } }) => (
               <TextField
@@ -90,7 +128,10 @@ export function SignupScreen() {
             control={control}
             name="phoneNumber"
             rules={{
-              pattern: { value: /^\+?[1-9]\d{7,14}$/, message: "Use international format, e.g. +919876543210" }
+              pattern: {
+                value: /^\+?[1-9]\d{7,14}$/,
+                message: "Use international format, e.g. +919876543210",
+              },
             }}
             render={({ field: { onChange, value } }) => (
               <TextField
@@ -110,7 +151,10 @@ export function SignupScreen() {
             rules={{
               required: "Password is required",
               minLength: { value: 8, message: "At least 8 characters" },
-              pattern: { value: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: "Include a letter and a number" }
+              pattern: {
+                value: /^(?=.*[A-Za-z])(?=.*\d).+$/,
+                message: "Include a letter and a number",
+              },
             }}
             render={({ field: { onChange, value } }) => (
               <TextField
@@ -130,11 +174,33 @@ export function SignupScreen() {
             </Text>
           ) : null}
 
-          <Button title="Create Account" onPress={handleSubmit(onSubmit)} loading={mutation.isPending} />
+          <Button
+            title="Create Account"
+            onPress={handleSubmit(onSubmit)}
+            loading={mutation.isPending}
+          />
 
-          <Pressable onPress={() => navigation.navigate("Login")} style={styles.footerLink}>
+          <View style={styles.dividerRow}>
+            <View
+              style={[styles.dividerLine, { backgroundColor: theme.border }]}
+            />
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>OR</Text>
+            <View
+              style={[styles.dividerLine, { backgroundColor: theme.border }]}
+            />
+          </View>
+
+          <GoogleSignInButton onError={(msg) => console.warn(msg)} />
+
+          <Pressable
+            onPress={() => navigation.navigate("Login")}
+            style={styles.footerLink}
+          >
             <Text style={{ color: theme.textSecondary }}>
-              Already have an account? <Text style={{ color: theme.primary, fontWeight: "700" }}>Log in</Text>
+              Already have an account?{" "}
+              <Text style={{ color: theme.primary, fontWeight: "700" }}>
+                Log in
+              </Text>
             </Text>
           </Pressable>
         </ScrollView>
@@ -146,10 +212,25 @@ export function SignupScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flexGrow: 1, padding: 24, justifyContent: "center" },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", position: "absolute", top: 8, left: 24, right: 24 },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    position: "absolute",
+    top: 8,
+    left: 24,
+    right: 24,
+  },
   header: { alignItems: "center", marginBottom: 24, gap: 8 },
   title: { fontSize: 24, fontWeight: "800", marginTop: 8, textAlign: "center" },
   subtitle: { fontSize: 14, textAlign: "center" },
   formError: { textAlign: "center", marginBottom: 12, fontSize: 13 },
-  footerLink: { marginTop: 16, alignItems: "center", marginBottom: 24 }
+  footerLink: { marginTop: 16, alignItems: "center", marginBottom: 24 },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 16,
+  },
+  dividerLine: { flex: 1, height: 1 },
 });

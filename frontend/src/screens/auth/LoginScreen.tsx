@@ -21,6 +21,7 @@ import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthStackParamList } from "@/navigation/types";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 type FormValues = { email: string; password: string };
 type Nav = NativeStackNavigationProp<AuthStackParamList, "Login">;
@@ -58,7 +59,7 @@ export function LoginScreen() {
           </View>
 
           <View style={styles.header}>
-            <Logo size={88} variant="mark" />
+            <Logo size={88} />
             <Text style={[styles.title, { color: theme.textPrimary }]}>
               Welcome back
             </Text>
@@ -118,6 +119,18 @@ export function LoginScreen() {
             loading={mutation.isPending}
           />
 
+          <View style={styles.dividerRow}>
+            <View
+              style={[styles.dividerLine, { backgroundColor: theme.border }]}
+            />
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>OR</Text>
+            <View
+              style={[styles.dividerLine, { backgroundColor: theme.border }]}
+            />
+          </View>
+
+          <GoogleSignInButton onError={(msg) => console.warn(msg)} />
+
           <Pressable
             onPress={() => navigation.navigate("Signup")}
             style={styles.footerLink}
@@ -152,4 +165,11 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, textAlign: "center" },
   formError: { textAlign: "center", marginBottom: 12, fontSize: 13 },
   footerLink: { marginTop: 20, alignItems: "center" },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 16,
+  },
+  dividerLine: { flex: 1, height: 1 },
 });

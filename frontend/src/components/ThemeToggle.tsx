@@ -6,7 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  interpolate
+  interpolate,
 } from "react-native-reanimated";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useThemeReveal } from "./CircularRevealProvider";
@@ -32,19 +32,25 @@ export function ThemeToggle({ size = 44 }: ThemeToggleProps) {
       const centerX = x + width / 2;
       const centerY = y + height / 2;
       const nextMode = mode === "dark" ? "light" : "dark";
-      progress.value = withTiming(nextMode === "dark" ? 1 : 0, { duration: 450 });
+      progress.value = withTiming(nextMode === "dark" ? 1 : 0, {
+        duration: 450,
+      });
       triggerReveal(centerX, centerY, nextMode);
     });
   };
 
   const sunStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 1], [1, 0]),
-    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 90])}deg` }]
+    transform: [
+      { rotate: `${interpolate(progress.value, [0, 1], [0, 90])}deg` },
+    ],
   }));
 
   const moonStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
-    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [-90, 0])}deg` }]
+    transform: [
+      { rotate: `${interpolate(progress.value, [0, 1], [-90, 0])}deg` },
+    ],
   }));
 
   return (
@@ -52,10 +58,18 @@ export function ThemeToggle({ size = 44 }: ThemeToggleProps) {
       ref={buttonRef}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      accessibilityLabel={
+        mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
+      }
       style={[
         styles.container,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: theme.surface, borderColor: theme.border }
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+        },
       ]}
     >
       <View style={StyleSheet.absoluteFillObject}>
@@ -63,7 +77,7 @@ export function ThemeToggle({ size = 44 }: ThemeToggleProps) {
           <Sun size={size * 0.5} color={theme.warning} />
         </Animated.View>
         <Animated.View style={[styles.iconWrap, moonStyle]}>
-          <Moon size={size * 0.5} color={theme.secondary} />
+          <Moon size={size * 0.5} color={theme.primary} />
         </Animated.View>
       </View>
     </Pressable>
@@ -74,11 +88,11 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1
+    borderWidth: 1,
   },
   iconWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
-    justifyContent: "center"
-  }
+    justifyContent: "center",
+  },
 });

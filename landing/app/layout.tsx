@@ -61,7 +61,7 @@ export const metadata: Metadata = {
       "The AI-powered way to split expenses with friends. Speak it, scan it, or type it — Splenza handles the math.",
     images: [
       {
-        url: "/og-image.svg",
+        url: "/logo-mark.svg",
         width: 1200,
         height: 630,
         alt: "Splenza — AI expense splitting app",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     title: "Splenza — Split Bills by Just Saying It",
     description:
       "The AI-powered way to split expenses with friends. Speak it, scan it, or type it — Splenza handles the math.",
-    images: ["/og-image.svg"],
+    images: ["/logo-mark.svg"],
   },
   robots: {
     index: true,

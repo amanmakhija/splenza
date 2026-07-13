@@ -12,12 +12,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Check, X } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CompositeNavigationProp } from "@react-navigation/native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { Friend, FriendRequestDto } from "@/types/api";
-import { MainStackParamList } from "@/navigation/types";
+import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 
-type Nav = NativeStackNavigationProp<MainStackParamList>;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<FriendsStackParamList>,
+  NativeStackNavigationProp<MainStackParamList>
+>;
 
 async function fetchFriends(): Promise<Friend[]> {
   const { data } = await apiClient.get<Friend[]>("/api/v1/friends");

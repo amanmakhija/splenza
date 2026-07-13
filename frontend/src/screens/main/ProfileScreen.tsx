@@ -113,7 +113,7 @@ export function ProfileScreen() {
       </Pressable>
 
       <View style={styles.footer}>
-        <Logo size={28} variant="mark" />
+        <Logo size={28} />
         <Text style={{ color: theme.textMuted, fontSize: 12 }}>
           Splenza v1.0.0
         </Text>

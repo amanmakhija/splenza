@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#FAFAF8"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -21,7 +21,7 @@
       "package": "com.splenza.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F172A"
+        "backgroundColor": "#4B4FE0"
       }
     },
     "web": {
@@ -35,12 +35,13 @@
           "image": "./assets/splash.png",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#0F172A"
+          "backgroundColor": "#FAFAF8"
         }
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://api.splenza.in"
+      "apiBaseUrl": "https://api.splenza.in",
+      "googleWebClientId": "REPLACE_WITH_YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com"
     }
   }
 }

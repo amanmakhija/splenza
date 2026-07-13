@@ -10,18 +10,37 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CompositeNavigationProp } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
-import { Group } from "@/types/api";
-import { MainStackParamList } from "@/navigation/types";
+import { Group, GroupBalanceSummary } from "@/types/api";
+import { MainStackParamList, GroupsStackParamList } from "@/navigation/types";
 
-type Nav = NativeStackNavigationProp<MainStackParamList>;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<GroupsStackParamList>,
+  NativeStackNavigationProp<MainStackParamList>
+>;
 
 async function fetchGroups(): Promise<Group[]> {
   const { data } = await apiClient.get<Group[]>("/api/v1/groups");
   return data;
+}
+async function fetchGroupSummaries(): Promise<GroupBalanceSummary[]> {
+  const { data } = await apiClient.get<GroupBalanceSummary[]>(
+    "/api/v1/balances/groups",
+  );
+  return data;
+}
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
 }
 
 export function GroupsScreen() {
@@ -31,6 +50,14 @@ export function GroupsScreen() {
     queryKey: ["groups"],
     queryFn: fetchGroups,
   });
+  const summariesQuery = useQuery({
+    queryKey: ["group-summaries"],
+    queryFn: fetchGroupSummaries,
+  });
+
+  const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
+  const summaryFor = (groupId: string) =>
+    summariesQuery.data?.find((s) => s.groupId === groupId);
 
   return (
     <SafeAreaView
@@ -39,11 +66,12 @@ export function GroupsScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>Groups</Text>
-        <Pressable
-          onPress={() => navigation.navigate("CreateGroup")}
-          style={[styles.addButton, { backgroundColor: theme.primary }]}
-        >
-          <Plus color="#fff" size={20} />
+        <Pressable onPress={() => navigation.navigate("CreateGroup")}>
+          <Text
+            style={{ color: theme.primary, fontWeight: "700", fontSize: 14 }}
+          >
+            Create group
+          </Text>
         </Pressable>
       </View>
 
@@ -58,43 +86,82 @@ export function GroupsScreen() {
             tintColor={theme.primary}
           />
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() =>
-              navigation.navigate("GroupDetail", {
-                groupId: item.id,
-                groupName: item.name,
-              })
-            }
-            style={[
-              styles.card,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <View
-              style={[styles.iconWrap, { backgroundColor: theme.background }]}
+        renderItem={({ item }) => {
+          const summary = summaryFor(item.id);
+          const net = summary?.netAmount ?? 0;
+          const isSettled = Math.abs(net) < 0.01;
+          return (
+            <Pressable
+              onPress={() =>
+                navigation.navigate("GroupDetail", {
+                  groupId: item.id,
+                  groupName: item.name,
+                })
+              }
+              style={[
+                styles.card,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
             >
-              <Users color={theme.primary} size={22} />
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={[styles.groupName, { color: theme.textPrimary }]}>
-                {item.name}
-              </Text>
-              <Text style={[styles.memberCount, { color: theme.textMuted }]}>
-                {item.members.length} member
-                {item.members.length === 1 ? "" : "s"}
-              </Text>
-            </View>
-          </Pressable>
-        )}
+              <View
+                style={[
+                  styles.iconWrap,
+                  { backgroundColor: theme.primaryContainer },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: theme.primary,
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
+                  {initials(item.name)}
+                </Text>
+              </View>
+              <View style={styles.cardBody}>
+                <Text style={[styles.groupName, { color: theme.textPrimary }]}>
+                  {item.name}
+                </Text>
+                <Text style={[styles.memberCount, { color: theme.textMuted }]}>
+                  {item.members.length} member
+                  {item.members.length === 1 ? "" : "s"}
+                </Text>
+              </View>
+              {!isSettled ? (
+                <Text
+                  style={{
+                    color: net >= 0 ? theme.owed : theme.owe,
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
+                  {net >= 0 ? "+" : "-"}
+                  {formatAmount(net)}
+                </Text>
+              ) : null}
+            </Pressable>
+          );
+        }}
         ListEmptyComponent={
           !isLoading ? (
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              No groups yet. Tap + to create one with your friends.
-            </Text>
+            <View style={styles.emptyWrap}>
+              <Users size={32} color={theme.textMuted} />
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                No groups yet. Create one to start splitting expenses with
+                friends.
+              </Text>
+            </View>
           ) : null
         }
       />
+
+      <Pressable
+        onPress={() => navigation.navigate("CreateGroup")}
+        style={[styles.fab, { backgroundColor: theme.primary }]}
+      >
+        <Plus color="#fff" size={26} />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -110,14 +177,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: { fontSize: 24, fontWeight: "800" },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  listContent: { paddingHorizontal: 20, paddingBottom: 32 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -128,14 +188,35 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   cardBody: { flex: 1 },
   groupName: { fontSize: 16, fontWeight: "700", marginBottom: 2 },
   memberCount: { fontSize: 13 },
-  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
+  emptyWrap: {
+    alignItems: "center",
+    marginTop: 60,
+    gap: 12,
+    paddingHorizontal: 40,
+  },
+  emptyText: { textAlign: "center", fontSize: 14 },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
 });

@@ -3,9 +3,9 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { LayoutGrid, Users, User as UserIcon, Home } from "lucide-react-native";
 import { MainTabParamList } from "./types";
 import { useAppTheme } from "@/theme/ThemeContext";
-import { DashboardScreen } from "@/screens/main/DashboardScreen";
-import { GroupsScreen } from "@/screens/main/GroupsScreen";
-import { FriendsScreen } from "@/screens/main/FriendsScreen";
+import { DashboardStackNavigator } from "@/navigation/DashboardStackNavigator";
+import { GroupsStackNavigator } from "@/navigation/GroupsStackNavigator";
+import { FriendsStackNavigator } from "@/navigation/FriendsStackNavigator";
 import { ProfileScreen } from "@/screens/main/ProfileScreen";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -21,29 +21,41 @@ export function MainNavigator() {
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {
           backgroundColor: theme.surface,
-          borderTopColor: theme.border
-        }
+          borderTopColor: theme.border,
+        },
       }}
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
-        options={{ tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }}
+        component={DashboardStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+        }}
       />
       <Tab.Screen
         name="Groups"
-        component={GroupsScreen}
-        options={{ tabBarIcon: ({ color, size }) => <LayoutGrid color={color} size={size} /> }}
+        component={GroupsStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <LayoutGrid color={color} size={size} />
+          ),
+        }}
       />
       <Tab.Screen
         name="Friends"
-        component={FriendsScreen}
-        options={{ tabBarIcon: ({ color, size }) => <Users color={color} size={size} /> }}
+        component={FriendsStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
+        }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ tabBarIcon: ({ color, size }) => <UserIcon color={color} size={size} /> }}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <UserIcon color={color} size={size} />
+          ),
+        }}
       />
     </Tab.Navigator>
   );

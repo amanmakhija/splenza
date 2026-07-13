@@ -16,10 +16,14 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { Expense, FriendBalanceResponse, Settlement } from "@/types/api";
 import { useAuthStore } from "@/store/authStore";
-import { MainStackParamList } from "@/navigation/types";
+import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
+import { CompositeNavigationProp } from "@react-navigation/native";
 
-type Nav = NativeStackNavigationProp<MainStackParamList, "FriendDetail">;
-type Route = RouteProp<MainStackParamList, "FriendDetail">;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<FriendsStackParamList, "FriendDetail">,
+  NativeStackNavigationProp<MainStackParamList>
+>;
+type Route = RouteProp<FriendsStackParamList, "FriendDetail">;
 
 async function fetchFriendBalance(
   friendId: string,
@@ -143,10 +147,7 @@ export function FriendDetailScreen() {
                     netAmount < 0 ? Math.abs(netAmount) : undefined,
                 })
               }
-              style={[
-                styles.actionButton,
-                { backgroundColor: theme.secondary },
-              ]}
+              style={[styles.actionButton, { backgroundColor: theme.owed }]}
             >
               <HandCoins size={16} color="#fff" />
               <Text style={styles.actionText}>Settle up</Text>

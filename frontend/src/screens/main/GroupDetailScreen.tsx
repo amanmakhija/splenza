@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,20 +7,42 @@ import {
   Pressable,
   Modal,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, UserPlus, X, ArrowRight, LogOut } from "lucide-react-native";
+import {
+  Plus,
+  UserPlus,
+  X,
+  ArrowRight,
+  LogOut,
+  Download,
+  FileText,
+  Search,
+} from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
-import { Expense, Friend, Group, GroupBalanceResponse } from "@/types/api";
+import {
+  ActivityLogEntry,
+  Expense,
+  Friend,
+  Group,
+  GroupBalanceResponse,
+  Settlement,
+} from "@/types/api";
+import { downloadAndShare } from "@/lib/exportFile";
 import { useAuthStore } from "@/store/authStore";
-import { MainStackParamList } from "@/navigation/types";
+import { MainStackParamList, GroupsStackParamList } from "@/navigation/types";
+import { CompositeNavigationProp } from "@react-navigation/native";
 
-type Nav = NativeStackNavigationProp<MainStackParamList, "GroupDetail">;
-type Route = RouteProp<MainStackParamList, "GroupDetail">;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<GroupsStackParamList, "GroupDetail">,
+  NativeStackNavigationProp<MainStackParamList>
+>;
+type Route = RouteProp<GroupsStackParamList, "GroupDetail">;
 
 async function fetchGroup(groupId: string): Promise<Group> {
   const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`);
@@ -29,6 +51,12 @@ async function fetchGroup(groupId: string): Promise<Group> {
 async function fetchGroupExpenses(groupId: string): Promise<Expense[]> {
   const { data } = await apiClient.get<Expense[]>(
     `/api/v1/expenses/group/${groupId}`,
+  );
+  return data;
+}
+async function fetchGroupSettlements(groupId: string): Promise<Settlement[]> {
+  const { data } = await apiClient.get<Settlement[]>(
+    `/api/v1/settlements/group/${groupId}`,
   );
   return data;
 }
@@ -44,6 +72,49 @@ async function fetchFriends(): Promise<Friend[]> {
   const { data } = await apiClient.get<Friend[]>("/api/v1/friends");
   return data;
 }
+async function fetchActivity(groupId: string): Promise<ActivityLogEntry[]> {
+  const { data } = await apiClient.get<ActivityLogEntry[]>(
+    `/api/v1/activity/group/${groupId}`,
+  );
+  return data;
+}
+
+function describeActivity(item: ActivityLogEntry): string {
+  const m = item.metadata ?? {};
+  const actorName = item.actorName;
+  switch (item.actionType) {
+    case "EXPENSE_CREATED":
+      return m.title
+        ? `${actorName} added "${m.title}" (₹${Number(m.amount).toFixed(2)})`
+        : `${actorName} added an expense`;
+    case "EXPENSE_EDITED":
+      return m.title
+        ? `${actorName} edited "${m.title}"`
+        : `${actorName} edited an expense`;
+    case "EXPENSE_DELETED":
+      return m.title
+        ? `${actorName} deleted "${m.title}"`
+        : `${actorName} deleted an expense`;
+    case "MEMBER_JOINED":
+      return `${actorName} joined the group`;
+    case "MEMBER_LEFT":
+      return `${actorName} left the group`;
+    case "SETTLEMENT_MADE":
+      return m.paidByName && m.paidToName
+        ? `${m.paidByName} paid ${m.paidToName} ₹${Number(m.amount).toFixed(2)}`
+        : `${actorName} recorded a settlement`;
+    case "GROUP_CREATED":
+      return `${actorName} created the group`;
+    case "IMPORT_COMPLETED":
+      return `${actorName} imported ${m.importedRows ?? ""} expense${m.importedRows === 1 ? "" : "s"} from Splitwise`;
+    default:
+      return `${actorName} did something`;
+  }
+}
+
+type TimelineItem =
+  | { type: "expense"; date: string; data: Expense }
+  | { type: "settlement"; date: string; data: Settlement };
 
 export function GroupDetailScreen() {
   const { theme } = useAppTheme();
@@ -53,8 +124,13 @@ export function GroupDetailScreen() {
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
 
-  const [tab, setTab] = useState<"expenses" | "balances">("expenses");
+  const [tab, setTab] = useState<"expenses" | "balances" | "activity">(
+    "expenses",
+  );
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
@@ -63,6 +139,10 @@ export function GroupDetailScreen() {
   const expensesQuery = useQuery({
     queryKey: ["group-expenses", groupId],
     queryFn: () => fetchGroupExpenses(groupId),
+  });
+  const settlementsQuery = useQuery({
+    queryKey: ["group-settlements", groupId],
+    queryFn: () => fetchGroupSettlements(groupId),
   });
   const balancesQuery = useQuery({
     queryKey: ["group-balances", groupId],
@@ -73,6 +153,29 @@ export function GroupDetailScreen() {
     queryFn: fetchFriends,
     enabled: inviteModalOpen,
   });
+  const activityQuery = useQuery({
+    queryKey: ["group-activity", groupId],
+    queryFn: () => fetchActivity(groupId),
+    enabled: tab === "activity",
+  });
+
+  const mergedTimeline: TimelineItem[] = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const expenseItems: TimelineItem[] = (expensesQuery.data ?? [])
+      .filter((e) => e.title.toLowerCase().includes(q))
+      .map((e) => ({ type: "expense", date: e.expenseDate, data: e }));
+    const settlementItems: TimelineItem[] = (settlementsQuery.data ?? [])
+      .filter(
+        (s) =>
+          !q ||
+          s.paidByName.toLowerCase().includes(q) ||
+          s.paidToName.toLowerCase().includes(q),
+      )
+      .map((s) => ({ type: "settlement", date: s.settledAt, data: s }));
+    return [...expenseItems, ...settlementItems].sort((a, b) =>
+      a.date < b.date ? 1 : -1,
+    );
+  }, [expensesQuery.data, settlementsQuery.data, searchQuery]);
 
   const inviteMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -90,6 +193,26 @@ export function GroupDetailScreen() {
       navigation.goBack();
     },
   });
+
+  const handleExportCsv = async () => {
+    setExporting("csv");
+    await downloadAndShare(
+      `/api/v1/export/csv/group/${groupId}`,
+      `${groupQuery.data?.name ?? "splenza"}.csv`,
+      "text/csv",
+    );
+    setExporting(null);
+  };
+
+  const handleExportPdf = async () => {
+    setExporting("pdf");
+    await downloadAndShare(
+      `/api/v1/export/pdf/group/${groupId}`,
+      `${groupQuery.data?.name ?? "splenza"}.pdf`,
+      "application/pdf",
+    );
+    setExporting(null);
+  };
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
   const memberIds = new Set(groupQuery.data?.members.map((m) => m.userId));
@@ -175,27 +298,164 @@ export function GroupDetailScreen() {
             Balances
           </Text>
         </Pressable>
+        <Pressable onPress={() => setTab("activity")} style={styles.tabButton}>
+          <Text
+            style={{
+              color: tab === "activity" ? theme.primary : theme.textMuted,
+              fontWeight: "700",
+            }}
+          >
+            Activity
+          </Text>
+        </Pressable>
       </View>
+
+      {searchOpen && tab === "expenses" ? (
+        <View style={styles.toolbar}>
+          <View
+            style={[
+              styles.expandedSearchBox,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Search size={16} color={theme.textMuted} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search expenses..."
+              placeholderTextColor={theme.textMuted}
+              autoFocus
+              style={[styles.expandedSearchInput, { color: theme.textPrimary }]}
+            />
+          </View>
+          <Pressable
+            onPress={() => {
+              setSearchOpen(false);
+              setSearchQuery("");
+            }}
+            style={[
+              styles.toolbarButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <X size={16} color={theme.textSecondary} />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.toolbar}>
+          {tab === "expenses" ? (
+            <Pressable
+              onPress={() => setSearchOpen(true)}
+              style={[
+                styles.toolbarButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Search size={16} color={theme.textSecondary} />
+            </Pressable>
+          ) : (
+            <View />
+          )}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={handleExportCsv}
+              disabled={exporting !== null}
+              style={[
+                styles.toolbarButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Download
+                size={16}
+                color={
+                  exporting === "csv" ? theme.textMuted : theme.textSecondary
+                }
+              />
+            </Pressable>
+            <Pressable
+              onPress={handleExportPdf}
+              disabled={exporting !== null}
+              style={[
+                styles.toolbarButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <FileText
+                size={16}
+                color={
+                  exporting === "pdf" ? theme.textMuted : theme.textSecondary
+                }
+              />
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {tab === "expenses" ? (
         <FlatList
-          data={expensesQuery.data ?? []}
-          keyExtractor={(e) => e.id}
+          data={mergedTimeline}
+          keyExtractor={(item) => `${item.type}-${item.data.id}`}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
-              refreshing={expensesQuery.isRefetching}
-              onRefresh={expensesQuery.refetch}
+              refreshing={
+                expensesQuery.isRefetching || settlementsQuery.isRefetching
+              }
+              onRefresh={() => {
+                expensesQuery.refetch();
+                settlementsQuery.refetch();
+              }}
               tintColor={theme.primary}
             />
           }
           renderItem={({ item }) => {
+            if (item.type === "settlement") {
+              const s = item.data;
+              return (
+                <View
+                  style={[
+                    styles.expenseRow,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.expenseBody}>
+                    <Text
+                      style={[
+                        styles.expenseTitle,
+                        { color: theme.textPrimary },
+                      ]}
+                    >
+                      {s.paidByName} paid {s.paidToName}
+                    </Text>
+                    <Text
+                      style={[styles.expenseSub, { color: theme.textMuted }]}
+                    >
+                      Payment · {s.settledAt.split("T")[0]}
+                    </Text>
+                  </View>
+                  <Text style={[styles.expenseShare, { color: theme.owed }]}>
+                    ₹{s.amount.toFixed(2)}
+                  </Text>
+                </View>
+              );
+            }
+
+            const expense = item.data;
             const myShare =
-              item.participants.find((p) => p.userId === currentUser?.id)
+              expense.participants.find((p) => p.userId === currentUser?.id)
                 ?.shareAmount ?? 0;
-            const iPaid = item.paidBy === currentUser?.id;
+            const iPaid = expense.paidBy === currentUser?.id;
             return (
-              <View
+              <Pressable
+                onPress={() =>
+                  navigation.navigate("CreateExpense", {
+                    groupId,
+                    expenseId: expense.id,
+                  })
+                }
                 style={[
                   styles.expenseRow,
                   { backgroundColor: theme.surface, borderColor: theme.border },
@@ -205,11 +465,11 @@ export function GroupDetailScreen() {
                   <Text
                     style={[styles.expenseTitle, { color: theme.textPrimary }]}
                   >
-                    {item.title}
+                    {expense.title}
                   </Text>
                   <Text style={[styles.expenseSub, { color: theme.textMuted }]}>
-                    {item.paidByName} paid ₹{item.amount.toFixed(2)} ·{" "}
-                    {item.expenseDate}
+                    {expense.paidByName} paid ₹{expense.amount.toFixed(2)} ·{" "}
+                    {expense.expenseDate}
                   </Text>
                 </View>
                 <Text
@@ -218,9 +478,10 @@ export function GroupDetailScreen() {
                     { color: iPaid ? theme.success : theme.danger },
                   ]}
                 >
-                  {iPaid ? "you lent" : "your share"} {formatAmount(myShare)}
+                  {iPaid ? "you lent" : "your share"}{" "}
+                  {formatAmount(iPaid ? expense.amount - myShare : myShare)}
                 </Text>
-              </View>
+              </Pressable>
             );
           }}
           ListEmptyComponent={
@@ -231,7 +492,7 @@ export function GroupDetailScreen() {
             ) : null
           }
         />
-      ) : (
+      ) : tab === "balances" ? (
         <View style={styles.listContent}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
             Suggested settlements
@@ -327,6 +588,41 @@ export function GroupDetailScreen() {
             </Text>
           ) : null}
         </View>
+      ) : (
+        <FlatList
+          data={activityQuery.data ?? []}
+          keyExtractor={(a) => a.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={activityQuery.isRefetching}
+              onRefresh={activityQuery.refetch}
+              tintColor={theme.primary}
+            />
+          }
+          renderItem={({ item }) => (
+            <View
+              style={[
+                styles.debtRow,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.debtText, { color: theme.textPrimary }]}>
+                {describeActivity(item)}
+              </Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                {item.createdAt.split("T")[0]}
+              </Text>
+            </View>
+          )}
+          ListEmptyComponent={
+            !activityQuery.isLoading ? (
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                No activity yet.
+              </Text>
+            ) : null
+          }
+        />
       )}
 
       <Pressable
@@ -413,6 +709,33 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   tabButton: { paddingBottom: 12 },
+  toolbar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    gap: 8,
+  },
+  toolbarButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  expandedSearchBox: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 34,
+  },
+  expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
   expenseRow: {
     flexDirection: "row",

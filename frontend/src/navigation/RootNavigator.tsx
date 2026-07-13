@@ -56,7 +56,7 @@ export function RootNavigator() {
           gap: 24,
         }}
       >
-        <Logo size={96} variant="mark" />
+        <Logo size={96} />
         <ActivityIndicator color={theme.primary} />
       </View>
     );

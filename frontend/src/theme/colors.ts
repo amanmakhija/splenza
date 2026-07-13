@@ -4,11 +4,14 @@
  * (SVG fills, animated values, chart colors, etc. where Tailwind classes don't reach).
  */
 export const brand = {
-  primaryPurple: "#6C63FF",
-  secondaryBlue: "#4F46E5",
-  accentGreen: "#22C55E",
-  dark: "#0F172A",
-  light: "#F8FAFC",
+  primary: "#4B4FE0", // indigo-violet - buttons, active nav icon, FAB
+  primaryContainer: "#ECEBFB", // selected chips, subtle highlights
+  owed: "#1D9E75", // "you're owed" - positive balances, settled confirmations
+  owe: "#E24B4A", // "you owe" - negative balances, overdue nudges
+  reminder: "#EF9F27", // nudges/reminders only - stays distinct from owed/owe
+  surfaceLight: "#FAFAF8",
+  ink: "#111117",
+  inkSecondary: "#6E6E67",
 } as const;
 
 export type ThemeMode = "light" | "dark";
@@ -23,8 +26,11 @@ export interface AppTheme {
   textSecondary: string;
   textMuted: string;
   primary: string;
-  secondary: string;
-  accent: string;
+  primaryContainer: string;
+  accent: string; // kept for backward compat with older screens; equals `primary`
+  owed: string;
+  owe: string;
+  reminder: string;
   danger: string;
   success: string;
   warning: string;
@@ -32,36 +38,44 @@ export interface AppTheme {
 
 export const lightTheme: AppTheme = {
   mode: "light",
-  background: brand.light,
+  background: brand.surfaceLight,
   surface: "#FFFFFF",
   surfaceElevated: "#FFFFFF",
-  border: "#E2E8F0",
-  textPrimary: brand.dark,
-  textSecondary: "#475569",
-  textMuted: "#94A3B8",
-  primary: brand.primaryPurple,
-  secondary: brand.secondaryBlue,
-  accent: brand.accentGreen,
-  danger: "#EF4444",
-  success: brand.accentGreen,
-  warning: "#F59E0B",
+  border: "#E6E4DC",
+  textPrimary: brand.ink,
+  textSecondary: brand.inkSecondary,
+  textMuted: "#9B9A91",
+  primary: brand.primary,
+  primaryContainer: brand.primaryContainer,
+  accent: brand.primary,
+  owed: brand.owed,
+  owe: brand.owe,
+  reminder: brand.reminder,
+  danger: brand.owe,
+  success: brand.owed,
+  warning: brand.reminder,
 };
 
 export const darkTheme: AppTheme = {
   mode: "dark",
-  background: brand.dark,
-  surface: "#1E293B",
-  surfaceElevated: "#273449",
-  border: "#334155",
-  textPrimary: brand.light,
-  textSecondary: "#CBD5E1",
-  textMuted: "#64748B",
-  primary: brand.primaryPurple,
-  secondary: brand.secondaryBlue,
-  accent: brand.accentGreen,
-  danger: "#F87171",
-  success: "#4ADE80",
-  warning: "#FBBF24",
+  // Cards sit one step up from the background rather than pure black, per spec -
+  // background #111117, card surfaces #1B1B22.
+  background: "#111117",
+  surface: "#1B1B22",
+  surfaceElevated: "#22222B",
+  border: "#2E2E38",
+  textPrimary: "#F5F5F3",
+  textSecondary: "#B5B4AC",
+  textMuted: "#77766E",
+  primary: brand.primary,
+  primaryContainer: "#2B2A63",
+  accent: brand.primary,
+  owed: brand.owed,
+  owe: brand.owe,
+  reminder: brand.reminder,
+  danger: brand.owe,
+  success: brand.owed,
+  warning: brand.reminder,
 };
 
 export const getTheme = (mode: ThemeMode): AppTheme =>

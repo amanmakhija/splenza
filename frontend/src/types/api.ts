@@ -66,6 +66,30 @@ export interface GroupMember {
   role: "ADMIN" | "MEMBER";
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  icon: string | null;
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actionType:
+    | "EXPENSE_CREATED"
+    | "EXPENSE_EDITED"
+    | "EXPENSE_DELETED"
+    | "MEMBER_JOINED"
+    | "MEMBER_LEFT"
+    | "SETTLEMENT_MADE"
+    | "GROUP_CREATED"
+    | "IMPORT_COMPLETED";
+  referenceId: string | null;
+  metadata: Record<string, any> | null;
+  createdAt: string;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -125,10 +149,6 @@ export interface DashboardSummary {
   totalYouOwe: number;
   netBalance: number;
   friendBalances: FriendBalanceResponse[];
-}
-
-export interface NotificationCount {
-  count: number;
 }
 
 export interface Settlement {
@@ -196,4 +216,10 @@ export interface ImportResultResponse {
   importedRows: number;
   failedRows: number;
   errors: ImportRowError[];
+}
+
+export interface GroupBalanceSummary {
+  groupId: string;
+  groupName: string;
+  netAmount: number;
 }

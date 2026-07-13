@@ -9,6 +9,7 @@ interface AuthState {
   isHydrating: boolean; // true while reading persisted session on cold start
   login: (payload: LoginPayload) => Promise<void>;
   signup: (payload: SignupPayload) => Promise<void>;
+  loginWithGoogleIdToken: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: () => void;
 }
@@ -55,6 +56,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       "/api/v1/auth/signup",
       payload,
     );
+    const user = persistSession(data);
+    set({ user, isAuthenticated: true });
+  },
+
+  loginWithGoogleIdToken: async (idToken) => {
+    const { data } = await apiClient.post<AuthResponse>("/api/v1/auth/google", {
+      idToken,
+    });
     const user = persistSession(data);
     set({ user, isAuthenticated: true });
   },

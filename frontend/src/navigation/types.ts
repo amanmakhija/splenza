@@ -1,22 +1,42 @@
+import { NavigatorScreenParams } from "@react-navigation/native";
+
 export type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
 };
 
+export type DashboardStackParamList = {
+  DashboardHome: undefined;
+  FriendDetail: { friendId: string; friendName: string };
+};
+
+export type GroupsStackParamList = {
+  GroupsHome: undefined;
+  GroupDetail: { groupId: string; groupName: string };
+};
+
+export type FriendsStackParamList = {
+  FriendsHome: undefined;
+  FriendDetail: { friendId: string; friendName: string };
+};
+
 export type MainTabParamList = {
-  Dashboard: undefined;
-  Groups: undefined;
-  Friends: undefined;
+  Dashboard: NavigatorScreenParams<DashboardStackParamList>;
+  Groups: NavigatorScreenParams<GroupsStackParamList>;
+  Friends: NavigatorScreenParams<FriendsStackParamList>;
   Profile: undefined;
 };
 
 export type MainStackParamList = {
-  Tabs: undefined;
-  GroupDetail: { groupId: string; groupName: string };
+  Tabs: NavigatorScreenParams<MainTabParamList>;
   CreateGroup: undefined;
-  CreateExpense: { groupId?: string; friendId?: string; friendName?: string };
+  CreateExpense: {
+    groupId?: string;
+    friendId?: string;
+    friendName?: string;
+    expenseId?: string;
+  };
   AddFriend: undefined;
-  FriendDetail: { friendId: string; friendName: string };
   SettleUp: {
     groupId?: string;
     paidTo: string;
