@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.splenza.app",
+      "sha256_cert_fingerprints": [
+        "F6:17:1F:6E:60:F5:15:6B:06:68:85:63:6F:9E:33:2F:21:9E:74:DA:87:5F:22:3E:63:19:0A:5D:7C:D4:4D:F2"
+      ]
+    }
+  }
+]
