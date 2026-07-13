@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: splitwise-postgres
+    container_name: splenza-postgres
     restart: unless-stopped
 
     env_file:
@@ -23,7 +23,7 @@ services:
 
   backend:
     image: ghcr.io/amanmakhija/splenza-backend:${IMAGE_TAG:-latest}
-    container_name: splitwise-backend
+    container_name: splenza-backend
     restart: unless-stopped
 
     depends_on:
