@@ -3,9 +3,9 @@ spring:
     name: splitwise-backend
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/splitwise}
-    username: ${SPRING_DATASOURCE_USERNAME:splitwise}
-    password: ${SPRING_DATASOURCE_PASSWORD:splitwise_dev_password}
+    url: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -28,20 +28,33 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 server:
   port: 8080
   error:
     include-message: always
 
 jwt:
-  secret: ${JWT_SECRET:dev_only_secret_key_please_change_me_32chars}
-  expiration-ms: ${JWT_EXPIRATION_MS:900000} # 15 min access token
-  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS}
+  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS}
 
 aws:
   s3:
-    bucket: ${AWS_S3_BUCKET:splitwise-receipts}
-    region: ${AWS_REGION:ap-south-1}
+    bucket: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION}
 
 springdoc:
   swagger-ui:
@@ -56,8 +69,9 @@ logging:
 
 google:
   oauth:
-    # Create this in Google Cloud Console > APIs & Services > Credentials > OAuth Client ID
-    # (type: Android, package name com.splenza.app, plus your release/debug SHA-1 fingerprints).
-    # For the ID token audience check to work, use the WEB client ID here (Google issues one
-    # automatically alongside the Android client) - see README for the full walkthrough.
-    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID}
+
+app:
+  frontend-url: ${FRONTEND_URL}
+  mail:
+    from: ${MAIL_FROM}

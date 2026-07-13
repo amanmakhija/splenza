@@ -37,6 +37,10 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EmailService emailService;
+
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
 
     @Value("${google.oauth.client-id:}")
     private String googleClientId;
@@ -120,6 +124,15 @@ public class AuthService {
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .build();
             passwordResetTokenRepository.save(resetToken);
+
+            String resetLink
+                    = frontendUrl + "/reset-password?token=" + rawToken;
+
+            emailService.sendPasswordResetEmail(
+                    user.getEmail(),
+                    user.getName(),
+                    resetLink
+            );
         });
     }
 
