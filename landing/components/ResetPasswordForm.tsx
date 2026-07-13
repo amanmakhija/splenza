@@ -39,7 +39,7 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
       const res = await fetch(RESET_PASSWORD_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, newPassword: password }),
       });
       const data = await res.json().catch(() => null);
 
