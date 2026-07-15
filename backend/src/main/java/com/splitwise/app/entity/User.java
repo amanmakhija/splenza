@@ -48,6 +48,15 @@ public class User {
     @Builder.Default
     private Theme theme = Theme.SYSTEM;
 
+    /**
+     * Drives rate-limit tier now; will also gate future paid features (e.g.
+     * AI).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_tier", nullable = false, length = 20)
+    @Builder.Default
+    private SubscriptionTier subscriptionTier = SubscriptionTier.FREE;
+
     @Column(name = "is_email_verified", nullable = false)
     @Builder.Default
     private boolean emailVerified = false;
@@ -66,5 +75,14 @@ public class User {
 
     public enum Theme {
         LIGHT, DARK, SYSTEM
+    }
+
+    /**
+     * FREE and PRO today; add more tiers here as pricing evolves -
+     * RateLimitProperties and the JWT tier claim both key off this enum, so
+     * adding a tier is a one-place change.
+     */
+    public enum SubscriptionTier {
+        FREE, PRO
     }
 }

@@ -62,6 +62,15 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+rate-limit:
+  tiers:
+    free:
+      general: 60
+      write: 20
+    pro:
+      general: 300
+      write: 120
+
 logging:
   level:
     com.splitwise.app: DEBUG

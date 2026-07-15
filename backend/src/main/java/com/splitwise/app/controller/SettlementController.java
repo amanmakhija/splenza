@@ -1,5 +1,6 @@
 package com.splitwise.app.controller;
 
+import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.dto.settlement.CreateSettlementRequest;
 import com.splitwise.app.dto.settlement.SettlementResponse;
 import com.splitwise.app.service.SettlementService;
@@ -7,11 +8,12 @@ import com.splitwise.app.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -29,12 +31,16 @@ public class SettlementController {
     }
 
     @GetMapping("/group/{groupId}")
-    public ResponseEntity<List<SettlementResponse>> historyForGroup(@PathVariable UUID groupId) {
-        return ResponseEntity.ok(settlementService.historyForGroup(groupId));
+    public ResponseEntity<PageResponse<SettlementResponse>> historyForGroup(
+            @PathVariable UUID groupId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(settlementService.historyForGroupPaged(groupId, pageable));
     }
 
     @GetMapping("/friend/{friendId}")
-    public ResponseEntity<List<SettlementResponse>> historyWithFriend(@PathVariable UUID friendId) {
-        return ResponseEntity.ok(settlementService.historyWithFriend(SecurityUtils.getCurrentUserId(), friendId));
+    public ResponseEntity<PageResponse<SettlementResponse>> historyWithFriend(
+            @PathVariable UUID friendId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(settlementService.historyWithFriendPaged(SecurityUtils.getCurrentUserId(), friendId, pageable));
     }
 }

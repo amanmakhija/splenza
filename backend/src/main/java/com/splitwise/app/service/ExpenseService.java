@@ -1,10 +1,12 @@
 package com.splitwise.app.service;
 
 import com.splitwise.app.dto.expense.*;
+import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.entity.*;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -206,9 +208,19 @@ public class ExpenseService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<ExpenseResponse> listForGroupPaged(UUID groupId, Pageable pageable) {
+        return PageResponse.of(expenseRepository.findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(groupId, pageable), this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public List<ExpenseResponse> listForUser(UUID userId) {
         return expenseRepository.findAllForUser(userId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ExpenseResponse> listForUserPaged(UUID userId, Pageable pageable) {
+        return PageResponse.of(expenseRepository.findAllForUser(userId, pageable), this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -235,6 +247,35 @@ public class ExpenseService {
         };
 
         return expenseRepository.findAll(spec, sort).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ExpenseResponse> searchPaged(UUID userId, ExpenseSearchRequest filters, Pageable pageable) {
+        Specification<Expense> spec = Specification.where(ExpenseSpecifications.involvesUser(userId))
+                .and(ExpenseSpecifications.inGroup(filters.getGroupId()))
+                .and(ExpenseSpecifications.titleContains(filters.getQuery()))
+                .and(ExpenseSpecifications.categoryEquals(filters.getCategoryId()))
+                .and(ExpenseSpecifications.paidByEquals(filters.getPaidBy()))
+                .and(ExpenseSpecifications.dateFrom(filters.getDateFrom()))
+                .and(ExpenseSpecifications.dateTo(filters.getDateTo()))
+                .and(ExpenseSpecifications.amountMin(filters.getAmountMin()))
+                .and(ExpenseSpecifications.amountMax(filters.getAmountMax()));
+
+        Sort sort = switch (filters.getSort()) {
+            case OLDEST ->
+                Sort.by(Sort.Direction.ASC, "expenseDate");
+            case HIGHEST_AMOUNT ->
+                Sort.by(Sort.Direction.DESC, "amount");
+            case LOWEST_AMOUNT ->
+                Sort.by(Sort.Direction.ASC, "amount");
+            case LATEST ->
+                Sort.by(Sort.Direction.DESC, "expenseDate");
+        };
+
+        Pageable sortedPageable = org.springframework.data.domain.PageRequest.of(
+                pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        return PageResponse.of(expenseRepository.findAll(spec, sortedPageable), this::toResponse);
     }
 
     // ---- helpers ----

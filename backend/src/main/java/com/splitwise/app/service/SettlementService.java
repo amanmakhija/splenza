@@ -2,6 +2,7 @@ package com.splitwise.app.service;
 
 import com.splitwise.app.dto.settlement.CreateSettlementRequest;
 import com.splitwise.app.dto.settlement.SettlementResponse;
+import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.entity.ActivityLog;
 import com.splitwise.app.entity.Group;
 import com.splitwise.app.entity.Settlement;
@@ -12,6 +13,7 @@ import com.splitwise.app.repository.GroupRepository;
 import com.splitwise.app.repository.SettlementRepository;
 import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,9 +80,19 @@ public class SettlementService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<SettlementResponse> historyForGroupPaged(UUID groupId, Pageable pageable) {
+        return PageResponse.of(settlementRepository.findByGroupIdOrderBySettledAtDesc(groupId, pageable), this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public List<SettlementResponse> historyWithFriend(UUID userId, UUID friendId) {
-        return settlementRepository.findDirectSettlementsBetween(userId, friendId)
+        return settlementRepository.findAllSettlementsBetween(userId, friendId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<SettlementResponse> historyWithFriendPaged(UUID userId, UUID friendId, Pageable pageable) {
+        return PageResponse.of(settlementRepository.findAllSettlementsBetween(userId, friendId, pageable), this::toResponse);
     }
 
     private SettlementResponse toResponse(Settlement s) {

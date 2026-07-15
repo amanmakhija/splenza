@@ -102,6 +102,7 @@ public class AuthService {
             throw ApiException.unauthorized("Refresh token expired, please log in again");
         }
 
+        // rotate: revoke old, issue new
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
 
@@ -121,7 +122,7 @@ public class AuthService {
             PasswordResetToken resetToken = PasswordResetToken.builder()
                     .user(user)
                     .tokenHash(hashToken(rawToken))
-                    .expiresAt(Instant.now().plusSeconds(3600))
+                    .expiresAt(Instant.now().plusSeconds(3600)) // 1 hour
                     .build();
             passwordResetTokenRepository.save(resetToken);
 
@@ -153,6 +154,7 @@ public class AuthService {
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
 
+        // Invalidate all existing sessions
         refreshTokenRepository.deleteByUserId(user.getId());
     }
 
@@ -202,6 +204,7 @@ public class AuthService {
                 .emailVerified(true)
                 .build()));
 
+        // Link the Google account if this user previously signed up with email/password only.
         if (user.getGoogleId() == null) {
             user.setGoogleId(googleId);
             if (user.getProfilePictureUrl() == null) {
@@ -214,7 +217,7 @@ public class AuthService {
     }
 
     private AuthResponse issueTokens(User user) {
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail());
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail(), user.getSubscriptionTier().name());
         String rawRefreshToken = jwtService.generateRawRefreshToken();
 
         RefreshToken refreshToken = RefreshToken.builder()

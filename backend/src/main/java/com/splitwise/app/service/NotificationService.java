@@ -57,6 +57,23 @@ public class NotificationService {
     public List<com.splitwise.app.dto.notification.NotificationResponse> listForUser(UUID userId) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(n -> com.splitwise.app.dto.notification.NotificationResponse.builder()
+                .id(n.getId())
+                .type(n.getType().name())
+                .title(n.getTitle())
+                .body(n.getBody())
+                .referenceId(n.getReferenceId())
+                .read(n.isRead())
+                .createdAt(n.getCreatedAt())
+                .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public com.splitwise.app.dto.common.PageResponse<com.splitwise.app.dto.notification.NotificationResponse> listForUserPaged(
+            UUID userId, org.springframework.data.domain.Pageable pageable) {
+        return com.splitwise.app.dto.common.PageResponse.of(
+                notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable),
+                n -> com.splitwise.app.dto.notification.NotificationResponse.builder()
                         .id(n.getId())
                         .type(n.getType().name())
                         .title(n.getTitle())
@@ -64,8 +81,7 @@ public class NotificationService {
                         .referenceId(n.getReferenceId())
                         .read(n.isRead())
                         .createdAt(n.getCreatedAt())
-                        .build())
-                .collect(java.util.stream.Collectors.toList());
+                        .build());
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +99,9 @@ public class NotificationService {
 
     private void notifyParticipants(Expense expense, UUID actingUserId, Notification.Type type, String title, String body) {
         for (ExpenseParticipant p : expense.getParticipants()) {
-            if (p.getUser().getId().equals(actingUserId)) continue; // don't notify the actor
+            if (p.getUser().getId().equals(actingUserId)) {
+                continue; // don't notify the actor
+            }
             create(p.getUser().getId(), type, title, body, expense.getId());
         }
     }

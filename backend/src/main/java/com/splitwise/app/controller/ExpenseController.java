@@ -1,16 +1,18 @@
 package com.splitwise.app.controller;
 
+import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.dto.expense.*;
 import com.splitwise.app.service.ExpenseService;
 import com.splitwise.app.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -50,18 +52,25 @@ public class ExpenseController {
         return ResponseEntity.ok(expenseService.getById(expenseId));
     }
 
+    /**
+     * Paginated: ?page=0&size=20 (defaults shown).
+     */
     @GetMapping("/group/{groupId}")
-    public ResponseEntity<List<ExpenseResponse>> listForGroup(@PathVariable UUID groupId) {
-        return ResponseEntity.ok(expenseService.listForGroup(groupId));
+    public ResponseEntity<PageResponse<ExpenseResponse>> listForGroup(
+            @PathVariable UUID groupId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(expenseService.listForGroupPaged(groupId, pageable));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<ExpenseResponse>> listMine() {
-        return ResponseEntity.ok(expenseService.listForUser(SecurityUtils.getCurrentUserId()));
+    public ResponseEntity<PageResponse<ExpenseResponse>> listMine(@PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(expenseService.listForUserPaged(SecurityUtils.getCurrentUserId(), pageable));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<ExpenseResponse>> search(ExpenseSearchRequest filters) {
-        return ResponseEntity.ok(expenseService.search(SecurityUtils.getCurrentUserId(), filters));
+    public ResponseEntity<PageResponse<ExpenseResponse>> search(
+            ExpenseSearchRequest filters,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(expenseService.searchPaged(SecurityUtils.getCurrentUserId(), filters, pageable));
     }
 }

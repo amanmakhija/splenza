@@ -1,21 +1,22 @@
 package com.splitwise.app.controller;
 
 import com.splitwise.app.dto.activity.ActivityLogResponse;
+import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.repository.ActivityLogRepository;
 import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/activity")
@@ -28,22 +29,25 @@ public class ActivityController {
 
     @GetMapping("/group/{groupId}")
     @Transactional(readOnly = true)
-    public List<ActivityLogResponse> listForGroup(@PathVariable UUID groupId) {
+    public PageResponse<ActivityLogResponse> listForGroup(
+            @PathVariable UUID groupId,
+            @PageableDefault(size = 20) Pageable pageable) {
         UUID actingUserId = SecurityUtils.getCurrentUserId();
         if (!groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, actingUserId)) {
             throw ApiException.forbidden("You are not a member of this group");
         }
 
-        return activityLogRepository.findByGroupIdOrderByCreatedAtDesc(groupId).stream()
-                .map(log -> ActivityLogResponse.builder()
-                .id(log.getId())
-                .actorId(log.getActor().getId())
-                .actorName(log.getActor().getName())
-                .actionType(log.getActionType().name())
-                .referenceId(log.getReferenceId())
-                .metadata(log.getMetadata())
-                .createdAt(log.getCreatedAt())
-                .build())
-                .collect(Collectors.toList());
+        return PageResponse.of(
+                activityLogRepository.findByGroupIdOrderByCreatedAtDesc(groupId, pageable),
+                log -> ActivityLogResponse.builder()
+                        .id(log.getId())
+                        .actorId(log.getActor().getId())
+                        .actorName(log.getActor().getName())
+                        .actionType(log.getActionType().name())
+                        .referenceId(log.getReferenceId())
+                        .metadata(log.getMetadata())
+                        .createdAt(log.getCreatedAt())
+                        .build()
+        );
     }
 }

@@ -38,10 +38,11 @@ public class JwtService {
         this.refreshExpirationMs = refreshExpirationMs;
     }
 
-    public String generateAccessToken(UUID userId, String email) {
+    public String generateAccessToken(UUID userId, String email, String subscriptionTier) {
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
+                .claim("tier", subscriptionTier)
                 .claim("type", "access")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessExpirationMs))
@@ -49,7 +50,20 @@ public class JwtService {
                 .compact();
     }
 
-    /** Raw refresh token = random opaque string; only its hash is stored in DB. */
+    /**
+     * Tier as of token issuance - may be up to accessExpirationMs (default 15
+     * min) stale if the user's subscription changed since login/refresh.
+     * Acceptable trade-off for avoiding a DB hit on every request; falls back
+     * to "free" if the claim is somehow missing.
+     */
+    public String extractTier(String token) {
+        String tier = extractClaim(token, claims -> claims.get("tier", String.class));
+        return tier != null ? tier : "free";
+    }
+
+    /**
+     * Raw refresh token = random opaque string; only its hash is stored in DB.
+     */
     public String generateRawRefreshToken() {
         byte[] randomBytes = new byte[64];
         new SecureRandom().nextBytes(randomBytes);

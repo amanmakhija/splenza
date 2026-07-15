@@ -1,6 +1,8 @@
 package com.splitwise.app.repository;
 
 import com.splitwise.app.entity.Expense;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -11,7 +13,11 @@ import java.util.UUID;
 
 public interface ExpenseRepository extends JpaRepository<Expense, UUID>, JpaSpecificationExecutor<Expense> {
 
+    // Unpaginated - used internally by BalanceService/ExportService/ImportService, which need
+    // the complete set to compute correct totals rather than a page of it.
     List<Expense> findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(UUID groupId);
+
+    Page<Expense> findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(UUID groupId, Pageable pageable);
 
     @Query("select distinct e from Expense e join e.participants p "
             + "where e.deleted = false and e.group is null "
@@ -24,4 +30,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID>, JpaSpec
             + "where e.deleted = false and (e.paidBy.id = :userId or p.user.id = :userId) "
             + "order by e.expenseDate desc")
     List<Expense> findAllForUser(@Param("userId") UUID userId);
+
+    @Query(value = "select distinct e from Expense e join e.participants p "
+            + "where e.deleted = false and (e.paidBy.id = :userId or p.user.id = :userId) "
+            + "order by e.expenseDate desc",
+            countQuery = "select count(distinct e) from Expense e join e.participants p "
+            + "where e.deleted = false and (e.paidBy.id = :userId or p.user.id = :userId)")
+    Page<Expense> findAllForUser(@Param("userId") UUID userId, Pageable pageable);
 }

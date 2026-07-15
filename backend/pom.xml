@@ -23,6 +23,13 @@
     </properties>
 
     <dependencies>
+        <!-- Rate limiting (token bucket, in-memory - see RateLimiterService javadoc for scaling notes) -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>8.11.1</version>
+        </dependency>
+        
         <!-- Core -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
