@@ -120,6 +120,8 @@ public class EmailService {
 
             helper.setTo(to);
 
+            helper.setFrom(from);
+
             helper.setSubject(subject);
 
             helper.setText(html, true);
