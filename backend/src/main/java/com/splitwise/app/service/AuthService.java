@@ -5,10 +5,12 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.splitwise.app.dto.auth.*;
+import com.splitwise.app.entity.EmailVerificationToken;
 import com.splitwise.app.entity.PasswordResetToken;
 import com.splitwise.app.entity.RefreshToken;
 import com.splitwise.app.entity.User;
 import com.splitwise.app.exception.ApiException;
+import com.splitwise.app.repository.EmailVerificationTokenRepository;
 import com.splitwise.app.repository.PasswordResetTokenRepository;
 import com.splitwise.app.repository.RefreshTokenRepository;
 import com.splitwise.app.repository.UserRepository;
@@ -38,6 +40,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -62,7 +65,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse signup(SignupRequest request) {
+    public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail().toLowerCase())) {
             throw ApiException.conflict("An account with this email already exists");
         }
@@ -77,14 +80,116 @@ public class AuthService {
                         ? request.getPhoneNumber().trim() : null)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
+        user.setEmailVerified(false);
+
         user = userRepository.save(user);
+
+        emailVerificationTokenRepository.deleteByUser(user);
+
+        String otp = generateOtp();
+
+        EmailVerificationToken token
+                = EmailVerificationToken.builder()
+                        .user(user)
+                        .otpHash(hashToken(otp))
+                        .expiresAt(Instant.now().plusSeconds(600))
+                        .build();
+
+        emailVerificationTokenRepository.save(token);
+
+        emailService.sendVerificationEmail(
+                user.getEmail(),
+                user.getName(),
+                otp
+        );
+
+        return SignupResponse.builder()
+                .message("Verification code sent successfully")
+                .email(user.getEmail())
+                .build();
+    }
+
+    @Transactional
+    public AuthResponse verifyEmail(
+            VerifyEmailRequest request
+    ) {
+
+        User user = userRepository.findByEmailAndDeletedFalse(
+                request.getEmail().toLowerCase().trim())
+                .orElseThrow(()
+                        -> ApiException.notFound("User not found"));
+
+        EmailVerificationToken token
+                = emailVerificationTokenRepository
+                        .findTopByUserAndUsedFalseOrderByExpiresAtDesc(user)
+                        .orElseThrow(()
+                                -> ApiException.badRequest("OTP not found"));
+
+        if (token.getExpiresAt().isBefore(Instant.now())) {
+            throw ApiException.badRequest("OTP expired");
+        }
+
+        if (!hashToken(request.getOtp())
+                .equals(token.getOtpHash())) {
+
+            throw ApiException.badRequest("Invalid OTP");
+        }
+
+        token.setUsed(true);
+
+        emailVerificationTokenRepository.save(token);
+
+        user.setEmailVerified(true);
+
+        userRepository.save(user);
+
         return issueTokens(user);
+
+    }
+
+    @Transactional
+    public void resendVerificationEmail(
+            ResendVerificationRequest request
+    ) {
+
+        User user
+                = userRepository.findByEmailAndDeletedFalse(
+                        request.getEmail().toLowerCase().trim())
+                        .orElseThrow(()
+                                -> ApiException.notFound("User not found"));
+
+        emailVerificationTokenRepository.deleteByUser(user);
+
+        String otp = generateOtp();
+
+        emailVerificationTokenRepository.save(
+                EmailVerificationToken.builder()
+                        .user(user)
+                        .otpHash(hashToken(otp))
+                        .expiresAt(
+                                Instant.now().plusSeconds(600)
+                        )
+                        .build()
+        );
+
+        emailService.sendVerificationEmail(
+                user.getEmail(),
+                user.getName(),
+                otp
+        );
+
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmailAndDeletedFalse(request.getEmail().toLowerCase().trim())
                 .orElseThrow(() -> ApiException.unauthorized("Invalid email or password"));
+
+        if (!user.isEmailVerified()) {
+            throw ApiException.forbidden(
+                    "Please verify your email before logging in."
+            );
+        }
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw ApiException.unauthorized("Invalid email or password");
@@ -245,5 +350,10 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
+    }
+
+    private String generateOtp() {
+        int otp = 100000 + new java.security.SecureRandom().nextInt(900000);
+        return String.valueOf(otp);
     }
 }

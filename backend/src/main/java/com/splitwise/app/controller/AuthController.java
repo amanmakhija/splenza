@@ -19,7 +19,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request) {
+    public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.signup(request));
     }
 
@@ -60,5 +60,27 @@ public class AuthController {
     public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(SecurityUtils.getCurrentUserId(), request);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/verify-email")
+    public AuthResponse verifyEmail(
+            @Valid
+            @RequestBody VerifyEmailRequest request
+    ) {
+
+        return authService.verifyEmail(request);
+
+    }
+
+    @PostMapping("/resend-verification-email")
+    public ResponseEntity<Void> resendVerificationEmail(
+            @Valid
+            @RequestBody ResendVerificationRequest request
+    ) {
+
+        authService.resendVerificationEmail(request);
+
+        return ResponseEntity.ok().build();
+
     }
 }
