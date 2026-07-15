@@ -2,11 +2,14 @@ package com.splitwise.app.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 import java.util.UUID;
+
+import com.splitwise.app.enums.AuthProvider;
 
 @Entity
 @Table(name = "users")
@@ -33,6 +36,10 @@ public class User {
     @Column(name = "google_id", unique = true)
     private String googleId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthProvider provider;
+
     @Column(name = "phone_number", length = 20, unique = true)
     private String phoneNumber;
 
@@ -56,10 +63,6 @@ public class User {
     @Column(name = "subscription_tier", nullable = false, length = 20)
     @Builder.Default
     private SubscriptionTier subscriptionTier = SubscriptionTier.FREE;
-
-    @Column(name = "is_email_verified", nullable = false)
-    @Builder.Default
-    private boolean emailVerified = false;
 
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default

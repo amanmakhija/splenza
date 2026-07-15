@@ -32,7 +32,7 @@ public class AppUserDetailsService {
     private UserDetails buildUserDetails(User user) {
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getId().toString())
-                .password(user.getPasswordHash() == null ? "" : user.getPasswordHash())
+                .password(user.getPasswordHash())
                 .authorities(Collections.singletonList(() -> "ROLE_USER"))
                 .build();
     }

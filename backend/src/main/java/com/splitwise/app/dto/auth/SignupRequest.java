@@ -10,12 +10,12 @@ import lombok.Data;
 public class SignupRequest {
 
     @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 120, message = "Name must be between 2 and 120 characters")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 120 characters")
     private String name;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")
-    @Size(max = 180)
+    @Size(max = 255)
     private String email;
 
     /**
@@ -25,10 +25,6 @@ public class SignupRequest {
     private String phoneNumber;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters")
-    @Pattern(
-            regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$",
-            message = "Password must contain at least one letter and one number"
-    )
+    @Size(min = 8, max = 100, message = "Password must be between 8 and 72 characters")
     private String password;
 }

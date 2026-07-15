@@ -20,4 +20,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByPhoneNumber(String phoneNumber);
 
     List<User> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(String name, String email);
+
+    boolean existsByEmailAndDeletedFalse(String email);
+
+    boolean existsByPhoneNumberAndDeletedFalse(String phoneNumber);
 }

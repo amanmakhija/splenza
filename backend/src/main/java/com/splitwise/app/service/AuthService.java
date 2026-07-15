@@ -5,17 +5,19 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.splitwise.app.dto.auth.*;
-import com.splitwise.app.entity.EmailVerificationToken;
 import com.splitwise.app.entity.PasswordResetToken;
+import com.splitwise.app.entity.PendingSignup;
 import com.splitwise.app.entity.RefreshToken;
 import com.splitwise.app.entity.User;
 import com.splitwise.app.exception.ApiException;
-import com.splitwise.app.repository.EmailVerificationTokenRepository;
 import com.splitwise.app.repository.PasswordResetTokenRepository;
+import com.splitwise.app.repository.PendingSignupRepository;
 import com.splitwise.app.repository.RefreshTokenRepository;
 import com.splitwise.app.repository.UserRepository;
 import com.splitwise.app.security.JwtService;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,10 +27,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.UUID;
+
+import com.splitwise.app.enums.AuthProvider;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +46,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
-    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final PendingSignupRepository pendingSignupRepository;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -49,6 +55,13 @@ public class AuthService {
     private String googleClientId;
 
     private GoogleIdTokenVerifier googleVerifier;
+
+    private static final SecureRandom secureRandom = new SecureRandom();
+
+    private static final int MAX_OTP_ATTEMPTS = 5;
+
+    private static final Duration OTP_EXPIRY
+            = Duration.ofMinutes(10);
 
     private GoogleIdTokenVerifier googleVerifier() {
         if (googleVerifier == null) {
@@ -66,133 +79,240 @@ public class AuthService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
-        if (userRepository.existsByEmail(request.getEmail().toLowerCase())) {
-            throw ApiException.conflict("An account with this email already exists");
-        }
-        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isBlank()
-                && userRepository.existsByPhoneNumber(request.getPhoneNumber().trim())) {
-            throw ApiException.conflict("An account with this phone number already exists");
-        }
-        User user = User.builder()
-                .name(request.getName().trim())
-                .email(request.getEmail().toLowerCase().trim())
-                .phoneNumber(request.getPhoneNumber() != null && !request.getPhoneNumber().isBlank()
-                        ? request.getPhoneNumber().trim() : null)
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .build();
-        user.setEmailVerified(false);
 
-        user = userRepository.save(user);
+        String email = normalizeEmail(request.getEmail());
 
-        emailVerificationTokenRepository.deleteByUser(user);
+        String phone = normalizePhone(request.getPhoneNumber());
+
+        String name = request.getName().trim();
+
+        if (name.length() < 2) {
+            throw ApiException.badRequest("Name is too short.");
+        }
+
+        if (name.length() > 100) {
+            throw ApiException.badRequest("Name is too long.");
+        }
+
+        // Email already registered
+        if (userRepository.existsByEmailAndDeletedFalse(email)) {
+            throw ApiException.conflict(
+                    "An account already exists with this email."
+            );
+        }
+
+        // Phone already registered
+        if (phone != null
+                && userRepository.existsByPhoneNumberAndDeletedFalse(phone)) {
+            throw ApiException.conflict(
+                    "Phone number already in use."
+            );
+        }
 
         String otp = generateOtp();
 
-        EmailVerificationToken token
-                = EmailVerificationToken.builder()
-                        .user(user)
-                        .otpHash(hashToken(otp))
-                        .expiresAt(Instant.now().plusSeconds(600))
-                        .build();
+        PendingSignup pendingSignup
+                = pendingSignupRepository
+                        .findByEmail(email)
+                        .orElse(
+                                PendingSignup.builder()
+                                        .email(email)
+                                        .build()
+                        );
 
-        emailVerificationTokenRepository.save(token);
+        pendingSignup.setName(name);
+        pendingSignup.setPhoneNumber(phone);
+        pendingSignup.setPasswordHash(
+                passwordEncoder.encode(
+                        request.getPassword()
+                )
+        );
+        pendingSignup.setOtpHash(hashToken(otp));
+        pendingSignup.setAttempts(0);
+        pendingSignup.setExpiresAt(
+                Instant.now().plus(OTP_EXPIRY)
+        );
+
+        pendingSignupRepository.save(pendingSignup);
 
         emailService.sendVerificationEmail(
-                user.getEmail(),
-                user.getName(),
+                email,
+                name,
                 otp
         );
 
         return SignupResponse.builder()
-                .message("Verification code sent successfully")
-                .email(user.getEmail())
+                .email(email)
+                .message("Verification code sent.")
                 .build();
+    }
+
+    @Transactional
+    public void changePendingEmail(
+            ChangePendingEmailRequest request
+    ) {
+        String oldEmail = normalizeEmail(request.getOldEmail());
+        String newEmail = normalizeEmail(request.getNewEmail());
+
+        if (oldEmail.equals(newEmail)) {
+            throw ApiException.badRequest(
+                    "Please enter a different email address."
+            );
+        }
+
+        PendingSignup pending
+                = pendingSignupRepository.findByEmail(oldEmail)
+                        .orElseThrow(()
+                                -> ApiException.badRequest(
+                                "Pending signup not found."
+                        )
+                        );
+
+        if (userRepository.existsByEmailAndDeletedFalse(newEmail)) {
+            throw ApiException.conflict(
+                    "An account already exists with this email."
+            );
+        }
+
+        if (pendingSignupRepository.existsByEmail(newEmail)) {
+            throw ApiException.conflict(
+                    "A verification request already exists for this email."
+            );
+        }
+
+        String otp = generateOtp();
+
+        pending.setEmail(newEmail);
+        pending.setOtpHash(hashToken(otp));
+        pending.setAttempts(0);
+        pending.setExpiresAt(
+                Instant.now().plus(OTP_EXPIRY)
+        );
+
+        pendingSignupRepository.save(pending);
+
+        emailService.sendVerificationEmail(
+                newEmail,
+                pending.getName(),
+                otp
+        );
     }
 
     @Transactional
     public AuthResponse verifyEmail(
             VerifyEmailRequest request
     ) {
+        String email = normalizeEmail(request.getEmail());
 
-        User user = userRepository.findByEmailAndDeletedFalse(
-                request.getEmail().toLowerCase().trim())
-                .orElseThrow(()
-                        -> ApiException.notFound("User not found"));
-
-        EmailVerificationToken token
-                = emailVerificationTokenRepository
-                        .findTopByUserAndUsedFalseOrderByExpiresAtDesc(user)
+        PendingSignup pendingSignup
+                = pendingSignupRepository.findByEmail(email)
                         .orElseThrow(()
-                                -> ApiException.badRequest("OTP not found"));
+                                -> ApiException.badRequest(
+                                "Verification request not found."
+                        )
+                        );
 
-        if (token.getExpiresAt().isBefore(Instant.now())) {
-            throw ApiException.badRequest("OTP expired");
+        if (pendingSignup.getExpiresAt().isBefore(Instant.now())) {
+            pendingSignupRepository.delete(pendingSignup);
+            throw ApiException.badRequest(
+                    "Verification code has expired."
+            );
         }
 
-        if (!hashToken(request.getOtp())
-                .equals(token.getOtpHash())) {
-
-            throw ApiException.badRequest("Invalid OTP");
+        if (pendingSignup.getAttempts() >= MAX_OTP_ATTEMPTS) {
+            pendingSignupRepository.delete(pendingSignup);
+            throw ApiException.badRequest(
+                    "Too many incorrect attempts. Please sign up again."
+            );
         }
 
-        token.setUsed(true);
+        String otpHash = hashToken(request.getOtp());
 
-        emailVerificationTokenRepository.save(token);
+        if (!otpHash.equals(pendingSignup.getOtpHash())) {
+            pendingSignup.setAttempts(
+                    pendingSignup.getAttempts() + 1
+            );
+            pendingSignupRepository.save(pendingSignup);
+            throw ApiException.badRequest(
+                    "Invalid verification code."
+            );
+        }
 
-        user.setEmailVerified(true);
+        User user = User.builder()
+                .name(pendingSignup.getName())
+                .email(pendingSignup.getEmail())
+                .phoneNumber(pendingSignup.getPhoneNumber())
+                .passwordHash(pendingSignup.getPasswordHash())
+                .provider(AuthProvider.LOCAL)
+                .build();
 
         userRepository.save(user);
+        pendingSignupRepository.delete(pendingSignup);
 
         return issueTokens(user);
-
     }
 
     @Transactional
     public void resendVerificationEmail(
             ResendVerificationRequest request
     ) {
-
-        User user
-                = userRepository.findByEmailAndDeletedFalse(
-                        request.getEmail().toLowerCase().trim())
+        String email = normalizeEmail(request.getEmail());
+        PendingSignup pending
+                = pendingSignupRepository
+                        .findByEmail(email)
                         .orElseThrow(()
-                                -> ApiException.notFound("User not found"));
-
-        emailVerificationTokenRepository.deleteByUser(user);
-
-        String otp = generateOtp();
-
-        emailVerificationTokenRepository.save(
-                EmailVerificationToken.builder()
-                        .user(user)
-                        .otpHash(hashToken(otp))
-                        .expiresAt(
-                                Instant.now().plusSeconds(600)
+                                -> ApiException.badRequest(
+                                "Verification request not found."
                         )
-                        .build()
+                        );
+        String otp = generateOtp();
+        pending.setOtpHash(hashToken(otp));
+        pending.setAttempts(0);
+        pending.setExpiresAt(
+                Instant.now().plus(OTP_EXPIRY)
         );
-
+        pendingSignupRepository.save(pending);
         emailService.sendVerificationEmail(
-                user.getEmail(),
-                user.getName(),
+                pending.getEmail(),
+                pending.getName(),
                 otp
         );
-
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmailAndDeletedFalse(request.getEmail().toLowerCase().trim())
-                .orElseThrow(() -> ApiException.unauthorized("Invalid email or password"));
-
-        if (!user.isEmailVerified()) {
-            throw ApiException.forbidden(
-                    "Please verify your email before logging in."
+        String email = normalizeEmail(request.getEmail());
+        User user = userRepository
+                .findByEmailAndDeletedFalse(email)
+                .orElse(null);
+        if (user == null) {
+            PendingSignup pending
+                    = pendingSignupRepository
+                            .findByEmail(email)
+                            .orElse(null);
+            if (pending != null) {
+                if (pending.getExpiresAt().isBefore(Instant.now())) {
+                    pendingSignupRepository.delete(pending);
+                    throw ApiException.verificationExpired();
+                }
+                throw ApiException.emailNotVerified();
+            }
+            throw ApiException.unauthorized(
+                    "Invalid email or password."
             );
         }
-
-        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw ApiException.unauthorized("Invalid email or password");
+        if (user.getPasswordHash() == null) {
+            throw ApiException.badRequest(
+                    "This account uses Google Sign-In. Please sign in with Google or set a password."
+            );
+        }
+        if (!passwordEncoder.matches(
+                request.getPassword(),
+                user.getPasswordHash()
+        )) {
+            throw ApiException.unauthorized(
+                    "Invalid email or password."
+            );
         }
         return issueTokens(user);
     }
@@ -253,6 +373,7 @@ public class AuthService {
         }
 
         User user = resetToken.getUser();
+        validatePassword(request.getNewPassword());
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
@@ -271,6 +392,8 @@ public class AuthService {
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new ApiException("Current password is incorrect", HttpStatus.UNAUTHORIZED);
         }
+
+        validatePassword(request.getNewPassword());
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
@@ -291,22 +414,20 @@ public class AuthService {
         GoogleIdToken.Payload payload = idToken.getPayload();
         String googleId = payload.getSubject();
         String email = payload.getEmail();
-        Boolean emailVerified = payload.getEmailVerified();
         String name = (String) payload.get("name");
         String pictureUrl = (String) payload.get("picture");
 
-        if (email == null || Boolean.FALSE.equals(emailVerified)) {
-            throw ApiException.unauthorized("Google account email is not verified");
+        if (email == null) {
+            throw ApiException.unauthorized("Google account email not found");
         }
 
         User user = userRepository.findByGoogleId(googleId)
-                .or(() -> userRepository.findByEmailAndDeletedFalse(email.toLowerCase()))
+                .or(() -> userRepository.findByEmailAndDeletedFalse(normalizeEmail(email)))
                 .orElseGet(() -> userRepository.save(User.builder()
                 .name(name != null ? name : email)
-                .email(email.toLowerCase())
+                .email(normalizeEmail(email))
                 .googleId(googleId)
                 .profilePictureUrl(pictureUrl)
-                .emailVerified(true)
                 .build()));
 
         // Link the Google account if this user previously signed up with email/password only.
@@ -319,6 +440,38 @@ public class AuthService {
         }
 
         return issueTokens(user);
+    }
+
+    @Transactional
+    public void setPassword(
+            UUID userId,
+            SetPasswordRequest request
+    ) {
+        User user
+                = userRepository.findById(userId)
+                        .orElseThrow(()
+                                -> ApiException.notFound(
+                                "User not found."
+                        )
+                        );
+
+        if (user.getPasswordHash() != null) {
+            throw ApiException.badRequest(
+                    "Password already exists."
+            );
+        }
+
+        validatePassword(
+                request.getPassword()
+        );
+
+        user.setPasswordHash(
+                passwordEncoder.encode(
+                        request.getPassword()
+                )
+        );
+
+        userRepository.save(user);
     }
 
     private AuthResponse issueTokens(User user) {
@@ -352,8 +505,46 @@ public class AuthService {
         }
     }
 
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase();
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        return phone.trim();
+    }
+
     private String generateOtp() {
-        int otp = 100000 + new java.security.SecureRandom().nextInt(900000);
-        return String.valueOf(otp);
+        return String.valueOf(
+                100000 + secureRandom.nextInt(900000)
+        );
+    }
+
+    private void validatePassword(String password) {
+        if (password.length() < 8) {
+            throw ApiException.badRequest(
+                    "Password must be at least 8 characters."
+            );
+        }
+
+        if (!password.matches(".*[A-Z].*")) {
+            throw ApiException.badRequest(
+                    "Password must contain an uppercase letter."
+            );
+        }
+
+        if (!password.matches(".*[a-z].*")) {
+            throw ApiException.badRequest(
+                    "Password must contain a lowercase letter."
+            );
+        }
+
+        if (!password.matches(".*\\d.*")) {
+            throw ApiException.badRequest(
+                    "Password must contain a number."
+            );
+        }
     }
 }

@@ -1,11 +1,17 @@
 package com.splitwise.app.controller;
 
+import java.util.UUID;
+
 import com.splitwise.app.dto.auth.*;
 import com.splitwise.app.service.AuthService;
 import com.splitwise.app.util.SecurityUtils;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -67,9 +73,7 @@ public class AuthController {
             @Valid
             @RequestBody VerifyEmailRequest request
     ) {
-
         return authService.verifyEmail(request);
-
     }
 
     @PostMapping("/resend-verification-email")
@@ -77,10 +81,31 @@ public class AuthController {
             @Valid
             @RequestBody ResendVerificationRequest request
     ) {
-
         authService.resendVerificationEmail(request);
-
         return ResponseEntity.ok().build();
+    }
 
+    @PostMapping("/change-pending-email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePendingEmail(
+            @Valid
+            @RequestBody ChangePendingEmailRequest request
+    ) {
+        authService.changePendingEmail(request);
+    }
+
+    @PostMapping("/set-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setPassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody SetPasswordRequest request
+    ) {
+        UUID userId = UUID.fromString(
+                userDetails.getUsername()
+        );
+        authService.setPassword(
+                userId,
+                request
+        );
     }
 }
