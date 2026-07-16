@@ -13,3 +13,5 @@ target/
 .idea/
 *.iml
 .vscode/
+# Firebase
+backend/src/main/resources/firebase/firebase-admin.json

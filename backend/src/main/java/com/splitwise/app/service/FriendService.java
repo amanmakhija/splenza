@@ -65,14 +65,14 @@ public class FriendService {
             }
             fr.setStatus(FriendRequest.Status.PENDING);
             fr = friendRequestRepository.save(fr);
-            notificationService.notifyFriendRequest(receiver.getId(), sender.getName());
+            notificationService.notifyFriendRequest(receiver.getId(), sender.getName(), senderId);
             return toRequestResponse(fr);
         }
 
         FriendRequest fr = FriendRequest.builder().sender(sender).receiver(receiver).build();
         fr = friendRequestRepository.save(fr);
 
-        notificationService.notifyFriendRequest(receiver.getId(), sender.getName());
+        notificationService.notifyFriendRequest(receiver.getId(), sender.getName(), senderId);
 
         return toRequestResponse(fr);
     }

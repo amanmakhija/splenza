@@ -11,11 +11,13 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 public class NotificationResponse {
+
     private UUID id;
     private String type;
     private String title;
     private String body;
     private UUID referenceId;
+    private String targetType;
     private boolean read;
     private Instant createdAt;
 }
