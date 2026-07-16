@@ -428,11 +428,13 @@ public class AuthService {
                 .email(normalizeEmail(email))
                 .googleId(googleId)
                 .profilePictureUrl(pictureUrl)
+                .provider(AuthProvider.GOOGLE)
                 .build()));
 
         // Link the Google account if this user previously signed up with email/password only.
         if (user.getGoogleId() == null) {
             user.setGoogleId(googleId);
+            user.setProvider(AuthProvider.BOTH);
             if (user.getProfilePictureUrl() == null) {
                 user.setProfilePictureUrl(pictureUrl);
             }
