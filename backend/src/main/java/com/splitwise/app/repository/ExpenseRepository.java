@@ -24,7 +24,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID>, JpaSpec
             + "and (e.paidBy.id = :userId or p.user.id = :userId) "
             + "and (e.paidBy.id = :otherUserId or p.user.id = :otherUserId) "
             + "order by e.expenseDate desc")
-    List<Expense> findDirectExpensesBetween(@Param("userId") UUID userId, @Param("otherUserId") UUID otherUserId);
+    Page<Expense> findDirectExpensesBetween(@Param("userId") UUID userId, @Param("otherUserId") UUID otherUserId, Pageable pageable);
 
     @Query("select distinct e from Expense e join e.participants p "
             + "where e.deleted = false and (e.paidBy.id = :userId or p.user.id = :userId) "

@@ -219,6 +219,11 @@ public class ExpenseService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<ExpenseResponse> listDirectWithFriendPaged(UUID userId, UUID friendId, Pageable pageable) {
+        return PageResponse.of(expenseRepository.findDirectExpensesBetween(userId, friendId, pageable), this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<ExpenseResponse> listForUserPaged(UUID userId, Pageable pageable) {
         return PageResponse.of(expenseRepository.findAllForUser(userId, pageable), this::toResponse);
     }

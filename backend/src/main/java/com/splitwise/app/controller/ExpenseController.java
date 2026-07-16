@@ -67,6 +67,13 @@ public class ExpenseController {
         return ResponseEntity.ok(expenseService.listForUserPaged(SecurityUtils.getCurrentUserId(), pageable));
     }
 
+    @GetMapping("/friend/{friendId}")
+    public ResponseEntity<PageResponse<ExpenseResponse>> listWithFriend(
+            @PathVariable UUID friendId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(expenseService.listDirectWithFriendPaged(SecurityUtils.getCurrentUserId(), friendId, pageable));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<PageResponse<ExpenseResponse>> search(
             ExpenseSearchRequest filters,
