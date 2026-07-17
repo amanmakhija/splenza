@@ -12,6 +12,8 @@ import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.repository.GroupRepository;
 import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupService {
@@ -65,6 +68,12 @@ public class GroupService {
             }
         }
 
+        log.info(
+                "Group {} created by user {}.",
+                group.getId(),
+                creatorId
+        );
+
         return getById(group.getId());
     }
 
@@ -78,6 +87,12 @@ public class GroupService {
         group.setImageUrl(request.getImageUrl());
         groupRepository.save(group);
 
+        log.info(
+                "Group {} updated by user {}.",
+                groupId,
+                actingUserId
+        );
+
         return getById(groupId);
     }
 
@@ -87,6 +102,11 @@ public class GroupService {
         assertIsAdmin(actingUserId, groupId);
         group.setDeleted(true);
         groupRepository.save(group);
+        log.info(
+                "Group {} deleted by user {}.",
+                groupId,
+                actingUserId
+        );
     }
 
     @Transactional
@@ -95,6 +115,12 @@ public class GroupService {
         assertIsAdmin(actingUserId, groupId);
         group.setArchived(archived);
         groupRepository.save(group);
+        log.info(
+                "Group {} {} by user {}.",
+                groupId,
+                archived ? "archived" : "unarchived",
+                actingUserId
+        );
     }
 
     @Transactional
@@ -111,6 +137,12 @@ public class GroupService {
         }
 
         addMemberInternal(group, newMemberId);
+        log.info(
+                "User {} added user {} to group {}.",
+                actingUserId,
+                newMemberId,
+                groupId
+        );
         activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.MEMBER_JOINED, newMemberId, null);
         notificationService.notifyGroupAdded(newMemberId, group.getName(), groupId);
 
@@ -130,6 +162,13 @@ public class GroupService {
         member.setLeftAt(Instant.now());
         groupMemberRepository.save(member);
 
+        log.info(
+                "User {} removed user {} from group {}.",
+                actingUserId,
+                memberIdToRemove,
+                groupId
+        );
+
         activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.MEMBER_LEFT, memberIdToRemove, null);
     }
 
@@ -142,6 +181,12 @@ public class GroupService {
 
         member.setLeftAt(Instant.now());
         groupMemberRepository.save(member);
+
+        log.info(
+                "User {} left group {}.",
+                actingUserId,
+                groupId
+        );
 
         activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.MEMBER_LEFT, actingUserId, null);
     }

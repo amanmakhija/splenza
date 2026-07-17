@@ -11,6 +11,8 @@ import com.splitwise.app.repository.FriendRepository;
 import com.splitwise.app.repository.FriendRequestRepository;
 import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FriendService {
@@ -72,6 +75,12 @@ public class FriendService {
         FriendRequest fr = FriendRequest.builder().sender(sender).receiver(receiver).build();
         fr = friendRequestRepository.save(fr);
 
+        log.info(
+                "User {} sent a friend request to user {}.",
+                senderId,
+                receiver.getId()
+        );
+
         notificationService.notifyFriendRequest(receiver.getId(), sender.getName(), senderId);
 
         return toRequestResponse(fr);
@@ -106,6 +115,12 @@ public class FriendService {
                 .build();
         friendRepository.save(friend);
 
+        log.info(
+                "User {} accepted friend request from user {}.",
+                actingUserId,
+                fr.getSender().getId()
+        );
+
         User friendUser = fr.getSender().getId().equals(actingUserId) ? fr.getReceiver() : fr.getSender();
         return toFriendResponse(friendUser);
     }
@@ -119,6 +134,11 @@ public class FriendService {
         }
         fr.setStatus(FriendRequest.Status.REJECTED);
         friendRequestRepository.save(fr);
+        log.info(
+                "User {} rejected friend request from user {}.",
+                actingUserId,
+                fr.getSender().getId()
+        );
     }
 
     @Transactional
@@ -129,6 +149,11 @@ public class FriendService {
                 .findFirst()
                 .orElseThrow(() -> ApiException.notFound("You're not friends with this user"));
         friendRepository.delete(match);
+        log.info(
+                "User {} removed user {} from friends.",
+                actingUserId,
+                friendId
+        );
     }
 
     @Transactional(readOnly = true)

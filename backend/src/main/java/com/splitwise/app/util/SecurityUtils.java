@@ -7,11 +7,18 @@ import java.util.UUID;
 
 public final class SecurityUtils {
 
-    private SecurityUtils() {}
+    private SecurityUtils() {
+    }
 
-    /** Extracts the current authenticated user's ID from the SecurityContext (set by JwtAuthenticationFilter). */
+    /**
+     * Extracts the current authenticated user's ID from the SecurityContext
+     * (set by JwtAuthenticationFilter).
+     */
     public static UUID getCurrentUserId() {
-        UserDetails principal = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return UUID.fromString(principal.getUsername());
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails userDetails)) {
+            throw new IllegalStateException("No authenticated user found in SecurityContext.");
+        }
+        return UUID.fromString(userDetails.getUsername());
     }
 }

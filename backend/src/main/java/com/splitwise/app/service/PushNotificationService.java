@@ -1,7 +1,9 @@
 package com.splitwise.app.service;
 
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
 import com.splitwise.app.entity.DeviceToken;
 import com.splitwise.app.repository.DeviceTokenRepository;
@@ -13,9 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PushNotificationService {
 
     private final DeviceTokenRepository deviceTokenRepository;
@@ -50,9 +52,17 @@ public class PushNotificationService {
                                 )
                                 .build();
                 FirebaseMessaging.getInstance().send(message);
-            } catch (Exception ex) {
-                device.setActive(false);
-                deviceTokenRepository.save(device);
+            } catch (FirebaseMessagingException ex) {
+                if (ex.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
+                    device.setActive(false);
+                    deviceTokenRepository.save(device);
+                }
+
+                log.error(
+                        "Failed to send push notification to user {}.",
+                        userId,
+                        ex
+                );
             }
         }
     }

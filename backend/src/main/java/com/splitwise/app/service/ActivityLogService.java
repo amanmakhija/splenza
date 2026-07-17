@@ -5,12 +5,15 @@ import com.splitwise.app.repository.ActivityLogRepository;
 import com.splitwise.app.repository.GroupRepository;
 import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActivityLogService {
@@ -29,5 +32,12 @@ public class ActivityLogService {
                 .metadata(metadata)
                 .build();
         activityLogRepository.save(entry);
+        log.debug(
+                "Activity log created: action={}, actor={}, group={}, reference={}",
+                actionType,
+                actorId,
+                groupId,
+                referenceId
+        );
     }
 }

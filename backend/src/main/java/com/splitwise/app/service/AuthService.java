@@ -17,6 +17,7 @@ import com.splitwise.app.repository.UserRepository;
 import com.splitwise.app.security.JwtService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -36,6 +37,7 @@ import java.util.UUID;
 
 import com.splitwise.app.enums.AuthProvider;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -141,6 +143,11 @@ public class AuthService {
                 otp
         );
 
+        log.info(
+                "Signup initiated for email={}. Verification email sent.",
+                maskEmail(email)
+        );
+
         return SignupResponse.builder()
                 .email(email)
                 .message("Verification code sent.")
@@ -196,6 +203,11 @@ public class AuthService {
                 pending.getName(),
                 otp
         );
+
+        log.info(
+                "Pending signup email changed for {}.",
+                maskEmail(newEmail)
+        );
     }
 
     @Transactional
@@ -249,6 +261,11 @@ public class AuthService {
         userRepository.save(user);
         pendingSignupRepository.delete(pendingSignup);
 
+        log.info(
+                "User {} successfully verified email and completed registration.",
+                user.getId()
+        );
+
         return issueTokens(user);
     }
 
@@ -276,6 +293,10 @@ public class AuthService {
                 pending.getEmail(),
                 pending.getName(),
                 otp
+        );
+        log.info(
+                "Verification email resent for {}.",
+                maskEmail(email)
         );
     }
 
@@ -314,6 +335,10 @@ public class AuthService {
                     "Invalid email or password."
             );
         }
+        log.info(
+                "User {} logged in successfully.",
+                user.getId()
+        );
         return issueTokens(user);
     }
 
@@ -332,12 +357,22 @@ public class AuthService {
         refreshTokenRepository.save(stored);
 
         User user = stored.getUser();
+
+        log.info(
+                "Refresh token rotated for user {}.",
+                user.getId()
+        );
+
         return issueTokens(user);
     }
 
     @Transactional
     public void logout(UUID userId) {
         refreshTokenRepository.deleteByUserId(userId);
+        log.info(
+                "User {} logged out successfully.",
+                userId
+        );
     }
 
     @Transactional
@@ -358,6 +393,11 @@ public class AuthService {
                     user.getEmail(),
                     user.getName(),
                     resetLink
+            );
+
+            log.info(
+                    "Password reset requested for user {}.",
+                    user.getId()
             );
         });
     }
@@ -382,6 +422,11 @@ public class AuthService {
 
         // Invalidate all existing sessions
         refreshTokenRepository.deleteByUserId(user.getId());
+
+        log.info(
+                "Password reset completed for user {}.",
+                user.getId()
+        );
     }
 
     @Transactional
@@ -397,6 +442,11 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+
+        log.info(
+                "Password changed successfully for user {}.",
+                user.getId()
+        );
     }
 
     @Transactional
@@ -405,6 +455,10 @@ public class AuthService {
         try {
             idToken = googleVerifier().verify(request.getIdToken());
         } catch (GeneralSecurityException | java.io.IOException | IllegalArgumentException e) {
+            log.debug(
+                    "Google token verification failed.",
+                    e
+            );
             throw ApiException.unauthorized("Could not verify Google token");
         }
         if (idToken == null) {
@@ -423,13 +477,21 @@ public class AuthService {
 
         User user = userRepository.findByGoogleId(googleId)
                 .or(() -> userRepository.findByEmailAndDeletedFalse(normalizeEmail(email)))
-                .orElseGet(() -> userRepository.save(User.builder()
-                .name(name != null ? name : email)
-                .email(normalizeEmail(email))
-                .googleId(googleId)
-                .profilePictureUrl(pictureUrl)
-                .provider(AuthProvider.GOOGLE)
-                .build()));
+                .orElseGet(() -> {
+                    User newUser = userRepository.save(
+                            User.builder()
+                                    .name(name != null ? name : email)
+                                    .email(normalizeEmail(email))
+                                    .googleId(googleId)
+                                    .profilePictureUrl(pictureUrl)
+                                    .provider(AuthProvider.GOOGLE)
+                                    .build()
+                    );
+
+                    log.info("New user {} registered using Google Sign-In.", newUser.getId());
+
+                    return newUser;
+                });
 
         // Link the Google account if this user previously signed up with email/password only.
         if (user.getGoogleId() == null) {
@@ -439,7 +501,16 @@ public class AuthService {
                 user.setProfilePictureUrl(pictureUrl);
             }
             userRepository.save(user);
+            log.info(
+                    "Google account linked for user {}.",
+                    user.getId()
+            );
         }
+
+        log.info(
+                "User {} logged in using Google Sign-In.",
+                user.getId()
+        );
 
         return issueTokens(user);
     }
@@ -474,6 +545,11 @@ public class AuthService {
         );
 
         userRepository.save(user);
+
+        log.info(
+                "Password set for user {}.",
+                user.getId()
+        );
     }
 
     private AuthResponse issueTokens(User user) {
@@ -486,6 +562,11 @@ public class AuthService {
                 .expiresAt(Instant.now().plusMillis(jwtService.getRefreshExpirationMs()))
                 .build();
         refreshTokenRepository.save(refreshToken);
+
+        log.debug(
+                "Issued access and refresh tokens for user {}.",
+                user.getId()
+        );
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -548,5 +629,13 @@ public class AuthService {
                     "Password must contain a number."
             );
         }
+    }
+
+    private String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 1) {
+            return "***";
+        }
+        return email.charAt(0) + "***" + email.substring(at);
     }
 }

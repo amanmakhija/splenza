@@ -1,6 +1,8 @@
 package com.splitwise.app.ratelimit;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +15,7 @@ import java.util.Map;
  * tier or a new limited category (e.g. "ai" for upcoming AI features) is a
  * config-only change - no Java changes, no redeploy of logic.
  */
+@Slf4j
 @Component
 @ConfigurationProperties(prefix = "rate-limit")
 @Data
@@ -31,11 +34,21 @@ public class RateLimitProperties {
      */
     private static final int DEFAULT_LIMIT_PER_MINUTE = 30;
 
+    @PostConstruct
+    void logConfiguration() {
+        log.info("Loaded rate limit configuration: {}", tiers);
+    }
+
     public int limitFor(String tierName, RateLimitCategory category) {
         Map<String, Integer> categoryLimits = tiers.get(tierName.toLowerCase());
+
         if (categoryLimits == null) {
             return DEFAULT_LIMIT_PER_MINUTE;
         }
-        return categoryLimits.getOrDefault(category.name().toLowerCase(), DEFAULT_LIMIT_PER_MINUTE);
+
+        return categoryLimits.getOrDefault(
+                category.name().toLowerCase(),
+                DEFAULT_LIMIT_PER_MINUTE
+        );
     }
 }

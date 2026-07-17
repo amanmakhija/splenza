@@ -13,6 +13,8 @@ import com.splitwise.app.repository.GroupRepository;
 import com.splitwise.app.repository.SettlementRepository;
 import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SettlementService {
@@ -64,6 +67,16 @@ public class SettlementService {
                 .build();
 
         settlement = settlementRepository.save(settlement);
+
+        log.info(
+                "Settlement {} created by user {}. Paid {} to {}. Amount={}, group={}",
+                settlement.getId(),
+                actingUserId,
+                paidBy.getId(),
+                paidTo.getId(),
+                settlement.getAmount(),
+                group != null ? group.getId() : "DIRECT"
+        );
 
         activityLogService.log(group != null ? group.getId() : null, actingUserId,
                 ActivityLog.ActionType.SETTLEMENT_MADE, settlement.getId(),

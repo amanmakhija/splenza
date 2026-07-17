@@ -4,6 +4,7 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * managers) - the public API of this class (tryConsume) wouldn't need to
  * change, only the internals.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RateLimiterService {
@@ -34,14 +36,42 @@ public class RateLimiterService {
      * their limit.
      */
     public boolean tryConsume(UUID userId, String tierName, RateLimitCategory category) {
+
         String key = userId + ":" + tierName.toLowerCase() + ":" + category.name();
-        Bucket bucket = buckets.computeIfAbsent(key, k -> newBucket(tierName, category));
-        return bucket.tryConsume(1);
+
+        Bucket bucket = buckets.computeIfAbsent(key, k -> {
+            log.debug("Creating rate limit bucket for user {}, tier {}, category {}.",
+                    userId,
+                    tierName,
+                    category);
+            return newBucket(tierName, category);
+        });
+
+        boolean allowed = bucket.tryConsume(1);
+
+        if (!allowed) {
+            log.warn(
+                    "Rate limit exceeded for user {}, tier {}, category {}.",
+                    userId,
+                    tierName,
+                    category
+            );
+        }
+
+        return allowed;
     }
 
     private Bucket newBucket(String tierName, RateLimitCategory category) {
+
         int limitPerMinute = properties.limitFor(tierName, category);
-        Bandwidth limit = Bandwidth.classic(limitPerMinute, Refill.greedy(limitPerMinute, Duration.ofMinutes(1)));
-        return Bucket.builder().addLimit(limit).build();
+
+        Bandwidth limit = Bandwidth.classic(
+                limitPerMinute,
+                Refill.greedy(limitPerMinute, Duration.ofMinutes(1))
+        );
+
+        return Bucket.builder()
+                .addLimit(limit)
+                .build();
     }
 }

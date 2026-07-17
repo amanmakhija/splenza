@@ -7,7 +7,11 @@ import com.splitwise.app.dto.importcsv.*;
 import com.splitwise.app.entity.*;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.repository.*;
+
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +34,7 @@ import java.util.*;
  * handling) and sends the structured rows + a member-name-to-user-id mapping
  * here in one JSON request.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImportService {
@@ -49,6 +54,14 @@ public class ImportService {
     public ImportResultResponse execute(UUID actingUserId, ExecuteImportRequest request) {
         validateMapping(actingUserId, request.getMemberMapping());
         UUID groupId = resolveGroup(actingUserId, request);
+
+        log.info(
+                "User {} started importing {} rows into group {}.",
+                actingUserId,
+                request.getRows().size(),
+                groupId
+        );
+
         Map<String, UUID> mapping = request.getMemberMapping();
 
         List<ImportRowError> errors = new ArrayList<>();
@@ -60,7 +73,13 @@ public class ImportService {
             try {
                 processRow(actingUserId, groupId, row, mapping);
                 imported++;
-            } catch (Exception ex) {
+            } catch (ApiException | IllegalArgumentException ex) {
+                log.debug(
+                        "Failed to import row {} ({}): {}",
+                        i,
+                        row.getDescription(),
+                        ex.getMessage()
+                );
                 errors.add(ImportRowError.builder()
                         .rowIndex(i)
                         .description(row.getDescription())
@@ -83,6 +102,15 @@ public class ImportService {
                 .errorReport(new ArrayList<>(errors))
                 .build();
         history = importHistoryRepository.save(history);
+
+        log.info(
+                "Import {} completed by user {}. Status={}, imported={}, failed={}.",
+                history.getId(),
+                actingUserId,
+                status,
+                imported,
+                failed
+        );
 
         activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.IMPORT_COMPLETED, history.getId(),
                 Map.of("totalRows", rows.size(), "importedRows", imported, "failedRows", failed));

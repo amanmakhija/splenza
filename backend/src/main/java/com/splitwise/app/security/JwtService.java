@@ -1,13 +1,16 @@
 package com.splitwise.app.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -15,6 +18,9 @@ import java.util.Date;
 import java.util.UUID;
 import java.util.function.Function;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class JwtService {
 
@@ -36,6 +42,12 @@ public class JwtService {
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessExpirationMs = accessExpirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
+
+        log.info(
+                "JWT service initialized. Access token expiry={} ms, refresh token expiry={} ms.",
+                accessExpirationMs,
+                refreshExpirationMs
+        );
     }
 
     public String generateAccessToken(UUID userId, String email, String subscriptionTier) {
@@ -81,7 +93,8 @@ public class JwtService {
     public boolean isTokenValid(String token) {
         try {
             return !isTokenExpired(token);
-        } catch (Exception e) {
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.debug("JWT validation failed: {}", ex.getMessage());
             return false;
         }
     }

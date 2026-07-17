@@ -19,6 +19,8 @@ import com.splitwise.app.repository.ExpenseRepository;
 import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.repository.SettlementRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,7 @@ import java.util.UUID;
  * theirShare), everyone else's is (-theirShare); settlements get their own
  * signed pair. This keeps the two formats symmetric.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExportService {
@@ -78,6 +81,13 @@ public class ExportService {
             }
             sb.append("\n");
         }
+
+        log.info(
+                "User {} exported CSV report for group {}.",
+                actingUserId,
+                groupId
+        );
+
         return sb.toString();
     }
 
@@ -128,8 +138,20 @@ public class ExportService {
 
             document.add(table);
             document.close();
+
+            log.info(
+                    "User {} exported PDF report for group {}.",
+                    actingUserId,
+                    groupId
+            );
+
             return out.toByteArray();
         } catch (DocumentException e) {
+            log.error(
+                    "Failed to generate PDF report for group {}.",
+                    groupId,
+                    e
+            );
             throw new IllegalStateException("Failed to generate PDF report", e);
         }
     }

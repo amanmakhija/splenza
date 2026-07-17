@@ -1,16 +1,16 @@
 package com.splitwise.app.service;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
-
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailService {
@@ -26,29 +26,101 @@ public class EmailService {
             String resetLink
     ) {
 
-        SimpleMailMessage message = new SimpleMailMessage();
+        String subject = "Reset your Splenza password";
 
-        message.setFrom(from);
-        message.setTo(to);
-        message.setSubject("Reset your Splenza password");
+        String html = """
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#333;">
 
-        message.setText("""
-                Hi %s,
+        <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="padding:40px 20px;">
+        <tr>
+        <td align="center">
 
-                We received a request to reset your password.
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0"
+        style="background:#ffffff;border-radius:12px;padding:40px;">
 
-                Reset your password here:
+        <tr>
+        <td>
 
-                %s
+        <h2 style="margin:0 0 24px;color:#222;">
+        Reset your password
+        </h2>
 
-                This link expires in 1 hour.
+        <p style="margin:0 0 16px;">
+        Hi %s,
+        </p>
 
-                If you didn't request this, you can safely ignore this email.
+        <p style="margin:0 0 24px;">
+        We received a request to reset your password.
+        </p>
 
-                — Splenza Team
-                """.formatted(name, resetLink));
+        <div style="text-align:center;margin:32px 0;">
 
-        mailSender.send(message);
+        <a href="%s"
+        style="
+        display:inline-block;
+        background:#4B4FE0;
+        color:#ffffff;
+        text-decoration:none;
+        padding:14px 32px;
+        border-radius:8px;
+        font-size:16px;
+        font-weight:bold;
+        ">
+        Reset Password
+        </a>
+
+        </div>
+
+        <p style="margin:24px 0 8px;">
+        Or copy and paste this link into your browser:
+        </p>
+
+        <p style="word-break:break-all;">
+        <a href="%s" style="color:#4B4FE0;">
+        %s
+        </a>
+        </p>
+
+        <p style="margin:24px 0;">
+        This link expires in <strong>1 hour</strong>.
+        </p>
+
+        <p style="margin:24px 0;">
+        If you didn't request this, you can safely ignore this email.
+        </p>
+
+        <hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0;">
+
+        <p style="color:#666;font-size:14px;margin:0;">
+        — Splenza Team
+        </p>
+
+        </td>
+        </tr>
+
+        </table>
+
+        </td>
+        </tr>
+        </table>
+
+        </body>
+        </html>
+        """
+                .formatted(name, resetLink, resetLink, resetLink);
+
+        sendHtmlEmail(
+                to,
+                subject,
+                html
+        );
+
+        log.info(
+                "Password reset email sent to {}.",
+                maskEmail(to)
+        );
     }
 
     public void sendVerificationEmail(
@@ -98,6 +170,11 @@ public class EmailService {
                 subject,
                 html
         );
+
+        log.info(
+                "Verification email sent to {}.",
+                maskEmail(email)
+        );
     }
 
     private void sendHtmlEmail(
@@ -130,6 +207,13 @@ public class EmailService {
 
         } catch (MessagingException e) {
 
+            log.error(
+                    "Failed to send email to {}. Subject={}",
+                    maskEmail(to),
+                    subject,
+                    e
+            );
+
             throw new RuntimeException(
                     "Failed to send email",
                     e
@@ -137,5 +221,18 @@ public class EmailService {
 
         }
 
+    }
+
+    private String maskEmail(String email) {
+
+        int at = email.indexOf('@');
+
+        if (at <= 1) {
+            return "***";
+        }
+
+        return email.charAt(0)
+                + "***"
+                + email.substring(at);
     }
 }

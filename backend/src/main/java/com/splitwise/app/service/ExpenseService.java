@@ -6,6 +6,8 @@ import com.splitwise.app.entity.*;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -17,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExpenseService {
@@ -89,6 +92,14 @@ public class ExpenseService {
 
         expense = expenseRepository.save(expense);
 
+        log.info(
+                "Expense {} created by user {}. Amount={}, group={}",
+                expense.getId(),
+                actingUserId,
+                expense.getAmount(),
+                group != null ? group.getId() : "DIRECT"
+        );
+
         if (recordActivity) {
             activityLogService.log(group != null ? group.getId() : null, actingUserId,
                     ActivityLog.ActionType.EXPENSE_CREATED, expense.getId(),
@@ -136,6 +147,12 @@ public class ExpenseService {
 
         existing = expenseRepository.save(existing);
 
+        log.info(
+                "Expense {} updated by user {}.",
+                existing.getId(),
+                actingUserId
+        );
+
         activityLogService.log(existing.getGroup() != null ? existing.getGroup().getId() : null, actingUserId,
                 ActivityLog.ActionType.EXPENSE_EDITED, existing.getId(),
                 Map.of("title", existing.getTitle(), "amount", existing.getAmount()));
@@ -154,6 +171,12 @@ public class ExpenseService {
 
         expense.setDeleted(true); // soft delete
         expenseRepository.save(expense);
+
+        log.info(
+                "Expense {} deleted by user {}.",
+                expense.getId(),
+                actingUserId
+        );
 
         activityLogService.log(expense.getGroup() != null ? expense.getGroup().getId() : null, actingUserId,
                 ActivityLog.ActionType.EXPENSE_DELETED, expense.getId(),
@@ -190,6 +213,14 @@ public class ExpenseService {
         }
 
         copy = expenseRepository.save(copy);
+
+        log.info(
+                "Expense {} duplicated as {} by user {}.",
+                original.getId(),
+                copy.getId(),
+                actingUserId
+        );
+
         return toResponse(copy);
     }
 

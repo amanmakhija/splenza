@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.splitwise.app.enums.TargetType;
+import com.splitwise.app.exception.ApiException;
 
 @Service
 @RequiredArgsConstructor
@@ -98,10 +99,14 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markRead(UUID notificationId) {
+    public void markRead(UUID userId, UUID notificationId) {
         notificationRepository.findById(notificationId).ifPresent(n -> {
-            n.setRead(true);
-            notificationRepository.save(n);
+            if (n.getUser().getId().equals(userId)) {
+                n.setRead(true);
+                notificationRepository.save(n);
+            } else {
+                throw ApiException.forbidden("You can only mark yours notifications as read");
+            }
         });
     }
 
