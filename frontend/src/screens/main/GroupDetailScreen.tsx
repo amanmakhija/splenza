@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePaginatedMergedTimeline } from "@/hooks/usePaginatedMergedTimeline";
+import { ActivityIndicator } from "react-native";
 import {
   Plus,
   UserPlus,
@@ -31,6 +33,7 @@ import {
   Friend,
   Group,
   GroupBalanceResponse,
+  PageResponse,
   Settlement,
 } from "@/types/api";
 import { downloadAndShare } from "@/lib/exportFile";
@@ -48,15 +51,36 @@ async function fetchGroup(groupId: string): Promise<Group> {
   const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`);
   return data;
 }
-async function fetchGroupExpenses(groupId: string): Promise<Expense[]> {
-  const { data } = await apiClient.get<Expense[]>(
+const PAGE_SIZE = 20;
+
+async function fetchGroupExpensesPage(
+  groupId: string,
+  page: number,
+): Promise<PageResponse<Expense>> {
+  const { data } = await apiClient.get<PageResponse<Expense>>(
     `/api/v1/expenses/group/${groupId}`,
+    {
+      params: {
+        page,
+        size: PAGE_SIZE,
+      },
+    },
   );
   return data;
 }
-async function fetchGroupSettlements(groupId: string): Promise<Settlement[]> {
-  const { data } = await apiClient.get<Settlement[]>(
+
+async function fetchGroupSettlementsPage(
+  groupId: string,
+  page: number,
+): Promise<PageResponse<Settlement>> {
+  const { data } = await apiClient.get<PageResponse<Settlement>>(
     `/api/v1/settlements/group/${groupId}`,
+    {
+      params: {
+        page,
+        size: PAGE_SIZE,
+      },
+    },
   );
   return data;
 }
@@ -73,10 +97,11 @@ async function fetchFriends(): Promise<Friend[]> {
   return data;
 }
 async function fetchActivity(groupId: string): Promise<ActivityLogEntry[]> {
-  const { data } = await apiClient.get<ActivityLogEntry[]>(
+  const { data } = await apiClient.get<PageResponse<ActivityLogEntry>>(
     `/api/v1/activity/group/${groupId}`,
+    { params: { size: 50 } },
   );
-  return data;
+  return data.content;
 }
 
 function describeActivity(item: ActivityLogEntry): string {
@@ -136,13 +161,33 @@ export function GroupDetailScreen() {
     queryKey: ["group", groupId],
     queryFn: () => fetchGroup(groupId),
   });
-  const expensesQuery = useQuery({
-    queryKey: ["group-expenses", groupId],
-    queryFn: () => fetchGroupExpenses(groupId),
-  });
-  const settlementsQuery = useQuery({
-    queryKey: ["group-settlements", groupId],
-    queryFn: () => fetchGroupSettlements(groupId),
+  const timeline = usePaginatedMergedTimeline<
+    Expense,
+    Settlement,
+    TimelineItem
+  >({
+    queryKeyPrefix: `group-timeline-${groupId}`,
+
+    fetchA: (page) => fetchGroupExpensesPage(groupId, page),
+
+    fetchB: (page) => fetchGroupSettlementsPage(groupId, page),
+
+    toItem: (expense, settlement) =>
+      expense
+        ? {
+            type: "expense",
+            date: expense.expenseDate,
+            data: expense,
+          }
+        : {
+            type: "settlement",
+            date: settlement!.settledAt,
+            data: settlement!,
+          },
+
+    getDate: (item) => item.date,
+
+    enabled: tab === "expenses",
   });
   const balancesQuery = useQuery({
     queryKey: ["group-balances", groupId],
@@ -159,23 +204,18 @@ export function GroupDetailScreen() {
     enabled: tab === "activity",
   });
 
-  const mergedTimeline: TimelineItem[] = useMemo(() => {
+  const mergedTimeline = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const expenseItems: TimelineItem[] = (expensesQuery.data ?? [])
-      .filter((e) => e.title.toLowerCase().includes(q))
-      .map((e) => ({ type: "expense", date: e.expenseDate, data: e }));
-    const settlementItems: TimelineItem[] = (settlementsQuery.data ?? [])
-      .filter(
-        (s) =>
-          !q ||
-          s.paidByName.toLowerCase().includes(q) ||
-          s.paidToName.toLowerCase().includes(q),
-      )
-      .map((s) => ({ type: "settlement", date: s.settledAt, data: s }));
-    return [...expenseItems, ...settlementItems].sort((a, b) =>
-      a.date < b.date ? 1 : -1,
+
+    if (!q) return timeline.items;
+
+    return timeline.items.filter((item) =>
+      item.type === "expense"
+        ? item.data.title.toLowerCase().includes(q)
+        : item.data.paidByName.toLowerCase().includes(q) ||
+          item.data.paidToName.toLowerCase().includes(q),
     );
-  }, [expensesQuery.data, settlementsQuery.data, searchQuery]);
+  }, [timeline.items, searchQuery]);
 
   const inviteMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -214,11 +254,46 @@ export function GroupDetailScreen() {
     setExporting(null);
   };
 
+  const activityLabel = (type: string) => {
+    switch (type) {
+      case "SETTLEMENT_MADE":
+        return "💸 Settlement";
+
+      case "EXPENSE_CREATED":
+        return "🧾 Expense";
+
+      case "GROUP_CREATED":
+        return "🎉 Group";
+
+      case "IMPORT_COMPLETED":
+        return "📥 Import";
+
+      case "MEMBER_JOINED":
+        return "👤 Member";
+
+      default:
+        return "Activity";
+    }
+  };
+
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
   const memberIds = new Set(groupQuery.data?.members.map((m) => m.userId));
   const invitableFriends = (friendsQuery.data ?? []).filter(
     (f) => !memberIds.has(f.userId),
   );
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  const formatDateShort = (date: string) =>
+    new Date(date).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+    });
 
   return (
     <SafeAreaView
@@ -231,7 +306,11 @@ export function GroupDetailScreen() {
           keyExtractor={(m) => m.userId}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            gap: 10,
+            paddingHorizontal: 20,
+          }}
           renderItem={({ item }) => (
             <View style={styles.memberChip}>
               <View
@@ -395,50 +474,123 @@ export function GroupDetailScreen() {
         <FlatList
           data={mergedTimeline}
           keyExtractor={(item) => `${item.type}-${item.data.id}`}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 90 }]}
           refreshControl={
             <RefreshControl
-              refreshing={
-                expensesQuery.isRefetching || settlementsQuery.isRefetching
-              }
-              onRefresh={() => {
-                expensesQuery.refetch();
-                settlementsQuery.refetch();
-              }}
+              refreshing={timeline.isRefetching}
+              onRefresh={timeline.refresh}
               tintColor={theme.primary}
             />
+          }
+          onEndReached={() => {
+            if (timeline.hasMore && !timeline.isFetchingMore) {
+              timeline.loadMore();
+            }
+          }}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            timeline.isFetchingMore ? (
+              <ActivityIndicator
+                style={{ marginVertical: 24 }}
+                color={theme.primary}
+              />
+            ) : null
           }
           renderItem={({ item }) => {
             if (item.type === "settlement") {
               const s = item.data;
+
               return (
                 <View
                   style={[
-                    styles.expenseRow,
+                    styles.paymentCard,
                     {
                       backgroundColor: theme.surface,
                       borderColor: theme.border,
                     },
                   ]}
                 >
-                  <View style={styles.expenseBody}>
-                    <Text
+                  <View style={styles.paymentHeader}>
+                    <View
                       style={[
-                        styles.expenseTitle,
-                        { color: theme.textPrimary },
+                        styles.paymentBadge,
+                        {
+                          backgroundColor: `${theme.primary}12`,
+                        },
                       ]}
                     >
-                      {s.paidByName} paid {s.paidToName}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.paymentBadgeText,
+                          {
+                            color: theme.primary,
+                          },
+                        ]}
+                      >
+                        💸 Settlement
+                      </Text>
+                    </View>
+
                     <Text
-                      style={[styles.expenseSub, { color: theme.textMuted }]}
+                      style={[
+                        styles.paymentDate,
+                        {
+                          color: theme.textMuted,
+                        },
+                      ]}
                     >
-                      Payment · {s.settledAt.split("T")[0]}
+                      {formatDate(s.settledAt)}
                     </Text>
                   </View>
-                  <Text style={[styles.expenseShare, { color: theme.owed }]}>
-                    ₹{s.amount.toFixed(2)}
-                  </Text>
+
+                  <View style={styles.paymentBody}>
+                    <View style={styles.expenseBody}>
+                      <Text
+                        style={[
+                          styles.expenseTitle,
+                          {
+                            color: theme.textPrimary,
+                          },
+                        ]}
+                      >
+                        {s.paidByName} paid {s.paidToName}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.expenseSub,
+                          {
+                            color: theme.textMuted,
+                          },
+                        ]}
+                      >
+                        Settlement
+                      </Text>
+                    </View>
+
+                    <View style={styles.amountColumn}>
+                      <Text
+                        style={[
+                          styles.expenseShare,
+                          {
+                            color: theme.success,
+                          },
+                        ]}
+                      >
+                        ₹{s.amount.toFixed(2)}
+                      </Text>
+
+                      <Text
+                        style={{
+                          color: theme.textMuted,
+                          fontSize: 11,
+                          marginTop: 4,
+                        }}
+                      >
+                        Amount
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               );
             }
@@ -467,25 +619,47 @@ export function GroupDetailScreen() {
                   >
                     {expense.title}
                   </Text>
+
                   <Text style={[styles.expenseSub, { color: theme.textMuted }]}>
-                    {expense.paidByName} paid ₹{expense.amount.toFixed(2)} ·{" "}
-                    {expense.expenseDate}
+                    {expense.paidByName} paid ₹{expense.amount.toFixed(2)}
                   </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.expenseShare,
-                    { color: iPaid ? theme.success : theme.danger },
-                  ]}
-                >
-                  {iPaid ? "you lent" : "your share"}{" "}
-                  {formatAmount(iPaid ? expense.amount - myShare : myShare)}
-                </Text>
+                <View style={styles.amountColumn}>
+                  <Text
+                    style={{
+                      color: theme.textMuted,
+                      fontSize: 11,
+                    }}
+                  >
+                    {iPaid ? "You lent" : "Your share"}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.expenseShare,
+                      {
+                        color: iPaid ? theme.success : theme.danger,
+                      },
+                    ]}
+                  >
+                    {formatAmount(iPaid ? expense.amount - myShare : myShare)}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: theme.textMuted,
+                      fontSize: 11,
+                      marginTop: 4,
+                    }}
+                  >
+                    {formatDateShort(expense.expenseDate)}
+                  </Text>
+                </View>
               </Pressable>
             );
           }}
           ListEmptyComponent={
-            !expensesQuery.isLoading ? (
+            !timeline.isLoading ? (
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>
                 No expenses yet. Tap + to add one.
               </Text>
@@ -493,7 +667,7 @@ export function GroupDetailScreen() {
           }
         />
       ) : tab === "balances" ? (
-        <View style={styles.listContent}>
+        <View style={[styles.listContent, { paddingBottom: 20 }]}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
             Suggested settlements
           </Text>
@@ -510,11 +684,28 @@ export function GroupDetailScreen() {
                   { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
               >
-                <Text style={[styles.debtText, { color: theme.textPrimary }]}>
-                  {debt.fromUserName}{" "}
-                  <ArrowRight size={13} color={theme.textMuted} />{" "}
-                  {debt.toUserName}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.debtText,
+                      {
+                        color: theme.textPrimary,
+                      },
+                    ]}
+                  >
+                    {debt.fromUserName}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: theme.textMuted,
+                      marginTop: 2,
+                      fontSize: 12,
+                    }}
+                  >
+                    pays {debt.toUserName}
+                  </Text>
+                </View>
                 <View style={styles.debtRight}>
                   <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
                     {formatAmount(debt.amount)}
@@ -592,7 +783,7 @@ export function GroupDetailScreen() {
         <FlatList
           data={activityQuery.data ?? []}
           keyExtractor={(a) => a.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
           refreshControl={
             <RefreshControl
               refreshing={activityQuery.isRefetching}
@@ -603,15 +794,44 @@ export function GroupDetailScreen() {
           renderItem={({ item }) => (
             <View
               style={[
-                styles.debtRow,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                styles.activityCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
               ]}
             >
-              <Text style={[styles.debtText, { color: theme.textPrimary }]}>
+              <Text
+                style={[
+                  styles.activityType,
+                  {
+                    color: theme.primary,
+                  },
+                ]}
+              >
+                {activityLabel(item.actionType)}
+              </Text>
+
+              <Text
+                style={[
+                  styles.activityTitle,
+                  {
+                    color: theme.textPrimary,
+                  },
+                ]}
+              >
                 {describeActivity(item)}
               </Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-                {item.createdAt.split("T")[0]}
+
+              <Text
+                style={[
+                  styles.activityDate,
+                  {
+                    color: theme.textMuted,
+                  },
+                ]}
+              >
+                {formatDate(item.createdAt)}
               </Text>
             </View>
           )}
@@ -625,12 +845,14 @@ export function GroupDetailScreen() {
         />
       )}
 
-      <Pressable
-        onPress={() => navigation.navigate("CreateExpense", { groupId })}
-        style={[styles.fab, { backgroundColor: theme.primary }]}
-      >
-        <Plus color="#fff" size={26} />
-      </Pressable>
+      {tab === "expenses" && (
+        <Pressable
+          onPress={() => navigation.navigate("CreateExpense", { groupId })}
+          style={[styles.fab, { backgroundColor: theme.primary }]}
+        >
+          <Plus color="#fff" size={26} />
+        </Pressable>
+      )}
 
       <Modal
         visible={inviteModalOpen}
@@ -714,7 +936,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 10,
+    marginBottom: 20,
     gap: 8,
   },
   toolbarButton: {
@@ -736,29 +958,33 @@ const styles = StyleSheet.create({
     height: 34,
   },
   expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
-  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  listContent: { flexGrow: 1, paddingHorizontal: 20 },
   expenseRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
-    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 18,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 14,
   },
-  expenseBody: { flex: 1 },
-  expenseTitle: { fontSize: 15, fontWeight: "700" },
-  expenseSub: { fontSize: 12, marginTop: 2 },
-  expenseShare: { fontSize: 12, fontWeight: "700" },
+  expenseBody: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  expenseTitle: { fontSize: 17, fontWeight: "700" },
+  expenseSub: { fontSize: 13, marginTop: 6 },
+  expenseShare: { fontSize: 20, fontWeight: "800" },
   emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
-  sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 20 },
   debtRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 20,
   },
   debtText: { fontSize: 14, fontWeight: "600" },
   debtRight: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -770,7 +996,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderRadius: 14,
+    borderRadius: 18,
     paddingVertical: 14,
     marginTop: 24,
   },
@@ -815,4 +1041,72 @@ const styles = StyleSheet.create({
   },
   rowBodyFlex: { flex: 1 },
   inviteButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  paymentLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  paymentFooter: {
+    marginTop: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  paymentBadge: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  paymentBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  paymentCard: {
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  paymentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  paymentDate: {
+    fontSize: 12,
+  },
+  activityCard: {
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  activityType: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  activityDate: {
+    marginTop: 10,
+    fontSize: 12,
+  },
+  paymentBody: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  amountColumn: {
+    minWidth: 110,
+    alignItems: "flex-end",
+  },
 });

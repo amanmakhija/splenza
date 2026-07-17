@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   greetingText: { fontSize: 13, fontWeight: "500" },
   overallLabel: { fontSize: 14, marginBottom: 2 },
   overallAmount: { fontSize: 32, fontWeight: "700" },
-  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 100 },
   friendRow: {
     flexDirection: "row",
     alignItems: "center",

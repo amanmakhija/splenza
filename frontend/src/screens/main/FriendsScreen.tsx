@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   tabButton: { paddingBottom: 12 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 32 },
+  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 32 },
   row: {
     flexDirection: "row",
     alignItems: "center",

@@ -11,16 +11,54 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { AuthNavigator } from "./AuthNavigator";
 import { MainStackNavigator } from "./MainStackNavigator";
 import { Logo } from "@/components/Logo";
+import { storage, StorageKeys } from "@/lib/storage";
+import {
+  asString,
+  getLaunchNotification,
+  subscribeForegroundMessages,
+  subscribeNotificationOpened,
+  subscribeTokenRefresh,
+} from "@/services/notificationService";
+import {
+  handleNotificationNavigation,
+  navigationRef,
+} from "@/services/notificationNavigation";
 
 const Stack = createNativeStackNavigator();
 
 export function RootNavigator() {
   const { theme, mode } = useAppTheme();
   const { isAuthenticated, isHydrating, hydrate } = useAuthStore();
+  const pendingEmail = storage.getString(StorageKeys.PENDING_EMAIL);
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    const unsubscribeForeground = subscribeForegroundMessages();
+    const unsubscribeRefresh = subscribeTokenRefresh();
+    const unsubscribeOpened = subscribeNotificationOpened();
+
+    async function checkInitialNotification() {
+      const notification = await getLaunchNotification();
+
+      if (notification?.data) {
+        handleNotificationNavigation({
+          targetType: asString(notification.data.targetType),
+          referenceId: asString(notification.data.referenceId),
+        });
+      }
+    }
+
+    checkInitialNotification();
+
+    return () => {
+      unsubscribeForeground();
+      unsubscribeRefresh();
+      unsubscribeOpened();
+    };
+  }, []);
 
   const navTheme =
     mode === "dark"
@@ -63,7 +101,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={MainStackNavigator} />

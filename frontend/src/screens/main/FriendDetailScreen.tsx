@@ -14,7 +14,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, HandCoins } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
-import { Expense, FriendBalanceResponse, Settlement } from "@/types/api";
+import {
+  Expense,
+  FriendBalanceResponse,
+  PageResponse,
+  Settlement,
+} from "@/types/api";
 import { useAuthStore } from "@/store/authStore";
 import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 import { CompositeNavigationProp } from "@react-navigation/native";
@@ -34,14 +39,18 @@ async function fetchFriendBalance(
   return data;
 }
 async function fetchMyExpenses(): Promise<Expense[]> {
-  const { data } = await apiClient.get<Expense[]>("/api/v1/expenses/me");
-  return data;
+  const { data } = await apiClient.get<PageResponse<Expense>>(
+    "/api/v1/expenses/me",
+    { params: { size: 200 } },
+  );
+  return data.content;
 }
 async function fetchSettlementHistory(friendId: string): Promise<Settlement[]> {
-  const { data } = await apiClient.get<Settlement[]>(
+  const { data } = await apiClient.get<PageResponse<Settlement>>(
     `/api/v1/settlements/friend/${friendId}`,
+    { params: { size: 100 } },
   );
-  return data;
+  return data.content;
 }
 
 type TimelineItem =
@@ -246,7 +255,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   actionText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 32 },
+  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 32 },
   row: {
     flexDirection: "row",
     alignItems: "center",

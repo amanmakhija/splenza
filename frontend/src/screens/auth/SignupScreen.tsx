@@ -54,6 +54,12 @@ export function SignupScreen() {
           ? values.phoneNumber.trim()
           : undefined,
       }),
+
+    onSuccess: (response) => {
+      navigation.replace("VerifyEmail", {
+        email: response.email,
+      });
+    },
   });
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);

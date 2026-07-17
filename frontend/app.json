@@ -15,14 +15,30 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.splenza.app"
+      "bundleIdentifier": "com.splenza.app",
+      "associatedDomains": ["applinks:splenza.in"]
     },
     "android": {
       "package": "com.splenza.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4B4FE0"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "splenza.in",
+              "pathPrefix": "/reset-password"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -37,11 +53,19 @@
           "resizeMode": "contain",
           "backgroundColor": "#FAFAF8"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "@react-native-google-signin/google-signin",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "extra": {
       "apiBaseUrl": "https://api.splenza.in",
-      "googleWebClientId": "REPLACE_WITH_YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com"
+      "googleWebClientId": "1088973040167-ojdrtgemdj70okbb6956jf3d052gseje.apps.googleusercontent.com",
+      "androidClientId": "1088973040167-9amsap7pbha21mecp6m4kpjlmcrimgik.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "8ef9b94d-d61c-4317-ad8d-a2e7ebbc8293"
+      }
     }
   }
 }

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { ActivityIndicator } from "react-native";
 import {
   View,
   Text,
@@ -8,17 +9,32 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Bell, Users, Receipt, HandCoins, UserPlus } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
-import { NotificationDto } from "@/types/api";
+import { NotificationDto, PageResponse } from "@/types/api";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
-async function fetchNotifications(): Promise<NotificationDto[]> {
-  const { data } = await apiClient.get<NotificationDto[]>(
+const PAGE_SIZE = 20;
+
+async function fetchNotificationsPage(
+  page: number,
+): Promise<PageResponse<NotificationDto>> {
+  const { data } = await apiClient.get<PageResponse<NotificationDto>>(
     "/api/v1/notifications",
+    {
+      params: {
+        page,
+        size: PAGE_SIZE,
+      },
+    },
   );
+
   return data;
 }
 
@@ -49,16 +65,46 @@ export function NotificationsScreen() {
   const { theme } = useAppTheme();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["notifications"],
-    queryFn: fetchNotifications,
+    queryFn: ({ pageParam }) => fetchNotificationsPage(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.last ? undefined : lastPage.page + 1,
   });
+
+  const notifications = useMemo(
+    () => data?.pages.flatMap((page) => page.content) ?? [],
+    [data],
+  );
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) =>
       apiClient.post(`/api/v1/notifications/${id}/read`),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(["notifications"], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            content: page.content.map((notification: NotificationDto) =>
+              notification.id === id
+                ? { ...notification, read: true }
+                : notification,
+            ),
+          })),
+        };
+      });
+    },
   });
 
   const iconBackground = (item: NotificationDto) => {
@@ -92,7 +138,7 @@ export function NotificationsScreen() {
         </Text>
       </View>
       <FlatList
-        data={data ?? []}
+        data={notifications}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -102,6 +148,20 @@ export function NotificationsScreen() {
             tintColor={theme.primary}
           />
         }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <ActivityIndicator
+              style={{ marginVertical: 20 }}
+              color={theme.primary}
+            />
+          ) : null
+        }
         renderItem={({ item, index }) => (
           <Animated.View entering={FadeInDown.delay(Math.min(index * 40, 300))}>
             <Pressable
@@ -110,14 +170,7 @@ export function NotificationsScreen() {
                 styles.row,
                 {
                   backgroundColor: theme.surface,
-
-                  opacity: item.read ? 0.72 : 1,
-
-                  transform: [
-                    {
-                      scale: item.read ? 1 : 1.01,
-                    },
-                  ],
+                  opacity: item.read ? 0.75 : 1,
                   borderColor: theme.border,
                 },
               ]}
@@ -209,7 +262,7 @@ export function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  listContent: { paddingHorizontal: 24, paddingBottom: 120 },
+  listContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 90 },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -229,9 +282,11 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1 },
   title: {
+    flex: 1,
     fontSize: 17,
     fontWeight: "700",
     lineHeight: 22,
+    marginRight: 10,
   },
   dot: {
     width: 12,
@@ -275,8 +330,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    width: 280,
+    alignItems: "flex-start",
   },
   time: {
     fontSize: 12,

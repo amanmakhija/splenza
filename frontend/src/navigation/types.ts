@@ -1,8 +1,26 @@
+import { AuthResponse } from "@/types/api";
 import { NavigatorScreenParams } from "@react-navigation/native";
 
 export type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
+  ForgotPassword: undefined;
+  EmailSent: {
+    email: string;
+  };
+  VerifyEmail: {
+    email: string;
+  };
+  VerificationSuccess: {
+    authResponse: AuthResponse;
+  };
+  ResetPassword: {
+    token: string;
+  };
+  PasswordResetSuccess: undefined;
+  ChangeEmail: {
+    email: string;
+  };
 };
 
 export type DashboardStackParamList = {

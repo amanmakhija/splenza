@@ -2,6 +2,16 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import Constants from "expo-constants";
 import { storage, StorageKeys } from "./storage";
 
+function clearSession() {
+  storage.delete(StorageKeys.ACCESS_TOKEN);
+  storage.delete(StorageKeys.REFRESH_TOKEN);
+  storage.delete(StorageKeys.USER);
+  // Deferred require avoids a circular-import crash at module init time
+  // (authStore.ts imports apiClient.ts) - safe since this only runs inside a callback.
+  const { useAuthStore } = require("@/store/authStore");
+  useAuthStore.setState({ user: null, isAuthenticated: false });
+}
+
 const baseURL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ??
   "http://localhost:8080";
@@ -72,10 +82,7 @@ apiClient.interceptors.response.use(
       const refreshToken = storage.getString(StorageKeys.REFRESH_TOKEN);
       if (!refreshToken) {
         isRefreshing = false;
-        // No refresh token - hard logout. authStore listens for this event.
-        storage.delete(StorageKeys.ACCESS_TOKEN);
-        storage.delete(StorageKeys.REFRESH_TOKEN);
-        storage.delete(StorageKeys.USER);
+        clearSession();
         return Promise.reject(error);
       }
 
@@ -95,9 +102,7 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         flushQueue(refreshError, null);
         isRefreshing = false;
-        storage.delete(StorageKeys.ACCESS_TOKEN);
-        storage.delete(StorageKeys.REFRESH_TOKEN);
-        storage.delete(StorageKeys.USER);
+        clearSession();
         return Promise.reject(refreshError);
       }
     }
@@ -128,4 +133,11 @@ export function getApiErrorMessage(
     if (body?.message) return body.message;
   }
   return fallback;
+}
+
+export function getApiErrorCode(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.code;
+  }
+  return undefined;
 }

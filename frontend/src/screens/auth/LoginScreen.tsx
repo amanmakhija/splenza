@@ -15,13 +15,14 @@ import { useMutation } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
-import { getApiErrorMessage } from "@/lib/apiClient";
+import { getApiErrorMessage, getApiErrorCode } from "@/lib/apiClient";
 import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthStackParamList } from "@/navigation/types";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { storage, StorageKeys } from "@/lib/storage";
 
 type FormValues = { email: string; password: string };
 type Nav = NativeStackNavigationProp<AuthStackParamList, "Login">;
@@ -39,6 +40,24 @@ export function LoginScreen() {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => login(values),
+
+    onError: (error, variables) => {
+      const code = getApiErrorCode(error);
+
+      if (code === "EMAIL_NOT_VERIFIED") {
+        storage.set(StorageKeys.PENDING_EMAIL, variables.email);
+        navigation.replace("VerifyEmail", {
+          email: variables.email,
+        });
+        return;
+      }
+
+      if (code === "VERIFICATION_EXPIRED") {
+        storage.delete(StorageKeys.PENDING_EMAIL);
+        navigation.replace("Signup");
+        return;
+      }
+    },
   });
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);
@@ -112,6 +131,24 @@ export function LoginScreen() {
               {getApiErrorMessage(mutation.error)}
             </Text>
           ) : null}
+
+          <Pressable
+            onPress={() => navigation.navigate("ForgotPassword")}
+            style={{
+              alignSelf: "flex-end",
+              marginTop: -6,
+              marginBottom: 18,
+            }}
+          >
+            <Text
+              style={{
+                color: theme.primary,
+                fontWeight: "600",
+              }}
+            >
+              Forgot Password?
+            </Text>
+          </Pressable>
 
           <Button
             title="Log In"

@@ -90,6 +90,15 @@ export interface ActivityLogEntry {
   createdAt: string;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -222,4 +231,9 @@ export interface GroupBalanceSummary {
   groupId: string;
   groupName: string;
   netAmount: number;
+}
+
+export interface SignupResponse {
+  email: string;
+  message: string;
 }

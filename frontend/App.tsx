@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -9,6 +9,18 @@ import { CircularRevealProvider } from "@/components/CircularRevealProvider";
 import { StatusBar } from "expo-status-bar";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import * as SplashScreen from "expo-splash-screen";
+import "@/lib/google";
+import { getApp } from "@react-native-firebase/app";
+import {
+  getMessaging,
+  setBackgroundMessageHandler,
+} from "@react-native-firebase/messaging";
+
+const messaging = getMessaging(getApp());
+
+setBackgroundMessageHandler(messaging, async (remoteMessage) => {
+  console.log("Background notification:", remoteMessage.messageId);
+});
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

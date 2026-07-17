@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: { fontSize: 24, fontWeight: "800" },
-  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 90 },
   card: {
     flexDirection: "row",
     alignItems: "center",

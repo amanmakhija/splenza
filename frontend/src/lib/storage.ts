@@ -20,7 +20,8 @@ export const StorageKeys = {
   ACCESS_TOKEN: "auth.accessToken",
   REFRESH_TOKEN: "auth.refreshToken",
   USER: "auth.user",
-  THEME_MODE: "settings.themeMode" // "light" | "dark" | "system"
+  THEME_MODE: "settings.themeMode", // "light" | "dark" | "system"
+  PENDING_EMAIL: "pending_email",
 } as const;
 
 const ALL_KEYS = Object.values(StorageKeys);
@@ -48,13 +49,13 @@ export const storage = {
   clearAll: () => {
     cache.clear();
     AsyncStorage.multiRemove(ALL_KEYS).catch(() => {});
-  }
+  },
 };
 
 export const storageHelpers = {
   getString: (key: string): string | undefined => storage.getString(key),
   setString: (key: string, value: string) => storage.set(key, value),
-  getObject: <T,>(key: string): T | undefined => {
+  getObject: <T>(key: string): T | undefined => {
     const raw = storage.getString(key);
     if (!raw) return undefined;
     try {
@@ -63,7 +64,8 @@ export const storageHelpers = {
       return undefined;
     }
   },
-  setObject: (key: string, value: unknown) => storage.set(key, JSON.stringify(value)),
+  setObject: (key: string, value: unknown) =>
+    storage.set(key, JSON.stringify(value)),
   delete: (key: string) => storage.delete(key),
-  clearAll: () => storage.clearAll()
+  clearAll: () => storage.clearAll(),
 };
