@@ -29,7 +29,6 @@ services:
       dockerfile: Dockerfile
 
     container_name: splenza-backend
-
     restart: unless-stopped
 
     depends_on:
@@ -40,6 +39,8 @@ services:
       - .env
 
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -48,9 +49,13 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS}
       JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS}
 
-      SPRING_PROFILES_ACTIVE: docker
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
 
-      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      FIREBASE_ENABLED: "true"
+      FIREBASE_CREDENTIALS: /run/secrets/firebase-admin.json
+
+    volumes:
+      - ./secrets/firebase-admin.json:/run/secrets/firebase-admin.json:ro
 
     ports:
       - "8080:8080"
