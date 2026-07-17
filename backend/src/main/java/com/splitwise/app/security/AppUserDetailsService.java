@@ -53,7 +53,12 @@ public class AppUserDetailsService {
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getId().toString())
-                .password(user.getPasswordHash())
+                .password(
+                        java.util.Objects.requireNonNullElse(
+                                user.getPasswordHash(),
+                                ""
+                        )
+                )
                 .authorities(Collections.singletonList(() -> "ROLE_USER"))
                 .build();
     }
