@@ -8,8 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface PendingSignupRepository
-        extends JpaRepository<PendingSignup, UUID> {
+public interface PendingSignupRepository extends JpaRepository<PendingSignup, UUID> {
 
     Optional<PendingSignup> findByEmail(String email);
 

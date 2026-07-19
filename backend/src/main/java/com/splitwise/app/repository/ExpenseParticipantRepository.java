@@ -7,5 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ExpenseParticipantRepository extends JpaRepository<ExpenseParticipant, UUID> {
+
     List<ExpenseParticipant> findByExpenseId(UUID expenseId);
 }
