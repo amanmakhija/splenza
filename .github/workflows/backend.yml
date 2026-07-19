@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "backend/**"
+      - "backend/src/main/**"
       - "docker-compose.prod.yml"
       - ".github/workflows/backend.yml"
       - ".dockerignore"
