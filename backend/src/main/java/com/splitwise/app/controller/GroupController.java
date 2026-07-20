@@ -172,11 +172,13 @@ public class GroupController {
     @GetMapping("/{groupId}")
     public ResponseEntity<GroupResponse> getById(
             @PathVariable UUID groupId) {
+                
+        UUID userId = SecurityUtils.getCurrentUserId();
 
         log.debug("Fetching group {}.", groupId);
 
         return ResponseEntity.ok(
-                groupService.getById(groupId)
+                groupService.getById(userId, groupId)
         );
     }
 

@@ -1,14 +1,47 @@
 spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: validate
+    open-in-view: false
 
   flyway:
     enabled: true
 
+  mail:
+    host: localhost
+    port: 2525
+    username: test
+    password: test
+
+jwt:
+  secret: test-secret-test-secret-test-secret-test-secret
+  expiration-ms: 3600000
+  refresh-expiration-ms: 86400000
+
+google:
+  oauth:
+    client-id: test-client-id
+
+aws:
+  s3:
+    bucket: test
+    region: us-east-1
+
+firebase:
+  enabled: false
+
+app:
+  frontend-url: http://localhost:3000
+  mail:
+    from: test@example.com
+
 logging:
   level:
     root: WARN
-    org.springframework: WARN
-    org.hibernate: WARN
-    org.springframework.test: WARN
+    org.hibernate.SQL: DEBUG
+    org.springframework.orm.jpa: DEBUG
+    org.springframework.transaction: DEBUG
+    com.splitwise.app: DEBUG

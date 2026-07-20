@@ -425,9 +425,10 @@ class GroupControllerTest {
     // -------------------------------------------------------------------------
     @Test
     @DisplayName("Get group by id successfully")
+    @WithMockUser(username = "11111111-1111-1111-1111-111111111111")
     void getById_shouldReturnGroup() throws Exception {
 
-        when(groupService.getById(groupId))
+        when(groupService.getById(any(UUID.class), eq(groupId)))
                 .thenReturn(response());
 
         mockMvc.perform(get("/api/v1/groups/{groupId}", groupId))
@@ -436,18 +437,31 @@ class GroupControllerTest {
                 .andExpect(jsonPath("$.name").value("Goa Trip"))
                 .andExpect(jsonPath("$.description").value("Vacation expenses"));
 
-        verify(groupService).getById(groupId);
+        verify(groupService).getById(any(UUID.class), eq(groupId));
     }
 
     @Test
     @DisplayName("Get group by id should return business exception")
+    @WithMockUser(username = "11111111-1111-1111-1111-111111111111")
     void getById_shouldReturnBadRequest_whenServiceThrowsException() throws Exception {
 
-        when(groupService.getById(groupId))
+        when(groupService.getById(any(UUID.class), eq(groupId)))
                 .thenThrow(ApiException.notFound("Group not found"));
 
         mockMvc.perform(get("/api/v1/groups/{groupId}", groupId))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Get group by id should return forbidden when not a member")
+    @WithMockUser(username = "11111111-1111-1111-1111-111111111111")
+    void getById_shouldReturnForbidden_whenNotAMember() throws Exception {    
+        
+        when(groupService.getById(any(UUID.class), eq(groupId)))
+                .thenThrow(ApiException.forbidden("You are not a member of this group"));    
+                
+        mockMvc.perform(get("/api/v1/groups/{groupId}", groupId))
+                .andExpect(status().isForbidden());
     }
 
     // -------------------------------------------------------------------------

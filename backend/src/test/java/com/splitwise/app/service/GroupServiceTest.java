@@ -99,6 +99,9 @@ class GroupServiceTest {
         when(groupRepository.findById(group.getId()))
                 .thenReturn(Optional.of(group));
 
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), creatorId))
+                .thenReturn(true);
+
         GroupResponse response
                 = groupService.create(creatorId, request);
 
@@ -156,6 +159,9 @@ class GroupServiceTest {
                                 .build()
                 ));
 
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), creatorId))
+                .thenReturn(true);
+
         GroupResponse response
                 = groupService.create(creatorId, request);
 
@@ -183,6 +189,9 @@ class GroupServiceTest {
 
         when(groupMemberRepository.findByGroupIdAndLeftAtIsNull(group.getId()))
                 .thenReturn(List.of(adminMember()));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), creatorId))
+                .thenReturn(true);
 
         groupService.create(creatorId, request);
 
@@ -234,6 +243,9 @@ class GroupServiceTest {
 
         when(groupMemberRepository.findByGroupIdAndLeftAtIsNull(group.getId()))
                 .thenReturn(List.of(adminMember()));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), creatorId))
+                .thenReturn(true);
 
         GroupResponse response
                 = groupService.update(
@@ -390,6 +402,9 @@ class GroupServiceTest {
 
         when(groupMemberRepository.findByGroupIdAndLeftAtIsNull(group.getId()))
                 .thenReturn(List.of(adminMember()));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), creatorId))
+                .thenReturn(true);
 
         groupService.create(creatorId, request);
 
@@ -754,7 +769,10 @@ class GroupServiceTest {
         when(groupMemberRepository.findByGroupIdAndLeftAtIsNull(group.getId()))
                 .thenReturn(List.of(adminMember()));
 
-        GroupResponse response = groupService.getById(group.getId());
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), creatorId))
+                .thenReturn(true);
+
+        GroupResponse response = groupService.getById(creatorId, group.getId());
 
         assertEquals(group.getId(), response.getId());
         assertEquals(group.getName(), response.getName());
@@ -770,7 +788,7 @@ class GroupServiceTest {
 
         assertThrows(
                 ApiException.class,
-                () -> groupService.getById(group.getId()));
+                () -> groupService.getById(creatorId, group.getId()));
     }
 
     @Test
@@ -783,7 +801,23 @@ class GroupServiceTest {
 
         assertThrows(
                 ApiException.class,
-                () -> groupService.getById(group.getId()));
+                () -> groupService.getById(creatorId, group.getId()));
+    }
+
+    @Test
+    void getById_shouldThrowForbidden_whenNotAMember() {
+
+        UUID outsiderId = UUID.randomUUID();
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), outsiderId))
+                .thenReturn(false);
+
+        assertThrows(
+                ApiException.class,
+                () -> groupService.getById(outsiderId, group.getId()));
     }
 
     @Test

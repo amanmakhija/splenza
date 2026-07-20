@@ -74,7 +74,7 @@ public class GroupService {
                 creatorId
         );
 
-        return getById(group.getId());
+        return getById(creatorId, group.getId());
     }
 
     @Transactional
@@ -93,7 +93,7 @@ public class GroupService {
                 actingUserId
         );
 
-        return getById(groupId);
+        return getById(actingUserId, groupId);
     }
 
     @Transactional
@@ -146,7 +146,7 @@ public class GroupService {
         activityLogService.log(groupId, actingUserId, ActivityLog.ActionType.MEMBER_JOINED, newMemberId, null);
         notificationService.notifyGroupAdded(newMemberId, group.getName(), groupId);
 
-        return getById(groupId);
+        return getById(actingUserId, groupId);
     }
 
     @Transactional
@@ -192,8 +192,11 @@ public class GroupService {
     }
 
     @Transactional(readOnly = true)
-    public GroupResponse getById(UUID groupId) {
+    public GroupResponse getById(UUID requestingUserId, UUID groupId) {
         Group group = getActiveGroupOrThrow(groupId);
+        if (!groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, requestingUserId)) {
+            throw ApiException.forbidden("You are not a member of this group");
+        }
         List<GroupMember> members = groupMemberRepository.findByGroupIdAndLeftAtIsNull(groupId);
         return toResponse(group, members);
     }
