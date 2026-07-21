@@ -12,6 +12,7 @@ import com.splitwise.app.dto.auth.SetPasswordRequest;
 import com.splitwise.app.dto.auth.SignupRequest;
 import com.splitwise.app.dto.expense.CreateExpenseRequest;
 import com.splitwise.app.dto.expense.ExpenseParticipantInput;
+import com.splitwise.app.dto.friend.SendFriendRequestRequest;
 import com.splitwise.app.dto.group.CreateGroupRequest;
 import com.splitwise.app.dto.group.UpdateGroupRequest;
 import com.splitwise.app.dto.settlement.CreateSettlementRequest;
@@ -213,6 +214,14 @@ public final class TestDataFactory {
         request.setAmount(amount);
         request.setCurrency("INR");
         request.setNote("Settling up");
+
+        return request;
+    }
+
+    public static SendFriendRequestRequest sendFriendRequestByEmail(String email) {
+        
+        SendFriendRequestRequest request = new SendFriendRequestRequest();
+        request.setEmail(email);
 
         return request;
     }

@@ -5,6 +5,7 @@ import com.splitwise.app.integration.config.IntegrationTestConfig;
 import com.splitwise.app.repository.CategoryRepository;
 import com.splitwise.app.repository.ExpenseRepository;
 import com.splitwise.app.repository.FriendRepository;
+import com.splitwise.app.repository.FriendRequestRepository;
 import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.repository.GroupRepository;
 import com.splitwise.app.repository.PasswordResetTokenRepository;
@@ -110,6 +111,9 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected CategoryRepository categoryRepository;
 
+    @Autowired
+    protected FriendRequestRepository friendRequestRepository;
+
     @BeforeEach
     void setup() {
 
@@ -117,6 +121,7 @@ public abstract class BaseIntegrationTest {
         groupMemberRepository.deleteAll();
         groupRepository.deleteAll();
         categoryRepository.deleteAll();
+        friendRequestRepository.deleteAll();
         friendRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
@@ -170,15 +175,14 @@ public abstract class BaseIntegrationTest {
         return null;
     }
 
-    /**
-     * Bypasses the signup/OTP flow to directly create an already-verified
-     * user, for tests (login, refresh, logout, password flows) that don't
-     * care about the signup process itself.
-     */
     protected User createVerifiedUser(String email, String rawPassword) {
+        return createVerifiedUser(email, rawPassword, "Aman");
+    }
+
+    protected User createVerifiedUser(String email, String rawPassword, String name) {
 
         User user = User.builder()
-                .name("Aman")
+                .name(name)
                 .email(email)
                 .passwordHash(passwordEncoder.encode(rawPassword))
                 .provider(AuthProvider.LOCAL)
