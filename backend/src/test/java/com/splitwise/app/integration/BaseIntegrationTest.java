@@ -2,6 +2,8 @@ package com.splitwise.app.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.splitwise.app.integration.config.IntegrationTestConfig;
+import com.splitwise.app.repository.CategoryRepository;
+import com.splitwise.app.repository.ExpenseRepository;
 import com.splitwise.app.repository.FriendRepository;
 import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.repository.GroupRepository;
@@ -33,6 +35,7 @@ import java.util.regex.Pattern;
 import com.splitwise.app.entity.User;
 import com.splitwise.app.entity.Friend;
 import com.splitwise.app.enums.AuthProvider;
+import com.splitwise.app.entity.Category;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -101,11 +104,19 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected FriendRepository friendRepository;
 
+    @Autowired
+    protected ExpenseRepository expenseRepository;
+
+    @Autowired
+    protected CategoryRepository categoryRepository;
+
     @BeforeEach
     void setup() {
 
+        expenseRepository.deleteAll();
         groupMemberRepository.deleteAll();
         groupRepository.deleteAll();
+        categoryRepository.deleteAll();
         friendRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
@@ -202,6 +213,14 @@ public abstract class BaseIntegrationTest {
         friendRepository.save(Friend.builder()
                 .user1(user1)
                 .user2(user2)
+                .build());
+    }
+
+    protected Category createCategory(String name) {
+        return categoryRepository.save(Category.builder()
+                .name(name)
+                .icon("🍕")
+                .system(false)
                 .build());
     }
 }
