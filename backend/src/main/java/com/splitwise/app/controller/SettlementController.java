@@ -49,12 +49,15 @@ public class SettlementController {
     public ResponseEntity<PageResponse<SettlementResponse>> historyForGroup(
             @PathVariable UUID groupId,
             @PageableDefault(size = 20) Pageable pageable) {
-
-        log.debug("Fetching settlement history for group {}.",
-                groupId);
-
+    
+        UUID userId = SecurityUtils.getCurrentUserId();
+        
+        log.debug("Fetching settlement history for group {} requested by user {}.",
+                groupId,
+                userId);
+        
         return ResponseEntity.ok(
-                settlementService.historyForGroupPaged(groupId, pageable)
+                settlementService.historyForGroupPaged(userId, groupId, pageable)
         );
     }
 

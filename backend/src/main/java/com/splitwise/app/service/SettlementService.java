@@ -87,13 +87,15 @@ public class SettlementService {
     }
 
     @Transactional(readOnly = true)
-    public List<SettlementResponse> historyForGroup(UUID groupId) {
+    public List<SettlementResponse> historyForGroup(UUID requestingUserId, UUID groupId) {
+        assertGroupMember(groupId, requestingUserId);
         return settlementRepository.findByGroupIdOrderBySettledAtDesc(groupId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<SettlementResponse> historyForGroupPaged(UUID groupId, Pageable pageable) {
+    public PageResponse<SettlementResponse> historyForGroupPaged(UUID requestingUserId, UUID groupId, Pageable pageable) {
+        assertGroupMember(groupId, requestingUserId);
         return PageResponse.of(settlementRepository.findByGroupIdOrderBySettledAtDesc(groupId, pageable), this::toResponse);
     }
 
@@ -121,5 +123,11 @@ public class SettlementService {
                 .note(s.getNote())
                 .settledAt(s.getSettledAt())
                 .build();
+    }
+
+    private void assertGroupMember(UUID groupId, UUID userId) {
+        if (!groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
+            throw ApiException.forbidden("You are not a member of this group");
+        }
     }
 }

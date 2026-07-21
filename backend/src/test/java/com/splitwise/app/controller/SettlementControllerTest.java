@@ -26,6 +26,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -219,7 +220,11 @@ class SettlementControllerTest {
                         true
                 );
 
-        when(settlementService.historyForGroupPaged(eq(groupId), any()))
+        when(settlementService.historyForGroupPaged(
+                any(UUID.class),
+                eq(groupId),
+                any(org.springframework.data.domain.Pageable.class)
+        ))
                 .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/settlements/group/{groupId}", groupId))
@@ -231,7 +236,10 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
 
         verify(settlementService)
-                .historyForGroupPaged(eq(groupId), any());
+        .historyForGroupPaged(
+                any(UUID.class),
+                eq(groupId),
+                any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test
@@ -249,8 +257,11 @@ class SettlementControllerTest {
                         true
                 );
 
-        when(settlementService.historyForGroupPaged(eq(groupId), any()))
-                .thenReturn(response);
+        when(settlementService.historyForGroupPaged(
+        any(UUID.class),
+        eq(groupId),
+        any(org.springframework.data.domain.Pageable.class)))
+        .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/settlements/group/{groupId}", groupId))
                 .andExpect(status().isOk())
@@ -259,7 +270,10 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.totalElements").value(0));
 
         verify(settlementService)
-                .historyForGroupPaged(eq(groupId), any());
+        .historyForGroupPaged(
+                any(UUID.class),
+                eq(groupId),
+                any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test
@@ -267,14 +281,20 @@ class SettlementControllerTest {
     @WithMockUser(username = "11111111-1111-1111-1111-111111111111")
     void historyForGroup_shouldReturnNotFound_whenGroupDoesNotExist() throws Exception {
 
-        when(settlementService.historyForGroupPaged(eq(groupId), any()))
-                .thenThrow(ApiException.notFound("Group not found"));
+        when(settlementService.historyForGroupPaged(
+        any(UUID.class),
+        eq(groupId),
+        any(org.springframework.data.domain.Pageable.class)))
+        .thenThrow(ApiException.notFound("Group not found"));
 
         mockMvc.perform(get("/api/v1/settlements/group/{groupId}", groupId))
                 .andExpect(status().isNotFound());
 
         verify(settlementService)
-                .historyForGroupPaged(eq(groupId), any());
+        .historyForGroupPaged(
+                any(UUID.class),
+                eq(groupId),
+                any(org.springframework.data.domain.Pageable.class));
     }
 
     // -------------------------------------------------------------------------

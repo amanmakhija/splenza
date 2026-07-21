@@ -284,41 +284,62 @@ class SettlementServiceTest {
 
     @Test
     void historyForGroup_shouldReturnHistory() {
-
+    
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                groupId,
+                actingUserId))
+                .thenReturn(true);
+    
         when(settlementRepository.findByGroupIdOrderBySettledAtDesc(groupId))
                 .thenReturn(List.of(settlement()));
-
-        List<SettlementResponse> result
-                = settlementService.historyForGroup(groupId);
-
+    
+        List<SettlementResponse> result =
+                settlementService.historyForGroup(actingUserId, groupId);
+    
         assertEquals(1, result.size());
     }
 
     @Test
     void historyForGroup_shouldReturnEmpty() {
-
+    
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                groupId,
+                actingUserId))
+                .thenReturn(true);
+    
         when(settlementRepository.findByGroupIdOrderBySettledAtDesc(groupId))
                 .thenReturn(List.of());
-
-        assertTrue(settlementService.historyForGroup(groupId).isEmpty());
+    
+        assertTrue(
+                settlementService.historyForGroup(
+                        actingUserId,
+                        groupId
+                ).isEmpty()
+        );
     }
 
     @Test
     void historyForGroupPaged_shouldReturnPage() {
-
-        Page<Settlement> page
-                = new PageImpl<>(List.of(settlement()));
-
+    
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                groupId,
+                actingUserId))
+                .thenReturn(true);
+    
+        Page<Settlement> page =
+                new PageImpl<>(List.of(settlement()));
+    
         when(settlementRepository.findByGroupIdOrderBySettledAtDesc(
                 eq(groupId),
                 any()))
                 .thenReturn(page);
-
-        PageResponse<SettlementResponse> response
-                = settlementService.historyForGroupPaged(
+    
+        PageResponse<SettlementResponse> response =
+                settlementService.historyForGroupPaged(
+                        actingUserId,
                         groupId,
                         PageRequest.of(0, 10));
-
+    
         assertEquals(1, response.getContent().size());
     }
 

@@ -14,6 +14,7 @@ import com.splitwise.app.dto.expense.CreateExpenseRequest;
 import com.splitwise.app.dto.expense.ExpenseParticipantInput;
 import com.splitwise.app.dto.group.CreateGroupRequest;
 import com.splitwise.app.dto.group.UpdateGroupRequest;
+import com.splitwise.app.dto.settlement.CreateSettlementRequest;
 import com.splitwise.app.entity.Expense;
 
 import java.time.LocalDate;
@@ -199,6 +200,19 @@ public final class TestDataFactory {
         request.setPaidBy(paidBy);
         request.setSplitType(splitType);
         request.setParticipants(participants);
+
+        return request;
+    }
+
+    public static CreateSettlementRequest settlementRequest(UUID groupId, UUID paidTo, BigDecimal amount) {
+
+        CreateSettlementRequest request = new CreateSettlementRequest();
+
+        request.setGroupId(groupId);
+        request.setPaidTo(paidTo);
+        request.setAmount(amount);
+        request.setCurrency("INR");
+        request.setNote("Settling up");
 
         return request;
     }
