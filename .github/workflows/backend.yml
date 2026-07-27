@@ -6,12 +6,72 @@ on:
       - main
     paths:
       - "backend/src/main/**"
+      - "backend/src/test/**"
+      - "backend/pom.xml"
       - "docker-compose.prod.yml"
       - ".github/workflows/backend.yml"
       - ".dockerignore"
 
 jobs:
-  deploy:
+  # ------------------------------------------------------------------
+  # Job 1: Build + run all tests (unit + integration/Testcontainers) +
+  # generate JaCoCo coverage report. This job must pass before anything
+  # gets built into a Docker image or deployed.
+  # ------------------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # ubuntu-latest runners come with Docker pre-installed and running,
+      # which is exactly what Testcontainers needs to spin up Postgres for
+      # the integration tests - no extra setup needed here.
+      - name: Run tests with coverage
+        working-directory: ./backend
+        run: mvn -B clean verify
+
+      - name: Publish JaCoCo coverage summary
+        uses: madrapps/jacoco-report@v1.7.1
+        if: always()
+        with:
+          paths: backend/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
+
+      - name: Upload JaCoCo HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco/
+          retention-days: 14
+
+      - name: Upload surefire/failsafe test reports
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-reports
+          path: |
+            backend/target/surefire-reports/
+            backend/target/failsafe-reports/
+          retention-days: 14
+
+  # ------------------------------------------------------------------
+  # Job 2: Build Docker image, push to GHCR, deploy to EC2.
+  # Only runs if the `test` job above succeeded.
+  # ------------------------------------------------------------------
+  build-and-deploy:
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:
@@ -29,13 +89,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Image
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/amanmakhija/splenza-backend:latest
+          tags: |
+            ghcr.io/amanmakhija/splenza-backend:latest
+            ghcr.io/amanmakhija/splenza-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
