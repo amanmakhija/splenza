@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - "backend/src/main/**"
-      - "backend/src/test/**"
+      - "backend/src/**"
+      - "backend/Dockerfile"
       - "backend/pom.xml"
       - "docker-compose.prod.yml"
       - ".github/workflows/backend.yml"
