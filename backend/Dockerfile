@@ -23,7 +23,7 @@ RUN apk add --no-cache curl
 # compromised, a non-root process significantly limits what an attacker can
 # do inside the container (can't install packages, can't modify system
 # files, etc.)
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN addgroup -g 1000 -S spring && adduser -u 1000 -S spring -G spring
 
 COPY --from=build /app/target/*.jar app.jar
 
