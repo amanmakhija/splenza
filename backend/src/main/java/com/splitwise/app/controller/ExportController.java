@@ -2,6 +2,9 @@ package com.splitwise.app.controller;
 
 import com.splitwise.app.service.ExportService;
 import com.splitwise.app.util.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,8 +29,11 @@ public class ExportController {
 
     private final ExportService exportService;
 
+    @Operation(summary = "Export group expenses as CSV", description = "Exports group expenses, splits, and totals as a downloadable CSV file.")
+    @ApiResponse(responseCode = "200", description = "CSV report generated successfully")
     @GetMapping("/csv/group/{groupId}")
-    public ResponseEntity<byte[]> exportGroupCsv(@PathVariable UUID groupId) {
+    public ResponseEntity<byte[]> exportGroupCsv(
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -52,8 +58,11 @@ public class ExportController {
                 .body(bytes);
     }
 
+    @Operation(summary = "Export group expenses as PDF", description = "Exports a formatted PDF report of group expenses and balances.")
+    @ApiResponse(responseCode = "200", description = "PDF report generated successfully")
     @GetMapping("/pdf/group/{groupId}")
-    public ResponseEntity<byte[]> exportGroupPdf(@PathVariable UUID groupId) {
+    public ResponseEntity<byte[]> exportGroupPdf(
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 

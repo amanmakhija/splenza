@@ -2,6 +2,8 @@ package com.splitwise.app.controller;
 
 import com.splitwise.app.dto.category.CategoryResponse;
 import com.splitwise.app.repository.CategoryRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,8 @@ public class CategoryController {
 
     private final CategoryRepository categoryRepository;
 
+    @Operation(summary = "List expense categories", description = "Fetches all system expense categories.")
+    @ApiResponse(responseCode = "200", description = "Categories retrieved successfully")
     @GetMapping
     public List<CategoryResponse> list() {
 

@@ -3,6 +3,7 @@ package com.splitwise.app.config;
 import com.splitwise.app.ratelimit.RateLimitFilter;
 import com.splitwise.app.security.JwtAuthenticationEntryPoint;
 import com.splitwise.app.security.JwtAuthenticationFilter;
+import com.splitwise.app.logging.RequestIdFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +34,7 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final RateLimitFilter rateLimitFilter;
     private final CorsProperties corsProperties;
+    private final RequestIdFilter requestIdFilter;
 
     private static final String[] PUBLIC_ENDPOINTS = {
         "/api/v1/auth/**",
@@ -62,7 +64,8 @@ public class SecurityConfig {
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, RequestIdFilter.class)
                 .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 
         log.info("Spring Security configured successfully.");

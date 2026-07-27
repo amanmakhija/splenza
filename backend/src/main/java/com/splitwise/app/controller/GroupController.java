@@ -5,6 +5,9 @@ import com.splitwise.app.dto.group.GroupResponse;
 import com.splitwise.app.dto.group.UpdateGroupRequest;
 import com.splitwise.app.service.GroupService;
 import com.splitwise.app.util.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,8 @@ public class GroupController {
 
     private final GroupService groupService;
 
+    @Operation(summary = "Create group", description = "Creates a new expense group with initial members.")
+    @ApiResponse(responseCode = "201", description = "Group created successfully")
     @PostMapping
     public ResponseEntity<GroupResponse> create(
             @Valid @RequestBody CreateGroupRequest request) {
@@ -43,9 +48,11 @@ public class GroupController {
                 .body(response);
     }
 
+    @Operation(summary = "Update group", description = "Updates group metadata like name or image.")
+    @ApiResponse(responseCode = "200", description = "Group updated successfully")
     @PutMapping("/{groupId}")
     public ResponseEntity<GroupResponse> update(
-            @PathVariable UUID groupId,
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody UpdateGroupRequest request) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
@@ -64,9 +71,11 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Delete group", description = "Deletes a group by ID.")
+    @ApiResponse(responseCode = "204", description = "Group deleted successfully")
     @DeleteMapping("/{groupId}")
     public ResponseEntity<Void> delete(
-            @PathVariable UUID groupId) {
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -83,10 +92,12 @@ public class GroupController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Archive/Unarchive group", description = "Archives or unarchives a group for current user.")
+    @ApiResponse(responseCode = "204", description = "Group archive status changed")
     @PostMapping("/{groupId}/archive")
     public ResponseEntity<Void> archive(
-            @PathVariable UUID groupId,
-            @RequestParam(defaultValue = "true") boolean archived) {
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
+            @Parameter(description = "Archive state") @RequestParam(defaultValue = "true") boolean archived) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -105,10 +116,12 @@ public class GroupController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Add group member", description = "Invites and adds a user to an existing group.")
+    @ApiResponse(responseCode = "200", description = "Member added to group successfully")
     @PostMapping("/{groupId}/members/{userId}")
     public ResponseEntity<GroupResponse> invite(
-            @PathVariable UUID groupId,
-            @PathVariable UUID userId) {
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
+            @Parameter(description = "User ID to invite", required = true) @PathVariable UUID userId) {
 
         UUID actingUserId = SecurityUtils.getCurrentUserId();
 
@@ -128,10 +141,12 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Remove group member", description = "Removes a specific member from a group.")
+    @ApiResponse(responseCode = "204", description = "Member removed successfully")
     @DeleteMapping("/{groupId}/members/{userId}")
     public ResponseEntity<Void> removeMember(
-            @PathVariable UUID groupId,
-            @PathVariable UUID userId) {
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
+            @Parameter(description = "User ID to remove", required = true) @PathVariable UUID userId) {
 
         UUID actingUserId = SecurityUtils.getCurrentUserId();
 
@@ -150,9 +165,11 @@ public class GroupController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Leave group", description = "Allows current user to leave a group.")
+    @ApiResponse(responseCode = "204", description = "Left group successfully")
     @PostMapping("/{groupId}/leave")
     public ResponseEntity<Void> leave(
-            @PathVariable UUID groupId) {
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -169,10 +186,12 @@ public class GroupController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Get group by ID", description = "Fetches details of a group.")
+    @ApiResponse(responseCode = "200", description = "Group details retrieved successfully")
     @GetMapping("/{groupId}")
     public ResponseEntity<GroupResponse> getById(
-            @PathVariable UUID groupId) {
-                
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
+
         UUID userId = SecurityUtils.getCurrentUserId();
 
         log.debug("Fetching group {}.", groupId);
@@ -182,6 +201,8 @@ public class GroupController {
         );
     }
 
+    @Operation(summary = "List my groups", description = "Fetches all active groups for current user.")
+    @ApiResponse(responseCode = "200", description = "User groups retrieved successfully")
     @GetMapping
     public ResponseEntity<List<GroupResponse>> listMine() {
 
@@ -194,9 +215,11 @@ public class GroupController {
         );
     }
 
+    @Operation(summary = "Search my groups", description = "Searches current user's groups by name.")
+    @ApiResponse(responseCode = "200", description = "Group search results retrieved successfully")
     @GetMapping("/search")
     public ResponseEntity<List<GroupResponse>> search(
-            @RequestParam String query) {
+            @Parameter(description = "Group search query", required = true) @RequestParam String query) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 

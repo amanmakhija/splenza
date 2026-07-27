@@ -4,6 +4,10 @@ import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.dto.expense.*;
 import com.splitwise.app.service.ExpenseService;
 import com.splitwise.app.util.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +29,11 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
 
+    @Operation(summary = "Create expense", description = "Creates a new expense and splits cost among specified members.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Expense created successfully"),
+        @ApiResponse(responseCode = "400", description = "Validation failed or split amounts do not add up")
+    })
     @PostMapping
     public ResponseEntity<ExpenseResponse> create(
             @Valid @RequestBody CreateExpenseRequest request) {
@@ -42,9 +51,14 @@ public class ExpenseController {
                 .body(response);
     }
 
+    @Operation(summary = "Update expense", description = "Updates details or splits for an existing expense.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Expense updated successfully"),
+        @ApiResponse(responseCode = "404", description = "Expense not found")
+    })
     @PutMapping("/{expenseId}")
     public ResponseEntity<ExpenseResponse> update(
-            @PathVariable UUID expenseId,
+            @Parameter(description = "Expense ID", required = true) @PathVariable UUID expenseId,
             @Valid @RequestBody UpdateExpenseRequest request) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
@@ -61,9 +75,11 @@ public class ExpenseController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Delete expense", description = "Deletes an expense record by ID.")
+    @ApiResponse(responseCode = "204", description = "Expense deleted successfully")
     @DeleteMapping("/{expenseId}")
     public ResponseEntity<Void> delete(
-            @PathVariable UUID expenseId) {
+            @Parameter(description = "Expense ID", required = true) @PathVariable UUID expenseId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -78,9 +94,11 @@ public class ExpenseController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Duplicate expense", description = "Clones an existing expense as a new expense entry.")
+    @ApiResponse(responseCode = "201", description = "Expense duplicated successfully")
     @PostMapping("/{expenseId}/duplicate")
     public ResponseEntity<ExpenseResponse> duplicate(
-            @PathVariable UUID expenseId) {
+            @Parameter(description = "Expense ID to duplicate", required = true) @PathVariable UUID expenseId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -99,9 +117,11 @@ public class ExpenseController {
                 .body(response);
     }
 
+    @Operation(summary = "Get expense by ID", description = "Fetches expense details by ID.")
+    @ApiResponse(responseCode = "200", description = "Expense details retrieved successfully")
     @GetMapping("/{expenseId}")
     public ResponseEntity<ExpenseResponse> getById(
-            @PathVariable UUID expenseId) {
+            @Parameter(description = "Expense ID", required = true) @PathVariable UUID expenseId) {
 
         log.debug("Fetching expense {}.", expenseId);
 
@@ -110,12 +130,11 @@ public class ExpenseController {
         );
     }
 
-    /**
-     * Paginated: ?page=0&size=20
-     */
+    @Operation(summary = "List group expenses", description = "Fetches paginated expenses for a specific group.")
+    @ApiResponse(responseCode = "200", description = "Group expenses retrieved successfully")
     @GetMapping("/group/{groupId}")
     public ResponseEntity<PageResponse<ExpenseResponse>> listForGroup(
-            @PathVariable UUID groupId,
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @PageableDefault(size = 20) Pageable pageable) {
 
         log.debug("Fetching expenses for group {}.", groupId);
@@ -125,6 +144,8 @@ public class ExpenseController {
         );
     }
 
+    @Operation(summary = "List my expenses", description = "Fetches paginated list of all expenses involving the current user.")
+    @ApiResponse(responseCode = "200", description = "Personal expenses retrieved successfully")
     @GetMapping("/me")
     public ResponseEntity<PageResponse<ExpenseResponse>> listMine(
             @PageableDefault(size = 20) Pageable pageable) {
@@ -138,9 +159,11 @@ public class ExpenseController {
         );
     }
 
+    @Operation(summary = "List expenses with friend", description = "Fetches direct non-group expenses shared between current user and friend.")
+    @ApiResponse(responseCode = "200", description = "Direct expenses retrieved successfully")
     @GetMapping("/friend/{friendId}")
     public ResponseEntity<PageResponse<ExpenseResponse>> listWithFriend(
-            @PathVariable UUID friendId,
+            @Parameter(description = "Friend User ID", required = true) @PathVariable UUID friendId,
             @PageableDefault(size = 20) Pageable pageable) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
@@ -158,6 +181,8 @@ public class ExpenseController {
         );
     }
 
+    @Operation(summary = "Search expenses", description = "Searches user expenses using optional filters like category, query, date range.")
+    @ApiResponse(responseCode = "200", description = "Search results retrieved successfully")
     @GetMapping("/search")
     public ResponseEntity<PageResponse<ExpenseResponse>> search(
             ExpenseSearchRequest filters,

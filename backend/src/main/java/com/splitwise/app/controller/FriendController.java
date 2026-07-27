@@ -5,6 +5,9 @@ import com.splitwise.app.dto.friend.FriendResponse;
 import com.splitwise.app.dto.friend.SendFriendRequestRequest;
 import com.splitwise.app.service.FriendService;
 import com.splitwise.app.util.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -28,6 +31,8 @@ public class FriendController {
 
     private final FriendService friendService;
 
+    @Operation(summary = "Send friend request", description = "Sends a new friend request using user email or ID.")
+    @ApiResponse(responseCode = "201", description = "Friend request sent successfully")
     @PostMapping("/requests")
     public ResponseEntity<FriendRequestResponse> sendRequest(
             @Valid @RequestBody SendFriendRequestRequest request) {
@@ -47,9 +52,11 @@ public class FriendController {
                 .body(response);
     }
 
+    @Operation(summary = "Accept friend request", description = "Accepts a pending friend request.")
+    @ApiResponse(responseCode = "200", description = "Friend request accepted")
     @PostMapping("/requests/{requestId}/accept")
     public ResponseEntity<FriendResponse> accept(
-            @PathVariable UUID requestId) {
+            @Parameter(description = "Friend Request ID", required = true) @PathVariable UUID requestId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -67,9 +74,11 @@ public class FriendController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Reject friend request", description = "Rejects and removes a pending friend request.")
+    @ApiResponse(responseCode = "204", description = "Friend request rejected")
     @PostMapping("/requests/{requestId}/reject")
     public ResponseEntity<Void> reject(
-            @PathVariable UUID requestId) {
+            @Parameter(description = "Friend Request ID", required = true) @PathVariable UUID requestId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -86,6 +95,8 @@ public class FriendController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Get pending friend requests", description = "Fetches incoming pending friend requests for current user.")
+    @ApiResponse(responseCode = "200", description = "Pending friend requests retrieved successfully")
     @GetMapping("/requests/pending")
     public ResponseEntity<List<FriendRequestResponse>> pending() {
 
@@ -99,9 +110,11 @@ public class FriendController {
         );
     }
 
+    @Operation(summary = "Remove friend", description = "Removes a user from current user's friend list.")
+    @ApiResponse(responseCode = "204", description = "Friend removed successfully")
     @DeleteMapping("/{friendId}")
     public ResponseEntity<Void> remove(
-            @PathVariable UUID friendId) {
+            @Parameter(description = "Friend User ID", required = true) @PathVariable UUID friendId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
@@ -118,6 +131,8 @@ public class FriendController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "List friends", description = "Fetches complete list of friends for the current user.")
+    @ApiResponse(responseCode = "200", description = "Friend list retrieved successfully")
     @GetMapping
     public ResponseEntity<List<FriendResponse>> list() {
 
@@ -131,8 +146,11 @@ public class FriendController {
         );
     }
 
+    @Operation(summary = "Search friends", description = "Searches user's friend list by name or email query.")
+    @ApiResponse(responseCode = "200", description = "Search results retrieved successfully")
     @GetMapping("/search")
     public ResponseEntity<List<FriendResponse>> search(
+            @Parameter(description = "Search query string", required = true)
             @RequestParam
             @NotBlank(message = "query must not be blank") String query) {
 

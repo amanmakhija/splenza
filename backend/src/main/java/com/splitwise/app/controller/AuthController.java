@@ -6,6 +6,9 @@ import com.splitwise.app.dto.auth.*;
 import com.splitwise.app.service.AuthService;
 import com.splitwise.app.util.SecurityUtils;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,11 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Operation(summary = "User signup", description = "Registers a new user account with email and password.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Account created successfully"),
+        @ApiResponse(responseCode = "400", description = "Validation failed or email already registered")
+    })
     @PostMapping("/signup")
     public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
 
@@ -38,6 +46,11 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "User login", description = "Authenticates user credentials and returns JWT access/refresh tokens.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login successful"),
+        @ApiResponse(responseCode = "401", description = "Invalid credentials or email not verified")
+    })
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
 
@@ -50,6 +63,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Google OAuth login", description = "Authenticates or registers a user via Google ID token.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Google authentication successful"),
+        @ApiResponse(responseCode = "400", description = "Invalid Google token")
+    })
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
 
@@ -62,6 +80,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Refresh JWT token", description = "Issues a new JWT access token using a valid refresh token.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Token refreshed successfully"),
+        @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
+    })
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
 
@@ -74,6 +97,8 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Logout user", description = "Revokes refresh tokens for the current user.")
+    @ApiResponse(responseCode = "204", description = "Logged out successfully")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
 
@@ -86,6 +111,8 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Forgot password request", description = "Triggers a password reset token email to the user.")
+    @ApiResponse(responseCode = "202", description = "Password reset request accepted")
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
 
@@ -98,6 +125,11 @@ public class AuthController {
         return ResponseEntity.accepted().build();
     }
 
+    @Operation(summary = "Reset password", description = "Resets user password using a valid reset token.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Password reset successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired reset token")
+    })
     @PostMapping("/reset-password")
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
 
@@ -110,6 +142,11 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Change password", description = "Changes password for authenticated user.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Password changed successfully"),
+        @ApiResponse(responseCode = "400", description = "Current password invalid")
+    })
     @PostMapping("/change-password")
     public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
 
@@ -124,6 +161,11 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Verify email", description = "Verifies user email using the verification token sent via email.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Email verified successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired token")
+    })
     @PostMapping("/verify-email")
     public AuthResponse verifyEmail(
             @Valid
@@ -139,6 +181,8 @@ public class AuthController {
         return response;
     }
 
+    @Operation(summary = "Resend verification email", description = "Resends email verification link to user's email address.")
+    @ApiResponse(responseCode = "200", description = "Verification email sent successfully")
     @PostMapping("/resend-verification-email")
     public ResponseEntity<Void> resendVerificationEmail(
             @Valid
@@ -154,6 +198,8 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Change pending unverified email", description = "Updates email address before account verification is completed.")
+    @ApiResponse(responseCode = "204", description = "Pending email updated successfully")
     @PostMapping("/change-pending-email")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePendingEmail(
@@ -172,6 +218,8 @@ public class AuthController {
                 request.getNewEmail());
     }
 
+    @Operation(summary = "Set password", description = "Sets initial password for OAuth users or new accounts.")
+    @ApiResponse(responseCode = "204", description = "Password set successfully")
     @PostMapping("/set-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void setPassword(

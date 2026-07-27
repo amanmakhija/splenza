@@ -4,6 +4,8 @@ import com.splitwise.app.dto.importcsv.ExecuteImportRequest;
 import com.splitwise.app.dto.importcsv.ImportResultResponse;
 import com.splitwise.app.service.ImportService;
 import com.splitwise.app.util.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,8 @@ public class ImportController {
 
     private final ImportService importService;
 
+    @Operation(summary = "Execute CSV migration import", description = "Imports expenses, groups, and balances from Splitwise export CSV data.")
+    @ApiResponse(responseCode = "201", description = "CSV data imported successfully")
     @PostMapping("/execute")
     public ResponseEntity<ImportResultResponse> execute(
             @Valid @RequestBody ExecuteImportRequest request) {

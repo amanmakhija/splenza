@@ -6,6 +6,10 @@ import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.repository.ActivityLogRepository;
 import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.util.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +33,15 @@ public class ActivityController {
     private final ActivityLogRepository activityLogRepository;
     private final GroupMemberRepository groupMemberRepository;
 
+    @Operation(summary = "List group activity feed", description = "Retrieves a paginated activity log feed for a specific group. User must be an active member of the group.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Activity feed retrieved successfully"),
+        @ApiResponse(responseCode = "403", description = "Forbidden - User is not a member of this group")
+    })
     @GetMapping("/group/{groupId}")
     @Transactional(readOnly = true)
     public PageResponse<ActivityLogResponse> listForGroup(
-            @PathVariable UUID groupId,
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @PageableDefault(size = 20) Pageable pageable) {
 
         UUID actingUserId = SecurityUtils.getCurrentUserId();
