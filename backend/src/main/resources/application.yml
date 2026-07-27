@@ -30,3 +30,20 @@ app:
     allowed-origins:
       - https://getsplenza.in
       - https://www.getsplenza.in
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Splitwise-style expense splitting backend

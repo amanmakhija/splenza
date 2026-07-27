@@ -70,3 +70,14 @@ logging:
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+    metrics:
+      access: read-only
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
