@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Privacy Policy — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>[DATE]</strong>
+        Last updated: <strong>29/07/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -267,7 +267,7 @@ export default function PrivacyPolicyPage() {
       <p style={styles.p}>
         We retain your account and financial-record data for as long as your
         account is active. If you delete your account, we will delete or
-        anonymize your personal information within [X days], except where
+        anonymize your personal information within 7 days, except where
         we&apos;re required to retain certain records by law, or where data is
         necessary to preserve the integrity of other users&apos; shared
         financial records (e.g. an expense you were involved in may remain
