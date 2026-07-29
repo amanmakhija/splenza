@@ -267,7 +267,7 @@ export default function PrivacyPolicyPage() {
       <p style={styles.p}>
         We retain your account and financial-record data for as long as your
         account is active. If you delete your account, we will delete or
-        anonymize your personal information within 7 days, except where
+        anonymize your personal information within 30 days, except where
         we&apos;re required to retain certain records by law, or where data is
         necessary to preserve the integrity of other users&apos; shared
         financial records (e.g. an expense you were involved in may remain

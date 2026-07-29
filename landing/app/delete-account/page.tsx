@@ -42,7 +42,7 @@ export default function DeleteAccountPage() {
         from the email address associated with your account, with the subject
         line &quot;Account Deletion Request.&quot; We&apos;ll verify your
         identity and process the deletion within{" "}
-        <strong>[X business days]</strong>.
+        <strong>7 business days</strong>.
       </p>
 
       <h2 style={styles.h2}>What Gets Deleted</h2>
@@ -84,8 +84,8 @@ export default function DeleteAccountPage() {
       <h2 style={styles.h2}>How Long It Takes</h2>
       <p style={styles.p}>
         In-app deletion is immediate. Email requests are processed within{" "}
-        <strong>[X business days]</strong>. Backups (if any) that contain your
-        data are purged within <strong>[X days]</strong> of your deletion
+        <strong>7 business days</strong>. Backups (if any) that contain your
+        data are purged within <strong>30 days</strong> of your deletion
         request.
       </p>
 
