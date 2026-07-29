@@ -68,12 +68,35 @@ export default function TermsPage() {
           Use the App to collect or harvest other users&apos; personal
           information beyond what&apos;s needed to split expenses with them
         </li>
+        <li style={styles.li}>
+          Upload content that is defamatory, harassing, obscene, or infringes on
+          the rights of others (e.g. in group names, notes, or expense
+          titles/descriptions)
+        </li>
       </ul>
       <p style={styles.p}>
         We may suspend or terminate accounts that violate these Terms.
       </p>
 
-      <h2 style={styles.h2}>4. Accuracy of Financial Records</h2>
+      <h2 style={styles.h2}>4. User Content</h2>
+      <ul style={styles.ul}>
+        <li style={styles.li}>
+          You retain ownership of any content you submit (names, notes, group
+          descriptions, profile pictures).
+        </li>
+        <li style={styles.li}>
+          By submitting content, you grant Splenza a limited license to store,
+          display, and process that content as necessary to provide the
+          App&apos;s functionality (e.g. showing an expense you created to other
+          members of your group).
+        </li>
+        <li style={styles.li}>
+          You are responsible for ensuring you have the right to upload any
+          content (e.g. a profile picture) you submit.
+        </li>
+      </ul>
+
+      <h2 style={styles.h2}>5. Accuracy of Financial Records</h2>
       <p style={styles.p}>
         Expense amounts, splits, and settlement records are entered by users,
         not verified by Splenza. We&apos;re not responsible for disputes between
@@ -83,7 +106,15 @@ export default function TermsPage() {
         between parties.
       </p>
 
-      <h2 style={styles.h2}>5. Third-Party Sign-In</h2>
+      <h2 style={styles.h2}>6. Push Notifications</h2>
+      <p style={styles.p}>
+        By using the App, you may receive push notifications related to friend
+        requests, expense activity, and settlements in groups you belong to. You
+        can disable notifications at any time through your device&apos;s system
+        settings.
+      </p>
+
+      <h2 style={styles.h2}>7. Third-Party Sign-In</h2>
       <p style={styles.p}>
         If you sign in using Google, your use of that service is also governed
         by Google&apos;s own terms and privacy policy. We&apos;re not
@@ -91,7 +122,7 @@ export default function TermsPage() {
         providers.
       </p>
 
-      <h2 style={styles.h2}>6. Service Availability</h2>
+      <h2 style={styles.h2}>8. Service Availability</h2>
       <p style={styles.p}>
         We aim to keep Splenza available and reliable, but we don&apos;t
         guarantee uninterrupted access. The App may be unavailable occasionally
@@ -99,16 +130,26 @@ export default function TermsPage() {
         liable for any loss resulting from downtime.
       </p>
 
-      <h2 style={styles.h2}>7. Limitation of Liability</h2>
-      <p style={styles.p}>
-        To the fullest extent permitted by law, Splenza and its developers are
-        not liable for any indirect, incidental, or consequential damages
-        arising from your use of the App, including but not limited to disputes
-        between users over money, loss of data, or service interruptions. The
-        App is provided &quot;as is&quot; without warranties of any kind.
+      <h2 style={styles.h2}>9. Disclaimer of Warranties</h2>
+      <p style={styles.legal}>
+        The App is provided &quot;as is&quot; and &quot;as available&quot;
+        without warranties of any kind, either express or implied, including but
+        not limited to implied warranties of merchantability, fitness for a
+        particular purpose, or non-infringement. We do not warrant that the App
+        will be uninterrupted, error-free, or secure.
       </p>
 
-      <h2 style={styles.h2}>8. Changes to the App or Terms</h2>
+      <h2 style={styles.h2}>10. Limitation of Liability</h2>
+      <p style={styles.legal}>
+        To the maximum extent permitted by law, Splenza and its developers shall
+        not be liable for any indirect, incidental, special, consequential, or
+        punitive damages, or any loss of data, money, goodwill, or other
+        intangible losses, resulting from your use of (or inability to use) the
+        App, including any disputes between users regarding expenses or
+        settlements recorded in the App.
+      </p>
+
+      <h2 style={styles.h2}>11. Changes to the App or Terms</h2>
       <p style={styles.p}>
         We may update these Terms or change, suspend, or discontinue any part of
         the App at any time. We&apos;ll notify you of material changes to these
@@ -116,21 +157,21 @@ export default function TermsPage() {
         accept the updated Terms.
       </p>
 
-      <h2 style={styles.h2}>9. Termination</h2>
+      <h2 style={styles.h2}>12. Termination</h2>
       <p style={styles.p}>
         You may stop using Splenza and delete your account at any time. We may
         suspend or terminate your account if you violate these Terms or if we
         discontinue the service, with notice where reasonably possible.
       </p>
 
-      <h2 style={styles.h2}>10. Governing Law</h2>
+      <h2 style={styles.h2}>13. Governing Law</h2>
       <p style={styles.p}>
         These Terms are governed by the laws of India, without regard to
         conflict-of-law principles. Any disputes will be subject to the
         exclusive jurisdiction of the courts in India.
       </p>
 
-      <h2 style={styles.h2}>11. Contact Us</h2>
+      <h2 style={styles.h2}>14. Contact Us</h2>
       <div style={styles.contactBox}>
         <p style={{ margin: 0 }}>
           <strong>help@splenza.in</strong>
@@ -167,6 +208,16 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: 8,
   },
   p: { margin: "12px 0", fontSize: 15 },
+  // Used for the two ALL-CAPS legal boilerplate clauses (Warranties / Liability).
+  // Kept visually distinct (smaller, tighter) since these read as dense legal
+  // text by convention, not regular prose.
+  legal: {
+    margin: "12px 0",
+    fontSize: 13,
+    lineHeight: 20,
+    textTransform: "uppercase",
+    color: "#333333",
+  },
   ul: { paddingLeft: 20 },
   li: { margin: "6px 0", fontSize: 15 },
   contactBox: {
