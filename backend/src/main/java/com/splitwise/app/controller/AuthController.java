@@ -235,4 +235,25 @@ public class AuthController {
 
         log.info("Password set successfully for user '{}'.", userId);
     }
+
+    @Operation(summary = "Delete account", description = "Soft-deletes the authenticated user's account and revokes all sessions.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Account deleted successfully"),
+        @ApiResponse(responseCode = "401", description = "Current password is incorrect"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @DeleteMapping("/account")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(
+            @RequestBody(required = false) DeleteAccountRequest request
+    ) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Delete account requested by user '{}'.", userId);
+
+        authService.deleteAccount(userId, request);
+
+        log.info("Account soft-deleted for user '{}'.", userId);
+    }
 }

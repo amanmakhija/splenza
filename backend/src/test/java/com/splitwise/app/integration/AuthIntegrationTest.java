@@ -1,5 +1,6 @@
 package com.splitwise.app.integration;
 
+import com.splitwise.app.dto.auth.DeleteAccountRequest;
 import com.splitwise.app.dto.auth.SignupRequest;
 import com.splitwise.app.dto.auth.VerifyEmailRequest;
 import com.splitwise.app.entity.PasswordResetToken;
@@ -18,6 +19,7 @@ import org.springframework.http.MediaType;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,14 +40,14 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             SignupRequest request = TestDataFactory.signupRequest();
 
             mockMvc.perform(
-                            post("/api/v1/auth/signup")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/auth/signup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isCreated());
 
-            PendingSignup pendingSignup =
-                    pendingSignupRepository.findByEmail(request.getEmail())
+            PendingSignup pendingSignup
+                    = pendingSignupRepository.findByEmail(request.getEmail())
                             .orElse(null);
 
             assertThat(pendingSignup).isNotNull();
@@ -67,10 +69,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             SignupRequest request = TestDataFactory.signupRequest();
 
             mockMvc.perform(
-                            post("/api/v1/auth/signup")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/auth/signup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isConflict());
         }
 
@@ -82,10 +84,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             request.setEmail("not-an-email");
 
             mockMvc.perform(
-                            post("/api/v1/auth/signup")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/auth/signup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.fieldErrors.email").exists());
         }
@@ -109,10 +111,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             verify.setOtp(otp);
 
             mockMvc.perform(
-                            post("/api/v1/auth/verify-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(verify))
-                    )
+                    post("/api/v1/auth/verify-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(verify))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").exists())
                     .andExpect(jsonPath("$.refreshToken").exists())
@@ -139,10 +141,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             verify.setOtp("000000");
 
             mockMvc.perform(
-                            post("/api/v1/auth/verify-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(verify))
-                    )
+                    post("/api/v1/auth/verify-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(verify))
+            )
                     .andExpect(status().isBadRequest());
 
             PendingSignup pending = pendingSignupRepository.findByEmail(signup.getEmail()).orElseThrow();
@@ -170,11 +172,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             ).andExpect(status().isCreated());
 
             mockMvc.perform(
-                            post("/api/v1/auth/resend-verification-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.resendVerificationRequest(signup.getEmail())))
-                    )
+                    post("/api/v1/auth/resend-verification-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.resendVerificationRequest(signup.getEmail())))
+            )
                     .andExpect(status().isOk());
 
             String otp = getLastOtp();
@@ -185,10 +187,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             verify.setOtp(otp);
 
             mockMvc.perform(
-                            post("/api/v1/auth/verify-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(verify))
-                    )
+                    post("/api/v1/auth/verify-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(verify))
+            )
                     .andExpect(status().isOk());
         }
 
@@ -197,11 +199,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectResendForUnknownEmail() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/resend-verification-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.resendVerificationRequest("nobody@test.com")))
-                    )
+                    post("/api/v1/auth/resend-verification-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.resendVerificationRequest("nobody@test.com")))
+            )
                     .andExpect(status().isBadRequest());
         }
     }
@@ -228,11 +230,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             String newEmail = "aman.new@test.com";
 
             mockMvc.perform(
-                            post("/api/v1/auth/change-pending-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.changePendingEmailRequest(signup.getEmail(), newEmail)))
-                    )
+                    post("/api/v1/auth/change-pending-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.changePendingEmailRequest(signup.getEmail(), newEmail)))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(pendingSignupRepository.findByEmail(signup.getEmail())).isEmpty();
@@ -245,10 +247,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             verify.setOtp(otp);
 
             mockMvc.perform(
-                            post("/api/v1/auth/verify-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(verify))
-                    )
+                    post("/api/v1/auth/verify-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(verify))
+            )
                     .andExpect(status().isOk());
 
             assertThat(userRepository.existsByEmailAndDeletedFalse(newEmail)).isTrue();
@@ -269,11 +271,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             ).andExpect(status().isCreated());
 
             mockMvc.perform(
-                            post("/api/v1/auth/change-pending-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.changePendingEmailRequest(signup.getEmail(), "taken@test.com")))
-                    )
+                    post("/api/v1/auth/change-pending-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.changePendingEmailRequest(signup.getEmail(), "taken@test.com")))
+            )
                     .andExpect(status().isConflict());
         }
 
@@ -290,11 +292,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             ).andExpect(status().isCreated());
 
             mockMvc.perform(
-                            post("/api/v1/auth/change-pending-email")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.changePendingEmailRequest(signup.getEmail(), signup.getEmail())))
-                    )
+                    post("/api/v1/auth/change-pending-email")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.changePendingEmailRequest(signup.getEmail(), signup.getEmail())))
+            )
                     .andExpect(status().isBadRequest());
         }
     }
@@ -313,10 +315,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").exists())
                     .andExpect(jsonPath("$.refreshToken").exists())
@@ -330,11 +332,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.loginRequest(TestDataFactory.DEFAULT_EMAIL, "WrongPass123")))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.loginRequest(TestDataFactory.DEFAULT_EMAIL, "WrongPass123")))
+            )
                     .andExpect(status().isUnauthorized());
         }
 
@@ -343,10 +345,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectUnknownEmail() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
+            )
                     .andExpect(status().isUnauthorized());
         }
 
@@ -363,10 +365,10 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             ).andExpect(status().isCreated());
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
+            )
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
         }
@@ -386,33 +388,33 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
 
             String loginResponse = mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(TestDataFactory.loginRequest()))
+            )
                     .andExpect(status().isOk())
                     .andReturn().getResponse().getContentAsString();
 
-            String originalRefreshToken =
-                    objectMapper.readTree(loginResponse).get("refreshToken").asText();
+            String originalRefreshToken
+                    = objectMapper.readTree(loginResponse).get("refreshToken").asText();
 
             mockMvc.perform(
-                            post("/api/v1/auth/refresh")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.refreshTokenRequest(originalRefreshToken)))
-                    )
+                    post("/api/v1/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.refreshTokenRequest(originalRefreshToken)))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").exists())
                     .andExpect(jsonPath("$.refreshToken").exists())
                     .andExpect(jsonPath("$.refreshToken").value(org.hamcrest.Matchers.not(originalRefreshToken)));
 
             mockMvc.perform(
-                            post("/api/v1/auth/refresh")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.refreshTokenRequest(originalRefreshToken)))
-                    )
+                    post("/api/v1/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.refreshTokenRequest(originalRefreshToken)))
+            )
                     .andExpect(status().isUnauthorized());
         }
 
@@ -421,11 +423,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectInvalidRefreshToken() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/refresh")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.refreshTokenRequest("not-a-real-token")))
-                    )
+                    post("/api/v1/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.refreshTokenRequest("not-a-real-token")))
+            )
                     .andExpect(status().isUnauthorized());
         }
 
@@ -447,11 +449,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             refreshTokenRepository.save(expired);
 
             mockMvc.perform(
-                            post("/api/v1/auth/refresh")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.refreshTokenRequest(rawToken)))
-                    )
+                    post("/api/v1/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.refreshTokenRequest(rawToken)))
+            )
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -478,9 +480,9 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             refreshTokenRepository.save(token);
 
             mockMvc.perform(
-                            post("/api/v1/auth/logout")
-                                    .header("Authorization", bearerTokenFor(user))
-                    )
+                    post("/api/v1/auth/logout")
+                            .header("Authorization", bearerTokenFor(user))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(refreshTokenRepository.findAll()).isEmpty();
@@ -499,9 +501,9 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectLogoutWithInvalidToken() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/logout")
-                                    .header("Authorization", "Bearer not-a-real-jwt")
-                    )
+                    post("/api/v1/auth/logout")
+                            .header("Authorization", "Bearer not-a-real-jwt")
+            )
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -520,11 +522,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
 
             mockMvc.perform(
-                            post("/api/v1/auth/forgot-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.forgotPasswordRequest(TestDataFactory.DEFAULT_EMAIL)))
-                    )
+                    post("/api/v1/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.forgotPasswordRequest(TestDataFactory.DEFAULT_EMAIL)))
+            )
                     .andExpect(status().isAccepted());
 
             assertThat(passwordResetTokenRepository.findAll()).hasSize(1);
@@ -535,11 +537,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldAcceptForgotPasswordForUnknownEmailSilently() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/forgot-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.forgotPasswordRequest("nobody@test.com")))
-                    )
+                    post("/api/v1/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.forgotPasswordRequest("nobody@test.com")))
+            )
                     .andExpect(status().isAccepted());
 
             assertThat(passwordResetTokenRepository.findAll()).isEmpty();
@@ -570,21 +572,21 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             String newPassword = "NewPassword123";
 
             mockMvc.perform(
-                            post("/api/v1/auth/reset-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.resetPasswordRequest(rawResetToken, newPassword)))
-                    )
+                    post("/api/v1/auth/reset-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.resetPasswordRequest(rawResetToken, newPassword)))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(refreshTokenRepository.findAll()).isEmpty();
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.loginRequest(TestDataFactory.DEFAULT_EMAIL, newPassword)))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.loginRequest(TestDataFactory.DEFAULT_EMAIL, newPassword)))
+            )
                     .andExpect(status().isOk());
         }
 
@@ -604,11 +606,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
                     .build());
 
             mockMvc.perform(
-                            post("/api/v1/auth/reset-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.resetPasswordRequest(rawResetToken, "NewPassword123")))
-                    )
+                    post("/api/v1/auth/reset-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.resetPasswordRequest(rawResetToken, "NewPassword123")))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -628,11 +630,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
                     .build());
 
             mockMvc.perform(
-                            post("/api/v1/auth/reset-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.resetPasswordRequest(rawResetToken, "NewPassword123")))
-                    )
+                    post("/api/v1/auth/reset-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.resetPasswordRequest(rawResetToken, "NewPassword123")))
+            )
                     .andExpect(status().isBadRequest());
         }
     }
@@ -653,21 +655,21 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             String newPassword = "NewPassword123";
 
             mockMvc.perform(
-                            post("/api/v1/auth/change-password")
-                                    .header("Authorization", bearerTokenFor(user))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.changePasswordRequest(
-                                                    TestDataFactory.DEFAULT_PASSWORD, newPassword)))
-                    )
+                    post("/api/v1/auth/change-password")
+                            .header("Authorization", bearerTokenFor(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.changePasswordRequest(
+                                            TestDataFactory.DEFAULT_PASSWORD, newPassword)))
+            )
                     .andExpect(status().isNoContent());
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.loginRequest(TestDataFactory.DEFAULT_EMAIL, newPassword)))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.loginRequest(TestDataFactory.DEFAULT_EMAIL, newPassword)))
+            )
                     .andExpect(status().isOk());
         }
 
@@ -678,12 +680,12 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             User user = createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
 
             mockMvc.perform(
-                            post("/api/v1/auth/change-password")
-                                    .header("Authorization", bearerTokenFor(user))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.changePasswordRequest("WrongPassword1", "NewPassword123")))
-                    )
+                    post("/api/v1/auth/change-password")
+                            .header("Authorization", bearerTokenFor(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.changePasswordRequest("WrongPassword1", "NewPassword123")))
+            )
                     .andExpect(status().isUnauthorized());
         }
 
@@ -692,12 +694,12 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectChangePasswordWithoutAuth() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/change-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.changePasswordRequest(
-                                                    TestDataFactory.DEFAULT_PASSWORD, "NewPassword123")))
-                    )
+                    post("/api/v1/auth/change-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.changePasswordRequest(
+                                            TestDataFactory.DEFAULT_PASSWORD, "NewPassword123")))
+            )
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -721,23 +723,23 @@ class AuthIntegrationTest extends BaseIntegrationTest {
                     .build());
 
             mockMvc.perform(
-                            post("/api/v1/auth/set-password")
-                                    .header("Authorization", bearerTokenFor(googleUser))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.setPasswordRequest("NewPassword123")))
-                    )
+                    post("/api/v1/auth/set-password")
+                            .header("Authorization", bearerTokenFor(googleUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.setPasswordRequest("NewPassword123")))
+            )
                     .andExpect(status().isNoContent());
 
             User updated = userRepository.findById(googleUser.getId()).orElseThrow();
             assertThat(updated.getPasswordHash()).isNotBlank();
 
             mockMvc.perform(
-                            post("/api/v1/auth/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.loginRequest("google.aman@test.com", "NewPassword123")))
-                    )
+                    post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.loginRequest("google.aman@test.com", "NewPassword123")))
+            )
                     .andExpect(status().isOk());
         }
 
@@ -748,12 +750,12 @@ class AuthIntegrationTest extends BaseIntegrationTest {
             User user = createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
 
             mockMvc.perform(
-                            post("/api/v1/auth/set-password")
-                                    .header("Authorization", bearerTokenFor(user))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.setPasswordRequest("AnotherPassword123")))
-                    )
+                    post("/api/v1/auth/set-password")
+                            .header("Authorization", bearerTokenFor(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.setPasswordRequest("AnotherPassword123")))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -762,11 +764,11 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectSetPasswordWithoutAuth() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/set-password")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.setPasswordRequest("NewPassword123")))
-                    )
+                    post("/api/v1/auth/set-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.setPasswordRequest("NewPassword123")))
+            )
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -797,11 +799,134 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectInvalidGoogleToken() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/auth/google")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.googleLoginRequest("not-a-real-google-token")))
-                    )
+                    post("/api/v1/auth/google")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.googleLoginRequest("not-a-real-google-token")))
+            )
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    // --------------------------------------------------------
+    // Delete account (soft delete)
+    // --------------------------------------------------------
+    @Nested
+    @DisplayName("Delete Account")
+    class DeleteAccountTests {
+
+        @Test
+        @DisplayName("should soft-delete the account and revoke refresh tokens")
+        void shouldSoftDeleteSuccessfully() throws Exception {
+
+            User user = createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
+
+            RefreshToken token = RefreshToken.builder()
+                    .user(user)
+                    .tokenHash(sha256("some-refresh-token"))
+                    .expiresAt(Instant.now().plusSeconds(3600))
+                    .revoked(false)
+                    .build();
+            refreshTokenRepository.save(token);
+
+            DeleteAccountRequest request = new DeleteAccountRequest();
+            request.setPassword(TestDataFactory.DEFAULT_PASSWORD);
+
+            mockMvc.perform(
+                    delete("/api/v1/auth/account")
+                            .header("Authorization", bearerTokenFor(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isNoContent());
+
+            User reloaded = userRepository.findById(user.getId()).orElseThrow();
+            assertThat(reloaded.isDeleted()).isTrue();
+
+            assertThat(refreshTokenRepository.findAll()).isEmpty();
+
+            assertThat(userRepository.findByEmailAndDeletedFalse(TestDataFactory.DEFAULT_EMAIL)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should reject signing up again with the same email after account deletion")
+        void shouldRejectReSignupWithSameEmailAfterDelete() throws Exception {
+
+            User user = createVerifiedUser(
+                    TestDataFactory.DEFAULT_EMAIL,
+                    TestDataFactory.DEFAULT_PASSWORD);
+
+            DeleteAccountRequest deleteRequest = new DeleteAccountRequest();
+            deleteRequest.setPassword(TestDataFactory.DEFAULT_PASSWORD);
+
+            mockMvc.perform(
+                    delete("/api/v1/auth/account")
+                            .header("Authorization", bearerTokenFor(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(deleteRequest)))
+                    .andExpect(status().isNoContent());
+
+            SignupRequest signupRequest = TestDataFactory.signupRequest();
+
+            mockMvc.perform(
+                    post("/api/v1/auth/signup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(signupRequest)))
+                    .andExpect(status().isConflict());
+        }
+
+        @Test
+        @DisplayName("should reject deletion with an incorrect password")
+        void shouldRejectDeletionWithWrongPassword() throws Exception {
+
+            User user = createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
+
+            DeleteAccountRequest request = new DeleteAccountRequest();
+            request.setPassword("WrongPassword123");
+
+            mockMvc.perform(
+                    delete("/api/v1/auth/account")
+                            .header("Authorization", bearerTokenFor(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isUnauthorized());
+
+            assertThat(userRepository.findById(user.getId()).orElseThrow().isDeleted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject deletion without a bearer token")
+        void shouldRejectDeletionWithoutAuth() throws Exception {
+
+            mockMvc.perform(delete("/api/v1/auth/account"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("should reject requests made with a token belonging to a deleted account")
+        void shouldRejectDeletionWhenAlreadyDeleted() throws Exception {
+
+            User user = createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
+            String bearerToken = bearerTokenFor(user);
+
+            DeleteAccountRequest request = new DeleteAccountRequest();
+            request.setPassword(TestDataFactory.DEFAULT_PASSWORD);
+
+            mockMvc.perform(
+                    delete("/api/v1/auth/account")
+                            .header("Authorization", bearerToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(
+                    delete("/api/v1/auth/account")
+                            .header("Authorization", bearerToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isUnauthorized());
         }
     }

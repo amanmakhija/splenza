@@ -15,12 +15,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -155,6 +157,33 @@ class JwtAuthenticationFilterTest {
 
         when(jwtService.isTokenValid("bad-token"))
                 .thenThrow(new JwtException("Invalid JWT"));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Should continue unauthenticated when user is not found")
+    void doFilterInternal_shouldHandleUsernameNotFoundException()
+            throws ServletException, IOException {
+
+        UUID userId = UUID.randomUUID();
+        String token = "valid-token";
+
+        when(request.getHeader("Authorization"))
+                .thenReturn("Bearer " + token);
+
+        when(jwtService.isTokenValid(token))
+                .thenReturn(true);
+
+        when(jwtService.extractUserId(token))
+                .thenReturn(userId);
+
+        when(userDetailsService.loadUserById(userId))
+                .thenThrow(new UsernameNotFoundException("User not found"));
 
         filter.doFilterInternal(request, response, filterChain);
 

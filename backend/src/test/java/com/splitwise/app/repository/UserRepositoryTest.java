@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class UserRepositoryTest extends BaseRepositoryTest {
 
@@ -229,6 +230,20 @@ class UserRepositoryTest extends BaseRepositoryTest {
         entityManager.clear();
 
         assertThat(userRepository.existsByPhoneNumberAndDeletedFalse("9999999999")).isTrue();
+    }
+
+    @Test
+    @DisplayName("saving two active users with the same email should still violate the unique constraint")
+    void save_ShouldRejectDuplicateEmails() {
+        persistUser("active-dup@test.com", "9999999999", "google-1", false);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> {
+            persistUser("active-dup@test.com", "8888888888", "google-2", false);
+            entityManager.flush();
+        }).isInstanceOf(Exception.class);
     }
 
     private User persistUser(

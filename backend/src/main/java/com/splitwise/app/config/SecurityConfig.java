@@ -57,9 +57,10 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                    "/api/v1/auth/logout",
-                    "/api/v1/auth/change-password",
-                    "/api/v1/auth/set-password"
+                        "/api/v1/auth/logout",
+                        "/api/v1/auth/change-password",
+                        "/api/v1/auth/set-password",
+                        "/api/v1/auth/account"
                 ).authenticated()
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()

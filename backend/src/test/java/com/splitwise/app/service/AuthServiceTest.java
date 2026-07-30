@@ -82,8 +82,8 @@ class AuthServiceTest {
     @Test
     void signup_shouldCreatePendingSignup() {
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(false);
@@ -114,8 +114,8 @@ class AuthServiceTest {
                 .email("aman@test.com")
                 .build();
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(false);
@@ -133,8 +133,8 @@ class AuthServiceTest {
 
         signupRequest.setEmail("  AMAN@TEST.COM  ");
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(false);
@@ -145,7 +145,7 @@ class AuthServiceTest {
         authService.signup(signupRequest);
 
         verify(userRepository)
-                .existsByEmailAndDeletedFalse("aman@test.com");
+                .findByEmail("aman@test.com");
     }
 
     @Test
@@ -153,8 +153,8 @@ class AuthServiceTest {
 
         signupRequest.setPhoneNumber("  +919999999999 ");
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(false);
@@ -199,8 +199,13 @@ class AuthServiceTest {
     @Test
     void signup_shouldRejectExistingEmail() {
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(true);
+        User existing = User.builder()
+                .email("aman@test.com")
+                .deleted(false)
+                .build();
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(existing));
 
         ApiException ex = assertThrows(
                 ApiException.class,
@@ -214,8 +219,8 @@ class AuthServiceTest {
     @Test
     void signup_shouldRejectExistingPhone() {
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(true);
@@ -232,8 +237,8 @@ class AuthServiceTest {
     @Test
     void signup_shouldResetAttempts() {
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(false);
@@ -260,8 +265,8 @@ class AuthServiceTest {
     @Test
     void signup_shouldEncodePassword() {
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
-                .thenReturn(false);
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
 
         when(userRepository.existsByPhoneNumberAndDeletedFalse(anyString()))
                 .thenReturn(false);
@@ -273,6 +278,26 @@ class AuthServiceTest {
 
         verify(passwordEncoder)
                 .encode("Password1");
+    }
+
+    @Test
+    void signup_shouldRejectDeletedAccount() {
+
+        User deletedUser = User.builder()
+                .email("aman@test.com")
+                .deleted(true)
+                .build();
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(deletedUser));
+
+        ApiException ex = assertThrows(
+                ApiException.class,
+                () -> authService.signup(signupRequest));
+
+        assertEquals(
+                "This email is associated with a deleted account and cannot be used to create a new account. Please contact support if you would like to restore your account.",
+                ex.getMessage());
     }
 
     @Test
@@ -513,7 +538,7 @@ class AuthServiceTest {
         when(pendingSignupRepository.findByEmail(anyString()))
                 .thenReturn(Optional.of(pending));
 
-        when(userRepository.existsByEmailAndDeletedFalse(anyString()))
+        when(userRepository.existsByEmailAndDeletedFalse("new@test.com"))
                 .thenReturn(true);
 
         ApiException ex = assertThrows(
@@ -1284,6 +1309,124 @@ class AuthServiceTest {
         authService.setPassword(id, request);
 
         verify(passwordEncoder).encode("Password1");
+    }
+
+    @Test
+    void deleteAccount_shouldSoftDeleteAndRevokeSessions_whenPasswordCorrect() {
+
+        UUID id = UUID.randomUUID();
+
+        User user = User.builder()
+                .id(id)
+                .passwordHash("encoded-password")
+                .deleted(false)
+                .build();
+
+        DeleteAccountRequest request = new DeleteAccountRequest();
+        request.setPassword("Password1");
+
+        when(userRepository.findByIdAndDeletedFalse(id))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches("Password1", "encoded-password"))
+                .thenReturn(true);
+
+        authService.deleteAccount(id, request);
+
+        assertTrue(user.isDeleted());
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertTrue(userCaptor.getValue().isDeleted());
+
+        verify(refreshTokenRepository).deleteByUserId(id);
+    }
+
+    @Test
+    void deleteAccount_shouldSkipPasswordCheck_forGoogleOnlyUser() {
+
+        UUID id = UUID.randomUUID();
+
+        User user = User.builder()
+                .id(id)
+                .passwordHash(null)
+                .deleted(false)
+                .build();
+
+        when(userRepository.findByIdAndDeletedFalse(id))
+                .thenReturn(Optional.of(user));
+
+        authService.deleteAccount(id, null);
+
+        assertTrue(user.isDeleted());
+        verify(userRepository).save(user);
+        verify(refreshTokenRepository).deleteByUserId(id);
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
+    void deleteAccount_shouldThrow_whenPasswordIncorrect() {
+
+        UUID id = UUID.randomUUID();
+
+        User user = User.builder()
+                .id(id)
+                .passwordHash("encoded-password")
+                .deleted(false)
+                .build();
+
+        DeleteAccountRequest request = new DeleteAccountRequest();
+        request.setPassword("WrongPassword1");
+
+        when(userRepository.findByIdAndDeletedFalse(id))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches("WrongPassword1", "encoded-password"))
+                .thenReturn(false);
+
+        assertThrows(
+                ApiException.class,
+                () -> authService.deleteAccount(id, request));
+
+        assertFalse(user.isDeleted());
+        verify(userRepository, never()).save(any());
+        verify(refreshTokenRepository, never()).deleteByUserId(any());
+    }
+
+    @Test
+    void deleteAccount_shouldThrow_whenPasswordMissingForPasswordAccount() {
+
+        UUID id = UUID.randomUUID();
+
+        User user = User.builder()
+                .id(id)
+                .passwordHash("encoded-password")
+                .deleted(false)
+                .build();
+
+        when(userRepository.findByIdAndDeletedFalse(id))
+                .thenReturn(Optional.of(user));
+
+        assertThrows(
+                ApiException.class,
+                () -> authService.deleteAccount(id, null));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteAccount_shouldThrow_whenUserNotFoundOrAlreadyDeleted() {
+
+        UUID id = UUID.randomUUID();
+
+        when(userRepository.findByIdAndDeletedFalse(id))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ApiException.class,
+                () -> authService.deleteAccount(id, null));
+
+        verify(refreshTokenRepository, never()).deleteByUserId(any());
     }
 
     private String hash(String token) {

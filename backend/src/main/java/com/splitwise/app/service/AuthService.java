@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.Optional;
 
 import com.splitwise.app.enums.AuthProvider;
 
@@ -96,11 +97,17 @@ public class AuthService {
             throw ApiException.badRequest("Name is too long.");
         }
 
-        // Email already registered
-        if (userRepository.existsByEmailAndDeletedFalse(email)) {
+        User existingUser = userRepository.findByEmail(email).orElse(null);
+
+        if (existingUser != null) {
+
+            if (existingUser.isDeleted()) {
+                throw ApiException.conflict(
+                        "This email is associated with a deleted account and cannot be used to create a new account. Please contact support if you would like to restore your account.");
+            }
+
             throw ApiException.conflict(
-                    "An account already exists with this email."
-            );
+                    "An account already exists with this email.");
         }
 
         // Phone already registered
@@ -461,6 +468,7 @@ public class AuthService {
             );
             throw ApiException.unauthorized("Could not verify Google token");
         }
+
         if (idToken == null) {
             throw ApiException.unauthorized("Invalid or expired Google token");
         }
@@ -475,32 +483,55 @@ public class AuthService {
             throw ApiException.unauthorized("Google account email not found");
         }
 
+        String normalizedEmail = normalizeEmail(email);
+
         User user = userRepository.findByGoogleId(googleId)
-                .or(() -> userRepository.findByEmailAndDeletedFalse(normalizeEmail(email)))
                 .orElseGet(() -> {
+
+                    Optional<User> existingUser = userRepository.findByEmail(normalizedEmail);
+
+                    if (existingUser.isPresent()) {
+
+                        User existing = existingUser.get();
+
+                        if (existing.isDeleted()) {
+                            throw ApiException.conflict(
+                                    "This email is associated with a deleted account and cannot be used to create a new account. Please contact support if you would like to restore your account."
+                            );
+                        }
+
+                        return existing;
+                    }
+
                     User newUser = userRepository.save(
                             User.builder()
-                                    .name(name != null ? name : email)
-                                    .email(normalizeEmail(email))
+                                    .name(name != null ? name : normalizedEmail)
+                                    .email(normalizedEmail)
                                     .googleId(googleId)
                                     .profilePictureUrl(pictureUrl)
                                     .provider(AuthProvider.GOOGLE)
                                     .build()
                     );
 
-                    log.info("New user {} registered using Google Sign-In.", newUser.getId());
+                    log.info(
+                            "New user {} registered using Google Sign-In.",
+                            newUser.getId()
+                    );
 
                     return newUser;
                 });
 
-        // Link the Google account if this user previously signed up with email/password only.
+        // Link Google account if the user previously signed up with email/password.
         if (user.getGoogleId() == null) {
             user.setGoogleId(googleId);
             user.setProvider(AuthProvider.BOTH);
+
             if (user.getProfilePictureUrl() == null) {
                 user.setProfilePictureUrl(pictureUrl);
             }
+
             userRepository.save(user);
+
             log.info(
                     "Google account linked for user {}.",
                     user.getId()
@@ -549,6 +580,31 @@ public class AuthService {
         log.info(
                 "Password set for user {}.",
                 user.getId()
+        );
+    }
+
+    @Transactional
+    public void deleteAccount(UUID userId, DeleteAccountRequest request) {
+        User user = userRepository.findByIdAndDeletedFalse(userId)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+
+        if (user.getPasswordHash() != null) {
+            String password = request == null ? null : request.getPassword();
+            if (password == null || password.isBlank()
+                    || !passwordEncoder.matches(password, user.getPasswordHash())) {
+                throw new ApiException("Current password is incorrect", HttpStatus.UNAUTHORIZED);
+            }
+        }
+
+        user.setDeleted(true);
+        userRepository.save(user);
+
+        // Invalidate all existing sessions so old tokens can't be used post-deletion.
+        refreshTokenRepository.deleteByUserId(userId);
+
+        log.info(
+                "User {} account soft-deleted.",
+                userId
         );
     }
 

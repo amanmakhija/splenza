@@ -50,8 +50,8 @@ public abstract class BaseIntegrationTest {
     // history for why (shared static container gets stopped between test
     // classes under the standard annotation-driven lifecycle). Starting it
     // once here and letting Ryuk reap it on JVM exit avoids that.
-    protected static final PostgreSQLContainer<?> postgres =
-            new PostgreSQLContainer<>("postgres:16-alpine")
+    protected static final PostgreSQLContainer<?> postgres
+            = new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("splitwise_test")
                     .withUsername("test")
                     .withPassword("test");
@@ -135,8 +135,8 @@ public abstract class BaseIntegrationTest {
 
         String html = extractText(message.getContent());
 
-        Matcher matcher =
-                Pattern.compile("\\b\\d{6}\\b")
+        Matcher matcher
+                = Pattern.compile("\\b\\d{6}\\b")
                         .matcher(html);
 
         assertThat(matcher.find()).isTrue();
@@ -145,12 +145,12 @@ public abstract class BaseIntegrationTest {
     }
 
     /**
-     * MimeMessageHelper(message, true, ...) builds a nested multipart
-     * structure (e.g. multipart/mixed containing a multipart/related
-     * containing the actual text/html part), so the real content usually
-     * isn't at the top level or even at bodyPart(0) directly - it can be
-     * another Multipart several levels down. This walks the tree until it
-     * finds an actual String part.
+     * MimeMessageHelper(message, true, ...) builds a nested multipart structure
+     * (e.g. multipart/mixed containing a multipart/related containing the
+     * actual text/html part), so the real content usually isn't at the top
+     * level or even at bodyPart(0) directly - it can be another Multipart
+     * several levels down. This walks the tree until it finds an actual String
+     * part.
      */
     private String extractText(Object content) throws Exception {
 
@@ -192,10 +192,10 @@ public abstract class BaseIntegrationTest {
     }
 
     /**
-     * Generates a real, validly-signed access token for the given user so
-     * that authenticated endpoints (logout, change-password, set-password)
-     * can be called via MockMvc with a proper Authorization header - matches
-     * exactly what JwtAuthenticationFilter expects (subject = user id).
+     * Generates a real, validly-signed access token for the given user so that
+     * authenticated endpoints (logout, change-password, set-password) can be
+     * called via MockMvc with a proper Authorization header - matches exactly
+     * what JwtAuthenticationFilter expects (subject = user id).
      */
     protected String bearerTokenFor(User user) {
         return "Bearer " + jwtService.generateAccessToken(
@@ -208,7 +208,8 @@ public abstract class BaseIntegrationTest {
     /**
      * Creates a bidirectional friend link between two users - required before
      * either can be added to a group together, since GroupService gates both
-     * initial-member-at-creation and invite-member on friendRepository.areFriends().
+     * initial-member-at-creation and invite-member on
+     * friendRepository.areFriends().
      */
     protected void makeFriends(User a, User b) {
         User user1 = a.getId().toString().compareTo(b.getId().toString()) < 0 ? a : b;
