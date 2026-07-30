@@ -31,14 +31,23 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 
-async function fetchSummary(): Promise<DashboardSummary> {
+async function fetchSummary({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<DashboardSummary> {
   const { data } = await apiClient.get<DashboardSummary>(
     "/api/v1/balances/summary",
+    { signal },
   );
   return data;
 }
-async function fetchGroups(): Promise<Group[]> {
-  const { data } = await apiClient.get<Group[]>("/api/v1/groups");
+async function fetchGroups({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Group[]> {
+  const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
   return data;
 }
 
@@ -61,11 +70,11 @@ export function DashboardScreen() {
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["dashboard-summary"],
-    queryFn: fetchSummary,
+    queryFn: ({ signal }) => fetchSummary({ signal }),
   });
   const groupsQuery = useQuery({
     queryKey: ["groups"],
-    queryFn: fetchGroups,
+    queryFn: ({ signal }) => fetchGroups({ signal }),
     enabled: addModalOpen,
   });
 

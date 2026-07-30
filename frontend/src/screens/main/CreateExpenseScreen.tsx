@@ -32,17 +32,32 @@ interface Participant {
   name: string;
 }
 
-async function fetchGroup(groupId: string): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`);
+async function fetchGroup(
+  groupId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<Group> {
+  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
+    signal,
+  });
   return data;
 }
-async function fetchCategories(): Promise<Category[]> {
-  const { data } = await apiClient.get<Category[]>("/api/v1/categories");
+async function fetchCategories({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Category[]> {
+  const { data } = await apiClient.get<Category[]>("/api/v1/categories", {
+    signal,
+  });
   return data;
 }
-async function fetchExpense(expenseId: string): Promise<Expense> {
+async function fetchExpense(
+  expenseId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<Expense> {
   const { data } = await apiClient.get<Expense>(
     `/api/v1/expenses/${expenseId}`,
+    { signal },
   );
   return data;
 }
@@ -65,16 +80,16 @@ export function CreateExpenseScreen() {
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
-    queryFn: () => fetchGroup(groupId as string),
+    queryFn: ({ signal }) => fetchGroup(groupId as string, { signal }),
     enabled: Boolean(groupId),
   });
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
-    queryFn: fetchCategories,
+    queryFn: ({ signal }) => fetchCategories({ signal }),
   });
   const existingExpenseQuery = useQuery({
     queryKey: ["expense", expenseId],
-    queryFn: () => fetchExpense(expenseId as string),
+    queryFn: ({ signal }) => fetchExpense(expenseId as string, { signal }),
     enabled: isEditMode,
   });
 
@@ -155,6 +170,7 @@ export function CreateExpenseScreen() {
     queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
     queryClient.invalidateQueries({ queryKey: ["friend-balance", friendId] });
     queryClient.invalidateQueries({ queryKey: ["my-expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["merged-timeline"] });
   };
 
   const createMutation = useMutation({

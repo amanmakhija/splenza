@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Linking,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { useNavigation } from "@react-navigation/native";
@@ -186,6 +187,26 @@ export function SignupScreen() {
             loading={mutation.isPending}
           />
 
+          <Text style={[styles.legalText, { color: theme.textMuted }]}>
+            By creating an account, you agree to our{" "}
+            <Text
+              style={[styles.legalLink, { color: theme.primary }]}
+              onPress={() => Linking.openURL("https://getsplenza.in/terms")}
+            >
+              Terms & Conditions
+            </Text>{" "}
+            and{" "}
+            <Text
+              style={[styles.legalLink, { color: theme.primary }]}
+              onPress={() =>
+                Linking.openURL("https://getsplenza.in/privacy-policy")
+              }
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
+
           <View style={styles.dividerRow}>
             <View
               style={[styles.dividerLine, { backgroundColor: theme.border }]}
@@ -231,6 +252,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "800", marginTop: 8, textAlign: "center" },
   subtitle: { fontSize: 14, textAlign: "center" },
   formError: { textAlign: "center", marginBottom: 12, fontSize: 13 },
+  legalText: {
+    textAlign: "center",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
+  legalLink: {
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   footerLink: { marginTop: 16, alignItems: "center", marginBottom: 24 },
   dividerRow: {
     flexDirection: "row",

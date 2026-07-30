@@ -19,7 +19,6 @@ import {
   Plus,
   UserPlus,
   X,
-  ArrowRight,
   LogOut,
   Download,
   FileText,
@@ -46,60 +45,64 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 type Route = RouteProp<GroupsStackParamList, "GroupDetail">;
-
-async function fetchGroup(groupId: string): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`);
-  return data;
-}
 const PAGE_SIZE = 20;
 
+async function fetchGroup(
+  groupId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<Group> {
+  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
+    signal,
+  });
+  return data;
+}
 async function fetchGroupExpensesPage(
   groupId: string,
   page: number,
+  signal: AbortSignal,
 ): Promise<PageResponse<Expense>> {
   const { data } = await apiClient.get<PageResponse<Expense>>(
     `/api/v1/expenses/group/${groupId}`,
-    {
-      params: {
-        page,
-        size: PAGE_SIZE,
-      },
-    },
+    { params: { page, size: PAGE_SIZE }, signal },
   );
   return data;
 }
-
 async function fetchGroupSettlementsPage(
   groupId: string,
   page: number,
+  signal: AbortSignal,
 ): Promise<PageResponse<Settlement>> {
   const { data } = await apiClient.get<PageResponse<Settlement>>(
     `/api/v1/settlements/group/${groupId}`,
-    {
-      params: {
-        page,
-        size: PAGE_SIZE,
-      },
-    },
+    { params: { page, size: PAGE_SIZE }, signal },
   );
   return data;
 }
 async function fetchGroupBalances(
   groupId: string,
+  { signal }: { signal: AbortSignal },
 ): Promise<GroupBalanceResponse> {
   const { data } = await apiClient.get<GroupBalanceResponse>(
     `/api/v1/balances/group/${groupId}`,
+    { signal },
   );
   return data;
 }
-async function fetchFriends(): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends");
+async function fetchFriends({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Friend[]> {
+  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
   return data;
 }
-async function fetchActivity(groupId: string): Promise<ActivityLogEntry[]> {
+async function fetchActivity(
+  groupId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<ActivityLogEntry[]> {
   const { data } = await apiClient.get<PageResponse<ActivityLogEntry>>(
     `/api/v1/activity/group/${groupId}`,
-    { params: { size: 50 } },
+    { params: { size: 50 }, signal },
   );
   return data.content;
 }
@@ -159,7 +162,7 @@ export function GroupDetailScreen() {
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
-    queryFn: () => fetchGroup(groupId),
+    queryFn: ({ signal }) => fetchGroup(groupId, { signal }),
   });
   const timeline = usePaginatedMergedTimeline<
     Expense,
@@ -167,11 +170,8 @@ export function GroupDetailScreen() {
     TimelineItem
   >({
     queryKeyPrefix: `group-timeline-${groupId}`,
-
-    fetchA: (page) => fetchGroupExpensesPage(groupId, page),
-
-    fetchB: (page) => fetchGroupSettlementsPage(groupId, page),
-
+    fetchA: (page, signal) => fetchGroupExpensesPage(groupId, page, signal),
+    fetchB: (page, signal) => fetchGroupSettlementsPage(groupId, page, signal),
     toItem: (expense, settlement) =>
       expense
         ? {
@@ -184,31 +184,27 @@ export function GroupDetailScreen() {
             date: settlement!.settledAt,
             data: settlement!,
           },
-
     getDate: (item) => item.date,
-
     enabled: tab === "expenses",
   });
   const balancesQuery = useQuery({
     queryKey: ["group-balances", groupId],
-    queryFn: () => fetchGroupBalances(groupId),
+    queryFn: ({ signal }) => fetchGroupBalances(groupId, { signal }),
   });
   const friendsQuery = useQuery({
     queryKey: ["friends"],
-    queryFn: fetchFriends,
+    queryFn: ({ signal }) => fetchFriends({ signal }),
     enabled: inviteModalOpen,
   });
   const activityQuery = useQuery({
     queryKey: ["group-activity", groupId],
-    queryFn: () => fetchActivity(groupId),
+    queryFn: ({ signal }) => fetchActivity(groupId, { signal }),
     enabled: tab === "activity",
   });
 
-  const mergedTimeline = useMemo(() => {
+  const mergedTimeline: TimelineItem[] = useMemo(() => {
     const q = searchQuery.toLowerCase();
-
     if (!q) return timeline.items;
-
     return timeline.items.filter((item) =>
       item.type === "expense"
         ? item.data.title.toLowerCase().includes(q)
@@ -483,7 +479,7 @@ export function GroupDetailScreen() {
             />
           }
           onEndReached={() => {
-            if (timeline.hasMore && !timeline.isFetchingMore) {
+            if (!searchQuery && timeline.hasMore && !timeline.isFetchingMore) {
               timeline.loadMore();
             }
           }}

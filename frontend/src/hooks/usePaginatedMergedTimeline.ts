@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageResponse } from "@/types/api";
 
 interface UsePaginatedMergedTimelineParams<A, B, TItem> {
   queryKeyPrefix: string;
-  fetchA: (page: number) => Promise<PageResponse<A>>;
-  fetchB: (page: number) => Promise<PageResponse<B>>;
+  fetchA: (page: number, signal: AbortSignal) => Promise<PageResponse<A>>;
+  fetchB: (page: number, signal: AbortSignal) => Promise<PageResponse<B>>;
   toItem: (a: A | null, b: B | null) => TItem;
   getDate: (item: TItem) => string;
   enabled?: boolean;
@@ -39,11 +39,15 @@ export function usePaginatedMergedTimeline<A, B, TItem>({
   const [hasMoreA, setHasMoreA] = useState(true);
   const [hasMoreB, setHasMoreB] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
 
   const initialQuery = useQuery({
-    queryKey: [queryKeyPrefix, "initial"],
-    queryFn: async () => {
-      const [resA, resB] = await Promise.all([fetchA(0), fetchB(0)]);
+    queryKey: ["merged-timeline", queryKeyPrefix],
+    queryFn: async ({ signal }) => {
+      const [resA, resB] = await Promise.all([
+        fetchA(0, signal),
+        fetchB(0, signal),
+      ]);
       setItemsA(resA.content);
       setItemsB(resB.content);
       setHasMoreA(!resA.last);
@@ -57,45 +61,41 @@ export function usePaginatedMergedTimeline<A, B, TItem>({
 
   const loadMore = useCallback(async () => {
     if (isFetchingMore || (!hasMoreA && !hasMoreB)) return;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
     setIsFetchingMore(true);
     try {
       const nextA = hasMoreA ? pageA + 1 : pageA;
       const nextB = hasMoreB ? pageB + 1 : pageB;
 
       const [resA, resB] = await Promise.all([
-        hasMoreA ? fetchA(nextA) : Promise.resolve(null),
-        hasMoreB ? fetchB(nextB) : Promise.resolve(null),
+        hasMoreA ? fetchA(nextA, controller.signal) : Promise.resolve(null),
+        hasMoreB ? fetchB(nextB, controller.signal) : Promise.resolve(null),
       ]);
 
       if (resA) {
-        setItemsA((prev) => {
-          const existing = new Set(prev.map((item: any) => item.id));
-          return [
-            ...prev,
-            ...resA.content.filter((item: any) => !existing.has(item.id)),
-          ];
-        });
+        setItemsA((prev) => [...prev, ...resA.content]);
         setHasMoreA(!resA.last);
         setPageA(nextA);
       }
       if (resB) {
-        setItemsB((prev) => {
-          const existing = new Set(prev.map((item: any) => item.id));
-          return [
-            ...prev,
-            ...resB.content.filter((item: any) => !existing.has(item.id)),
-          ];
-        });
+        setItemsB((prev) => [...prev, ...resB.content]);
         setHasMoreB(!resB.last);
         setPageB(nextB);
       }
+    } catch (err) {
+      if (!(err instanceof Error && err.name === "CanceledError")) throw err;
     } finally {
       setIsFetchingMore(false);
     }
   }, [isFetchingMore, hasMoreA, hasMoreB, pageA, pageB, fetchA, fetchB]);
 
   const refresh = useCallback(async () => {
-    await queryClient.resetQueries({ queryKey: [queryKeyPrefix, "initial"] });
+    await queryClient.resetQueries({
+      queryKey: ["merged-timeline", queryKeyPrefix],
+    });
   }, [queryClient, queryKeyPrefix]);
 
   const items: TItem[] = useMemo(() => {
@@ -103,9 +103,7 @@ export function usePaginatedMergedTimeline<A, B, TItem>({
       ...itemsA.map((a) => toItem(a, null)),
       ...itemsB.map((b) => toItem(null, b)),
     ];
-    return merged.sort(
-      (x, y) => new Date(getDate(y)).getTime() - new Date(getDate(x)).getTime(),
-    );
+    return merged.sort((x, y) => (getDate(x) < getDate(y) ? 1 : -1));
   }, [itemsA, itemsB, toItem, getDate]);
 
   return {

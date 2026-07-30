@@ -42,6 +42,7 @@ export function SettleUpScreen() {
         queryKey: ["friend-settlements", paidTo],
       });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["merged-timeline"] });
       navigation.goBack();
     },
     onError: (err) => setFormError(getApiErrorMessage(err)),

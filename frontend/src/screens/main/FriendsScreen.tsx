@@ -23,14 +23,22 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 
-async function fetchFriends(): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends");
+async function fetchFriends({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Friend[]> {
+  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
   return data;
 }
-
-async function fetchPendingRequests(): Promise<FriendRequestDto[]> {
+async function fetchPendingRequests({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<FriendRequestDto[]> {
   const { data } = await apiClient.get<FriendRequestDto[]>(
     "/api/v1/friends/requests/pending",
+    { signal },
   );
   return data;
 }
@@ -43,11 +51,11 @@ export function FriendsScreen() {
 
   const friendsQuery = useQuery({
     queryKey: ["friends"],
-    queryFn: fetchFriends,
+    queryFn: ({ signal }) => fetchFriends({ signal }),
   });
   const requestsQuery = useQuery({
     queryKey: ["friend-requests"],
-    queryFn: fetchPendingRequests,
+    queryFn: ({ signal }) => fetchPendingRequests({ signal }),
   });
 
   const acceptMutation = useMutation({

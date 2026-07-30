@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { hydrateStorage } from "@/lib/storage";
 import { ThemeProvider, useAppTheme } from "@/theme/ThemeContext";
 import { CircularRevealProvider } from "@/components/CircularRevealProvider";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { StatusBar } from "expo-status-bar";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import * as SplashScreen from "expo-splash-screen";
@@ -15,6 +16,13 @@ import {
   getMessaging,
   setBackgroundMessageHandler,
 } from "@react-native-firebase/messaging";
+import {
+  setupGlobalErrorHandlers,
+  identifyUserForCrashReports,
+} from "@/lib/crashReporting";
+import { OfflineBanner } from "@/components/OfflineBanner";
+
+setupGlobalErrorHandlers();
 
 const messaging = getMessaging(getApp());
 
@@ -57,17 +65,20 @@ export default function App() {
   if (!isReady) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <CircularRevealProvider>
-              <ThemedStatusBar />
-              <RootNavigator />
-            </CircularRevealProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <CircularRevealProvider>
+                <ThemedStatusBar />
+                <OfflineBanner />
+                <RootNavigator />
+              </CircularRevealProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

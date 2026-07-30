@@ -57,7 +57,8 @@
       "@react-native-community/datetimepicker",
       "@react-native-google-signin/google-signin",
       "@react-native-firebase/app",
-      "@react-native-firebase/messaging"
+      "@react-native-firebase/messaging",
+      "@react-native-firebase/crashlytics"
     ],
     "extra": {
       "apiBaseUrl": "https://api.splenza.in",

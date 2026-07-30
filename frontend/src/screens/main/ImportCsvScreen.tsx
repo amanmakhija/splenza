@@ -45,16 +45,29 @@ type Nav = NativeStackNavigationProp<MainStackParamList, "ImportCsv">;
 type Step = "pick" | "group" | "mapping" | "preview" | "result";
 type GroupMode = "new" | "existing";
 
-async function fetchFriends(): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends");
+async function fetchFriends({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Friend[]> {
+  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
   return data;
 }
-async function fetchGroups(): Promise<Group[]> {
-  const { data } = await apiClient.get<Group[]>("/api/v1/groups");
+async function fetchGroups({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Group[]> {
+  const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
   return data;
 }
-async function fetchGroup(groupId: string): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`);
+async function fetchGroup(
+  groupId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<Group> {
+  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
+    signal,
+  });
   return data;
 }
 
@@ -80,16 +93,16 @@ export function ImportCsvScreen() {
 
   const friendsQuery = useQuery({
     queryKey: ["friends"],
-    queryFn: fetchFriends,
+    queryFn: ({ signal }) => fetchFriends({ signal }),
   });
   const groupsQuery = useQuery({
     queryKey: ["groups"],
-    queryFn: fetchGroups,
+    queryFn: ({ signal }) => fetchGroups({ signal }),
     enabled: groupMode === "existing",
   });
   const existingGroupDetailQuery = useQuery({
     queryKey: ["group", existingGroupId],
-    queryFn: () => fetchGroup(existingGroupId as string),
+    queryFn: ({ signal }) => fetchGroup(existingGroupId as string, { signal }),
     enabled: Boolean(existingGroupId),
   });
 

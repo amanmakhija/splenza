@@ -23,13 +23,22 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 
-async function fetchGroups(): Promise<Group[]> {
-  const { data } = await apiClient.get<Group[]>("/api/v1/groups");
+async function fetchGroups({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Group[]> {
+  const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
   return data;
 }
-async function fetchGroupSummaries(): Promise<GroupBalanceSummary[]> {
+async function fetchGroupSummaries({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<GroupBalanceSummary[]> {
   const { data } = await apiClient.get<GroupBalanceSummary[]>(
     "/api/v1/balances/groups",
+    { signal },
   );
   return data;
 }
@@ -48,11 +57,11 @@ export function GroupsScreen() {
   const navigation = useNavigation<Nav>();
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["groups"],
-    queryFn: fetchGroups,
+    queryFn: ({ signal }) => fetchGroups({ signal }),
   });
   const summariesQuery = useQuery({
     queryKey: ["group-summaries"],
-    queryFn: fetchGroupSummaries,
+    queryFn: ({ signal }) => fetchGroupSummaries({ signal }),
   });
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;

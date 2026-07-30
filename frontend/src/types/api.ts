@@ -184,6 +184,7 @@ export interface NotificationDto {
   title: string;
   body: string | null;
   referenceId: string | null;
+  targetType: string | null;
   read: boolean;
   createdAt: string;
 }

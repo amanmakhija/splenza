@@ -106,7 +106,9 @@ export function RootNavigator() {
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={MainStackNavigator} />
         ) : (
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+          <Stack.Screen name="Auth">
+            {() => <AuthNavigator pendingEmail={pendingEmail} />}
+          </Stack.Screen>
         )}
       </Stack.Navigator>
     </NavigationContainer>

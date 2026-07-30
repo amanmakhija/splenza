@@ -13,13 +13,24 @@ import { ChangeEmailScreen } from "@/screens/auth/ChangeEmailScreen";
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
-export function AuthNavigator() {
+interface AuthNavigatorProps {
+  pendingEmail?: string;
+}
+
+export function AuthNavigator({ pendingEmail }: AuthNavigatorProps) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={pendingEmail ? "VerifyEmail" : "Login"}
+    >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+      <Stack.Screen
+        name="VerifyEmail"
+        component={VerifyEmailScreen}
+        initialParams={pendingEmail ? { email: pendingEmail } : undefined}
+      />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="EmailSent" component={EmailSentScreen} />
       <Stack.Screen

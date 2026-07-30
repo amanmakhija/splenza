@@ -16,8 +16,12 @@ import { MainStackParamList } from "@/navigation/types";
 type FormValues = { name: string; description: string };
 type Nav = NativeStackNavigationProp<MainStackParamList, "CreateGroup">;
 
-async function fetchFriends(): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends");
+async function fetchFriends({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<Friend[]> {
+  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
   return data;
 }
 
@@ -37,7 +41,7 @@ export function CreateGroupScreen() {
 
   const friendsQuery = useQuery({
     queryKey: ["friends"],
-    queryFn: fetchFriends,
+    queryFn: ({ signal }) => fetchFriends({ signal }),
   });
 
   const mutation = useMutation({

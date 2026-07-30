@@ -19,22 +19,19 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { NotificationDto, PageResponse } from "@/types/api";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { handleNotificationNavigation } from "@/services/notificationNavigation";
+import { asString } from "@/services/notificationService";
 
 const PAGE_SIZE = 20;
 
 async function fetchNotificationsPage(
   page: number,
+  signal: AbortSignal,
 ): Promise<PageResponse<NotificationDto>> {
   const { data } = await apiClient.get<PageResponse<NotificationDto>>(
     "/api/v1/notifications",
-    {
-      params: {
-        page,
-        size: PAGE_SIZE,
-      },
-    },
+    { params: { page, size: PAGE_SIZE }, signal },
   );
-
   return data;
 }
 
@@ -75,7 +72,8 @@ export function NotificationsScreen() {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ["notifications"],
-    queryFn: ({ pageParam }) => fetchNotificationsPage(pageParam),
+    queryFn: ({ pageParam, signal }) =>
+      fetchNotificationsPage(pageParam, signal),
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
       lastPage.last ? undefined : lastPage.page + 1,
@@ -165,7 +163,13 @@ export function NotificationsScreen() {
         renderItem={({ item, index }) => (
           <Animated.View entering={FadeInDown.delay(Math.min(index * 40, 300))}>
             <Pressable
-              onPress={() => !item.read && markReadMutation.mutate(item.id)}
+              onPress={() => {
+                if (!item.read) markReadMutation.mutate(item.id);
+                handleNotificationNavigation({
+                  targetType: asString(item.targetType),
+                  referenceId: asString(item.referenceId),
+                });
+              }}
               style={[
                 styles.row,
                 {

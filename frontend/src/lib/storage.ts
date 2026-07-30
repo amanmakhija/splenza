@@ -1,20 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-/**
- * Expo-Go-compatible storage. AsyncStorage's real API is async, but three places in this app
- * need synchronous reads (the axios interceptor grabbing a token mid-request, the auth store's
- * cold-start hydration, ThemeContext's initial state) - rather than threading async/await through
- * all of those, we keep an in-memory mirror that's populated once at boot via `hydrateStorage()`
- * (called from App.tsx before anything renders), then read/written synchronously from there.
- * Every write is also fired off to AsyncStorage in the background so it survives app restarts.
- *
- * If you outgrow this (e.g. need MMKV's speed for very large/frequent storage), swapping back is
- * a one-file change since every other file only imports { storage, StorageKeys, storageHelpers }
- * from here - just don't forget MMKV requires a custom dev client, not plain Expo Go.
- */
-
-const cache = new Map<string, string>();
-let hydrated = false;
+import * as SecureStore from "expo-secure-store";
 
 export const StorageKeys = {
   ACCESS_TOKEN: "auth.accessToken",
@@ -24,15 +9,35 @@ export const StorageKeys = {
   PENDING_EMAIL: "pending_email",
 } as const;
 
-const ALL_KEYS = Object.values(StorageKeys);
+const SECURE_KEYS = new Set<string>([
+  StorageKeys.ACCESS_TOKEN,
+  StorageKeys.REFRESH_TOKEN,
+]);
+
+// Filter out secure keys so AsyncStorage only queries non-sensitive keys
+const NON_SECURE_KEYS = Object.values(StorageKeys).filter(
+  (key) => !SECURE_KEYS.has(key),
+);
+
+const cache = new Map<string, string>();
+let hydrated = false;
 
 /** Must be awaited once before the app renders (see App.tsx). */
 export async function hydrateStorage(): Promise<void> {
   if (hydrated) return;
-  const pairs = await AsyncStorage.multiGet(ALL_KEYS);
+
+  // Non-secure keys: read in batch via AsyncStorage
+  const pairs = await AsyncStorage.multiGet(NON_SECURE_KEYS);
   pairs.forEach(([key, value]) => {
     if (value !== null) cache.set(key, value);
   });
+
+  // Secure keys: read individually via SecureStore
+  for (const key of SECURE_KEYS) {
+    const value = await SecureStore.getItemAsync(key);
+    if (value != null) cache.set(key, value);
+  }
+
   hydrated = true;
 }
 
@@ -40,15 +45,26 @@ export const storage = {
   getString: (key: string): string | undefined => cache.get(key),
   set: (key: string, value: string) => {
     cache.set(key, value);
-    AsyncStorage.setItem(key, value).catch(() => {});
+    if (SECURE_KEYS.has(key)) {
+      SecureStore.setItemAsync(key, value);
+    } else {
+      AsyncStorage.setItem(key, value);
+    }
   },
   delete: (key: string) => {
     cache.delete(key);
-    AsyncStorage.removeItem(key).catch(() => {});
+    if (SECURE_KEYS.has(key)) {
+      SecureStore.deleteItemAsync(key);
+    } else {
+      AsyncStorage.removeItem(key);
+    }
   },
   clearAll: () => {
     cache.clear();
-    AsyncStorage.multiRemove(ALL_KEYS).catch(() => {});
+    AsyncStorage.multiRemove(NON_SECURE_KEYS).catch(() => {});
+    for (const key of SECURE_KEYS) {
+      SecureStore.deleteItemAsync(key).catch(() => {});
+    }
   },
 };
 

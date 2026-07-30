@@ -25,6 +25,7 @@ interface AuthState {
   verifyEmail: (email: string, otp: string) => Promise<AuthResponse>;
   completeLogin: (data: AuthResponse) => void;
   changePendingEmail: (oldEmail: string, newEmail: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 function persistSession(res: AuthResponse) {
@@ -92,7 +93,28 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await apiClient.post("/api/v1/auth/logout");
+    try {
+      await apiClient.post("/api/v1/auth/logout");
+    } catch (e) {
+      console.error("Server logout failed, clearing local session anyway", e);
+    }
+    try {
+      await unregisterDevice();
+    } catch (e) {
+      console.error("Failed to unregister FCM device", e);
+    }
+    storage.delete(StorageKeys.ACCESS_TOKEN);
+    storage.delete(StorageKeys.REFRESH_TOKEN);
+    storage.delete(StorageKeys.USER);
+    set({ user: null, isAuthenticated: false });
+  },
+
+  deleteAccount: async () => {
+    // Backend must implement this endpoint — it should permanently delete the
+    // user's account and associated data (or anonymize per your retention policy),
+    // not just deactivate it. Required for Play Store Data Safety compliance.
+    await apiClient.delete("/api/v1/auth/account");
+
     try {
       await unregisterDevice();
     } catch (e) {

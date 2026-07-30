@@ -12,9 +12,16 @@ function clearSession() {
   useAuthStore.setState({ user: null, isAuthenticated: false });
 }
 
-const baseURL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ??
-  "http://localhost:8080";
+const baseURL = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
+
+if (!baseURL) {
+  // This should be impossible in a real build (app.json always sets it), but if
+  // it ever happens, fail loudly instead of silently hitting localhost on a
+  // physical device, which just hangs with a confusing "network error".
+  throw new Error(
+    "apiBaseUrl is missing from app config (extra.apiBaseUrl). Check app.json / EAS build config.",
+  );
+}
 
 export const apiClient = axios.create({
   baseURL,
@@ -54,7 +61,20 @@ apiClient.interceptors.response.use(
       | undefined;
 
     // Don't try to refresh on the auth endpoints themselves - avoids infinite loops.
-    const isAuthEndpoint = originalRequest?.url?.includes("/api/v1/auth/");
+    const PUBLIC_AUTH_PATHS = [
+      "/api/v1/auth/login",
+      "/api/v1/auth/signup",
+      "/api/v1/auth/refresh",
+      "/api/v1/auth/google",
+      "/api/v1/auth/forgot-password",
+      "/api/v1/auth/reset-password",
+      "/api/v1/auth/verify-email",
+      "/api/v1/auth/resend-verification-email",
+      "/api/v1/auth/change-pending-email",
+    ];
+    const isAuthEndpoint = PUBLIC_AUTH_PATHS.some((p) =>
+      originalRequest?.url?.includes(p),
+    );
 
     if (
       error.response?.status === 401 &&
@@ -126,11 +146,26 @@ export function getApiErrorMessage(
   fallback = "Something went wrong. Please try again.",
 ): string {
   if (axios.isAxiosError(err)) {
-    const body = err.response?.data as ApiErrorBody | undefined;
+    // No response at all = network down, DNS failure, server unreachable,
+    // or the request never left the device. Distinguish this from a
+    // backend error, since "check your connection" and "something broke"
+    // need different messaging.
+    if (!err.response) {
+      if (err.code === "ECONNABORTED") {
+        return "That took too long. Please check your connection and try again.";
+      }
+      return "Can't reach the server. Please check your internet connection.";
+    }
+
+    const body = err.response.data as ApiErrorBody | undefined;
     if (body?.fieldErrors && Object.keys(body.fieldErrors).length > 0) {
       return Object.values(body.fieldErrors)[0];
     }
     if (body?.message) return body.message;
+
+    if (err.response.status >= 500) {
+      return "Something went wrong on our end. Please try again in a moment.";
+    }
   }
   return fallback;
 }

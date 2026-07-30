@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -23,6 +24,7 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 import { CompositeNavigationProp } from "@react-navigation/native";
+import { usePaginatedMergedTimeline } from "@/hooks/usePaginatedMergedTimeline";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<FriendsStackParamList, "FriendDetail">,
@@ -32,25 +34,35 @@ type Route = RouteProp<FriendsStackParamList, "FriendDetail">;
 
 async function fetchFriendBalance(
   friendId: string,
+  { signal }: { signal: AbortSignal },
 ): Promise<FriendBalanceResponse> {
   const { data } = await apiClient.get<FriendBalanceResponse>(
     `/api/v1/balances/friend/${friendId}`,
+    { signal },
   );
   return data;
 }
-async function fetchMyExpenses(): Promise<Expense[]> {
+async function fetchExpensesWithFriendPage(
+  friendId: string,
+  page: number,
+  signal: AbortSignal,
+): Promise<PageResponse<Expense>> {
   const { data } = await apiClient.get<PageResponse<Expense>>(
-    "/api/v1/expenses/me",
-    { params: { size: 200 } },
+    `/api/v1/expenses/friend/${friendId}`,
+    { params: { page, size: 20 }, signal },
   );
-  return data.content;
+  return data;
 }
-async function fetchSettlementHistory(friendId: string): Promise<Settlement[]> {
+async function fetchSettlementsWithFriendPage(
+  friendId: string,
+  page: number,
+  signal: AbortSignal,
+): Promise<PageResponse<Settlement>> {
   const { data } = await apiClient.get<PageResponse<Settlement>>(
     `/api/v1/settlements/friend/${friendId}`,
-    { params: { size: 100 } },
+    { params: { page, size: 20 }, signal },
   );
-  return data.content;
+  return data;
 }
 
 type TimelineItem =
@@ -66,45 +78,36 @@ export function FriendDetailScreen() {
 
   const balanceQuery = useQuery({
     queryKey: ["friend-balance", friendId],
-    queryFn: () => fetchFriendBalance(friendId),
-  });
-  const expensesQuery = useQuery({
-    queryKey: ["my-expenses"],
-    queryFn: fetchMyExpenses,
-  });
-  const settlementsQuery = useQuery({
-    queryKey: ["friend-settlements", friendId],
-    queryFn: () => fetchSettlementHistory(friendId),
+    queryFn: ({ signal }) => fetchFriendBalance(friendId, { signal }),
   });
 
-  const directExpenses = (expensesQuery.data ?? []).filter(
-    (e) =>
-      e.groupId === null && e.participants.some((p) => p.userId === friendId),
-  );
-
-  const timeline: TimelineItem[] = [
-    ...directExpenses.map((e) => ({
-      type: "expense" as const,
-      date: e.expenseDate,
-      data: e,
-    })),
-    ...(settlementsQuery.data ?? []).map((s) => ({
-      type: "settlement" as const,
-      date: s.settledAt,
-      data: s,
-    })),
-  ].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const timeline = usePaginatedMergedTimeline<
+    Expense,
+    Settlement,
+    TimelineItem
+  >({
+    queryKeyPrefix: `friend-timeline-${friendId}`,
+    fetchA: (page, signal) =>
+      fetchExpensesWithFriendPage(friendId, page, signal),
+    fetchB: (page, signal) =>
+      fetchSettlementsWithFriendPage(friendId, page, signal),
+    toItem: (expense, settlement) =>
+      expense
+        ? { type: "expense", date: expense.expenseDate, data: expense }
+        : {
+            type: "settlement",
+            date: (settlement as Settlement).settledAt,
+            data: settlement as Settlement,
+          },
+    getDate: (item) => item.date,
+  });
 
   const netAmount = balanceQuery.data?.netAmount ?? 0;
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
-  const isRefetching =
-    expensesQuery.isRefetching ||
-    balanceQuery.isRefetching ||
-    settlementsQuery.isRefetching;
+  const isRefetching = timeline.isRefetching || balanceQuery.isRefetching;
   const refetchAll = () => {
     balanceQuery.refetch();
-    expensesQuery.refetch();
-    settlementsQuery.refetch();
+    timeline.refresh();
   };
 
   return (
@@ -166,7 +169,7 @@ export function FriendDetailScreen() {
       </View>
 
       <FlatList
-        data={timeline}
+        data={timeline.items}
         keyExtractor={(item) => `${item.type}-${item.data.id}`}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -175,6 +178,18 @@ export function FriendDetailScreen() {
             onRefresh={refetchAll}
             tintColor={theme.primary}
           />
+        }
+        onEndReached={() => {
+          if (timeline.hasMore && !timeline.isFetchingMore) timeline.loadMore();
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          timeline.isFetchingMore ? (
+            <ActivityIndicator
+              style={{ marginVertical: 16 }}
+              color={theme.primary}
+            />
+          ) : null
         }
         renderItem={({ item }) =>
           item.type === "expense" ? (
@@ -225,7 +240,7 @@ export function FriendDetailScreen() {
           )
         }
         ListEmptyComponent={
-          !expensesQuery.isLoading ? (
+          !timeline.isLoading ? (
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>
               No shared expenses yet with {friendName}.
             </Text>

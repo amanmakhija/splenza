@@ -1,7 +1,20 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  Linking,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, ChevronRight, Bell, FileUp } from "lucide-react-native";
+import {
+  LogOut,
+  ChevronRight,
+  Bell,
+  FileUp,
+  Trash2,
+} from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/theme/ThemeContext";
@@ -15,7 +28,8 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 export function ProfileScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
-  const { user, logout } = useAuthStore();
+  const { user, logout, deleteAccount } = useAuthStore();
+  const [deleting, setDeleting] = useState(false);
 
   const menuItems = [
     {
@@ -31,9 +45,45 @@ export function ProfileScreen() {
       onPress: () => navigation.navigate("Notifications"),
     },
     { label: "Preferred currency", value: "INR", onPress: () => {} },
-    { label: "Privacy policy", value: "", onPress: () => {} },
+    {
+      label: "Privacy policy",
+      value: "",
+      onPress: () => Linking.openURL("https://getsplenza.in/privacy-policy"),
+    },
+    {
+      label: "Terms & Conditions",
+      value: "",
+      onPress: () => Linking.openURL("https://getsplenza.in/terms"),
+    },
     { label: "About Splenza", value: "", onPress: () => {} },
   ];
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your account and all your expense data. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await deleteAccount();
+            } catch (e) {
+              Alert.alert(
+                "Something went wrong",
+                "Please try again, or contact support if this keeps happening.",
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView
@@ -109,6 +159,24 @@ export function ProfileScreen() {
         <LogOut size={18} color={theme.danger} />
         <Text style={[styles.logoutText, { color: theme.danger }]}>
           Log out
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={handleDeleteAccount}
+        disabled={deleting}
+        style={[
+          styles.logoutButton,
+          {
+            borderColor: theme.danger,
+            marginTop: 12,
+            opacity: deleting ? 0.6 : 1,
+          },
+        ]}
+      >
+        <Trash2 size={18} color={theme.danger} />
+        <Text style={[styles.logoutText, { color: theme.danger }]}>
+          {deleting ? "Deleting..." : "Delete account"}
         </Text>
       </Pressable>
 
