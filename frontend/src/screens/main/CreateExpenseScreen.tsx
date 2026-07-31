@@ -7,13 +7,31 @@ import {
   TextInput,
   Pressable,
   Platform,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Calendar, Trash2 } from "lucide-react-native";
+import {
+  Calendar,
+  Trash2,
+  Users,
+  ChevronRight,
+  X,
+  Delete,
+  Tag,
+  UtensilsCrossed,
+  Car,
+  ShoppingBag,
+  Home,
+  Film,
+  Plane,
+  HeartPulse,
+  Zap,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
@@ -31,6 +49,8 @@ interface Participant {
   userId: string;
   name: string;
 }
+
+type ActiveSheet = "title" | "category" | "paidBy" | "split" | null;
 
 async function fetchGroup(
   groupId: string,
@@ -69,6 +89,24 @@ function toDateInputString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// Maps a category's name to a representative icon. Falls back to a generic
+// Tag icon for categories that don't match a known keyword — but this is
+// only ever called when a category IS selected, so "no category" never
+// renders any icon at all (handled at the call site, not in here).
+function getCategoryIcon(categoryName: string): LucideIcon {
+  const name = categoryName.toLowerCase();
+  if (/food|dinner|lunch|breakfast|restaurant|grocer/.test(name))
+    return UtensilsCrossed;
+  if (/transport|cab|taxi|uber|fuel|gas|car/.test(name)) return Car;
+  if (/shop|clothes|retail/.test(name)) return ShoppingBag;
+  if (/rent|home|house|utilit|electric|water/.test(name)) return Home;
+  if (/movie|entertain|film|game/.test(name)) return Film;
+  if (/travel|flight|trip|hotel/.test(name)) return Plane;
+  if (/health|medic|doctor|pharmacy/.test(name)) return HeartPulse;
+  if (/bill|electric|power/.test(name)) return Zap;
+  return Tag;
+}
+
 export function CreateExpenseScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
@@ -77,6 +115,10 @@ export function CreateExpenseScreen() {
   const isEditMode = Boolean(expenseId);
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
@@ -110,7 +152,7 @@ export function CreateExpenseScreen() {
   }, [groupId, groupQuery.data, friendId, friendName, currentUser]);
 
   const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(""); // raw digit string, formatted for display
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [paidBy, setPaidBy] = useState(currentUser?.id ?? "");
@@ -122,8 +164,9 @@ export function CreateExpenseScreen() {
   const [shareCounts, setShareCounts] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [prefilledFromEdit, setPrefilledFromEdit] = useState(false);
+  const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
+  const [titleDraft, setTitleDraft] = useState("");
 
-  // keep default selection in sync once group members load (create mode only)
   React.useEffect(() => {
     if (!isEditMode && allParticipants.length > 0 && selectedIds.length === 0) {
       setSelectedIds(allParticipants.map((p) => p.userId));
@@ -132,7 +175,6 @@ export function CreateExpenseScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allParticipants]);
 
-  // prefill everything once when editing an existing expense
   React.useEffect(() => {
     if (isEditMode && existingExpenseQuery.data && !prefilledFromEdit) {
       const e = existingExpenseQuery.data;
@@ -194,15 +236,6 @@ export function CreateExpenseScreen() {
     onError: (err) => setFormError(getApiErrorMessage(err)),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => apiClient.delete(`/api/v1/expenses/${expenseId}`),
-    onSuccess: () => {
-      invalidateRelated();
-      navigation.goBack();
-    },
-    onError: (err) => setFormError(getApiErrorMessage(err)),
-  });
-
   const validateAndBuildPayload = (): Record<string, unknown> | null => {
     setFormError(null);
     const numericAmount = parseFloat(amount);
@@ -255,6 +288,11 @@ export function CreateExpenseScreen() {
       }
     }
 
+    function fail(msg: string): null {
+      setFormError(msg);
+      return null;
+    }
+
     return {
       groupId: groupId ?? null,
       title: title.trim(),
@@ -267,11 +305,6 @@ export function CreateExpenseScreen() {
       splitType,
       participants,
     };
-
-    function fail(msg: string): null {
-      setFormError(msg);
-      return null;
-    }
   };
 
   const onSubmit = () => {
@@ -283,133 +316,369 @@ export function CreateExpenseScreen() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
+  // --- Numeric keypad handlers (drives the big amount display) ---
+  const handleKeyPress = (key: string) => {
+    if (key === "back") {
+      setAmount((prev) => prev.slice(0, -1));
+      return;
+    }
+    if (key === ".") {
+      if (amount.includes(".")) return;
+      setAmount((prev) => (prev.length === 0 ? "0." : prev + "."));
+      return;
+    }
+    // limit to 2 decimal places
+    const decimalIndex = amount.indexOf(".");
+    if (decimalIndex !== -1 && amount.length - decimalIndex > 2) return;
+    setAmount((prev) => prev + key);
+  };
+
+  const displayAmount = amount === "" ? "0" : amount;
+
+  const selectedCategory = categoriesQuery.data?.find(
+    (c) => c.id === categoryId,
+  );
+  const paidByName =
+    allParticipants.find((p) => p.userId === paidBy)?.name ?? "Choose";
+  const groupOrPersonalLabel = groupQuery.data?.name
+    ? groupQuery.data.name
+    : friendName
+      ? friendName
+      : "Personal";
+
+  const openTitleSheet = () => {
+    setTitleDraft(title);
+    setActiveSheet("title");
+  };
+
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["bottom", "top"]}
     >
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <Text style={{ color: theme.textSecondary, fontSize: 22 }}>‹</Text>
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          {isEditMode ? "Edit expense" : "Add expense"}
+        </Text>
+        <Pressable onPress={onSubmit} disabled={isSaving} hitSlop={8}>
+          <Text
+            style={{
+              color: theme.primary,
+              fontWeight: "700",
+              fontSize: 15,
+              opacity: isSaving ? 0.5 : 1,
+            }}
+          >
+            {isSaving ? "Saving…" : "Save"}
+          </Text>
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Big amount display */}
+        <View style={styles.amountWrap}>
+          <Text style={[styles.amountText, { color: theme.textPrimary }]}>
+            ₹{displayAmount}
+          </Text>
+        </View>
+
+        {formError ? (
+          <Text style={[styles.formError, { color: theme.danger }]}>
+            {formError}
+          </Text>
+        ) : null}
+
+        {/* Row list */}
+        <View
+          style={[
+            styles.rowsCard,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <Pressable onPress={openTitleSheet} style={styles.row}>
+            <Text
+              style={[
+                styles.rowLabel,
+                styles.rowLabelNoIcon,
+                { color: title ? theme.textPrimary : theme.textMuted },
+              ]}
+            >
+              {title || "Add a description"}
+            </Text>
+            <ChevronRight size={16} color={theme.textMuted} />
+          </Pressable>
+
+          <View
+            style={[styles.rowDivider, { backgroundColor: theme.border }]}
+          />
+
+          <Pressable
+            onPress={() => setActiveSheet("category")}
+            style={styles.row}
+          >
+            {selectedCategory ? (
+              <View
+                style={[
+                  styles.rowIconWrap,
+                  { backgroundColor: theme.primaryContainer },
+                ]}
+              >
+                {(() => {
+                  const CategoryIcon = getCategoryIcon(selectedCategory.name);
+                  return <CategoryIcon size={16} color={theme.primary} />;
+                })()}
+              </View>
+            ) : null}
+            <View
+              style={[
+                styles.rowTextWrap,
+                !selectedCategory && styles.rowLabelNoIcon,
+              ]}
+            >
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>
+                {selectedCategory?.name ?? "No category"}
+              </Text>
+              <Text style={[styles.rowSubLabel, { color: theme.textMuted }]}>
+                {groupOrPersonalLabel}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={theme.textMuted} />
+          </Pressable>
+
+          <View
+            style={[styles.rowDivider, { backgroundColor: theme.border }]}
+          />
+
+          <Pressable onPress={() => setShowDatePicker(true)} style={styles.row}>
+            <Calendar size={18} color={theme.textMuted} />
+            <Text
+              style={[
+                styles.rowLabel,
+                styles.rowLabelNoIcon,
+                { color: theme.textPrimary },
+              ]}
+            >
+              {toDateInputString(date)}
+            </Text>
+            <ChevronRight size={16} color={theme.textMuted} />
+          </Pressable>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display={Platform.OS === "ios" ? "inline" : "default"}
+              onChange={(_, selected) => {
+                setShowDatePicker(Platform.OS === "ios");
+                if (selected) setDate(selected);
+              }}
+            />
+          )}
+
+          <View
+            style={[styles.rowDivider, { backgroundColor: theme.border }]}
+          />
+
+          <Pressable
+            onPress={() => setActiveSheet("paidBy")}
+            style={styles.row}
+          >
+            <View
+              style={[
+                styles.rowIconWrap,
+                { backgroundColor: theme.primaryContainer },
+              ]}
+            >
+              <Text
+                style={{
+                  color: theme.primary,
+                  fontWeight: "700",
+                  fontSize: 11,
+                }}
+              >
+                {paidByName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.rowTextWrap}>
+              <Text style={[styles.rowSubLabel, { color: theme.textMuted }]}>
+                Paid by
+              </Text>
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>
+                {paidByName}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={theme.textMuted} />
+          </Pressable>
+
+          <View
+            style={[styles.rowDivider, { backgroundColor: theme.border }]}
+          />
+
+          <Pressable onPress={() => setActiveSheet("split")} style={styles.row}>
+            <Users size={18} color={theme.textMuted} />
+            <View style={styles.rowTextWrap}>
+              <Text style={[styles.rowSubLabel, { color: theme.textMuted }]}>
+                Split between
+              </Text>
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>
+                {selectedIds.length} member{selectedIds.length === 1 ? "" : "s"}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={theme.textMuted} />
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      {/* Numeric keypad — drives the amount display above */}
+      <View style={[styles.keypad, { borderTopColor: theme.border }]}>
+        {[
+          ["1", "2", "3"],
+          ["4", "5", "6"],
+          ["7", "8", "9"],
+          [".", "0", "back"],
+        ].map((row, i) => (
+          <View key={i} style={styles.keypadRow}>
+            {row.map((key) => (
+              <Pressable
+                key={key}
+                onPress={() => handleKeyPress(key)}
+                style={styles.keypadKey}
+                accessibilityLabel={key === "back" ? "Delete digit" : key}
+              >
+                {key === "back" ? (
+                  <Delete size={22} color={theme.textPrimary} />
+                ) : (
+                  <Text
+                    style={[styles.keypadKeyText, { color: theme.textPrimary }]}
+                  >
+                    {key}
+                  </Text>
+                )}
+              </Pressable>
+            ))}
+          </View>
+        ))}
+      </View>
+
+      {/* Title sheet */}
+      <BottomSheet
+        visible={activeSheet === "title"}
+        onClose={() => setActiveSheet(null)}
+        title="Description"
+        theme={theme}
+      >
         <TextField
           label="Title"
-          value={title}
-          onChangeText={setTitle}
+          value={titleDraft}
+          onChangeText={setTitleDraft}
           placeholder="Dinner at Cafe X"
+          autoFocus
         />
-        <TextField
-          label="Amount"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          placeholder="0.00"
+        <Button
+          title="Done"
+          onPress={() => {
+            setTitle(titleDraft.trim());
+            setActiveSheet(null);
+          }}
+          style={{ marginTop: 8 }}
         />
+      </BottomSheet>
 
-        <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-          Category (optional)
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 20 }}
-        >
-          <View style={styles.categoryRow}>
+      {/* Category sheet */}
+      <BottomSheet
+        visible={activeSheet === "category"}
+        onClose={() => setActiveSheet(null)}
+        title="Category"
+        theme={theme}
+      >
+        <View style={styles.categoryGrid}>
+          <Pressable
+            onPress={() => {
+              setCategoryId(null);
+              setActiveSheet(null);
+            }}
+            style={[
+              styles.categoryChip,
+              {
+                backgroundColor:
+                  categoryId === null ? theme.primary : theme.background,
+                borderColor: categoryId === null ? theme.primary : theme.border,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: categoryId === null ? "#fff" : theme.textSecondary,
+                fontSize: 13,
+                fontWeight: "600",
+              }}
+            >
+              None
+            </Text>
+          </Pressable>
+          {(categoriesQuery.data ?? []).map((cat) => (
             <Pressable
-              onPress={() => setCategoryId(null)}
+              key={cat.id}
+              onPress={() => {
+                setCategoryId(cat.id);
+                setActiveSheet(null);
+              }}
               style={[
                 styles.categoryChip,
                 {
                   backgroundColor:
-                    categoryId === null ? theme.primary : theme.surface,
+                    categoryId === cat.id ? theme.primary : theme.background,
                   borderColor:
-                    categoryId === null ? theme.primary : theme.border,
+                    categoryId === cat.id ? theme.primary : theme.border,
                 },
               ]}
             >
               <Text
                 style={{
-                  color: categoryId === null ? "#fff" : theme.textSecondary,
+                  color: categoryId === cat.id ? "#fff" : theme.textSecondary,
                   fontSize: 13,
                   fontWeight: "600",
                 }}
               >
-                None
+                {cat.name}
               </Text>
             </Pressable>
-            {(categoriesQuery.data ?? []).map((cat) => (
-              <Pressable
-                key={cat.id}
-                onPress={() => setCategoryId(cat.id)}
-                style={[
-                  styles.categoryChip,
-                  {
-                    backgroundColor:
-                      categoryId === cat.id ? theme.primary : theme.surface,
-                    borderColor:
-                      categoryId === cat.id ? theme.primary : theme.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: categoryId === cat.id ? "#fff" : theme.textSecondary,
-                    fontSize: 13,
-                    fontWeight: "600",
-                  }}
-                >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
+          ))}
+        </View>
+      </BottomSheet>
 
-        <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-          Date
-        </Text>
-        <Pressable
-          onPress={() => setShowDatePicker(true)}
-          style={[
-            styles.dateButton,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Calendar size={18} color={theme.textSecondary} />
-          <Text style={{ color: theme.textPrimary }}>
-            {toDateInputString(date)}
-          </Text>
-        </Pressable>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display={Platform.OS === "ios" ? "inline" : "default"}
-            onChange={(_, selected) => {
-              setShowDatePicker(Platform.OS === "ios");
-              if (selected) setDate(selected);
-            }}
-          />
-        )}
-
-        <Text
-          style={[
-            styles.sectionLabel,
-            { color: theme.textSecondary, marginTop: 20 },
-          ]}
-        >
-          Paid by
-        </Text>
+      {/* Paid-by sheet */}
+      <BottomSheet
+        visible={activeSheet === "paidBy"}
+        onClose={() => setActiveSheet(null)}
+        title="Paid by"
+        theme={theme}
+      >
         <View style={styles.paidByRow}>
           {allParticipants.map((p) => (
             <Pressable
               key={p.userId}
-              onPress={() => setPaidBy(p.userId)}
+              onPress={() => {
+                setPaidBy(p.userId);
+                setActiveSheet(null);
+              }}
               style={[
                 styles.paidByChip,
                 {
                   backgroundColor:
-                    paidBy === p.userId ? theme.primary : theme.surface,
+                    paidBy === p.userId ? theme.primary : theme.background,
                   borderColor:
                     paidBy === p.userId ? theme.primary : theme.border,
                 },
@@ -427,13 +696,17 @@ export function CreateExpenseScreen() {
             </Pressable>
           ))}
         </View>
+      </BottomSheet>
 
-        <Text
-          style={[
-            styles.sectionLabel,
-            { color: theme.textSecondary, marginTop: 20 },
-          ]}
-        >
+      {/* Split-between sheet */}
+      <BottomSheet
+        visible={activeSheet === "split"}
+        onClose={() => setActiveSheet(null)}
+        title="Split between"
+        theme={theme}
+        scrollable
+      >
+        <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
           Split type
         </Text>
         <SegmentedControl
@@ -453,12 +726,12 @@ export function CreateExpenseScreen() {
             { color: theme.textSecondary, marginTop: 20 },
           ]}
         >
-          Split between
+          Participants
         </Text>
         <View
           style={[
             styles.participantsCard,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
           {allParticipants.map((p) => (
@@ -520,56 +793,139 @@ export function CreateExpenseScreen() {
             </View>
           ))}
         </View>
-
-        {formError ? (
-          <Text style={[styles.formError, { color: theme.danger }]}>
-            {formError}
-          </Text>
-        ) : null}
-
         <Button
-          title={isEditMode ? "Save Changes" : "Add Expense"}
-          onPress={onSubmit}
-          loading={isSaving}
-          style={styles.submitButton}
+          title="Done"
+          onPress={() => setActiveSheet(null)}
+          style={{ marginTop: 16 }}
         />
-
-        {isEditMode ? (
-          <Pressable
-            onPress={() => deleteMutation.mutate()}
-            style={[styles.deleteButton, { borderColor: theme.danger }]}
-            disabled={deleteMutation.isPending}
-          >
-            <Trash2 size={16} color={theme.danger} />
-            <Text style={{ color: theme.danger, fontWeight: "700" }}>
-              {deleteMutation.isPending ? "Deleting..." : "Delete expense"}
-            </Text>
-          </Pressable>
-        ) : null}
-      </ScrollView>
+      </BottomSheet>
     </SafeAreaView>
+  );
+}
+
+// Small shared bottom-sheet-style modal wrapper for the pickers above.
+function BottomSheet({
+  visible,
+  onClose,
+  title,
+  theme,
+  scrollable,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  theme: ReturnType<typeof useAppTheme>["theme"];
+  scrollable?: boolean;
+  children: React.ReactNode;
+}) {
+  const Content = scrollable ? ScrollView : View;
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.sheetOverlay}>
+        <View style={[styles.sheetCard, { backgroundColor: theme.surface }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: theme.textPrimary }]}>
+              {title}
+            </Text>
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+            >
+              <X size={22} color={theme.textMuted} />
+            </Pressable>
+          </View>
+          <Content
+            contentContainerStyle={
+              scrollable ? { paddingBottom: 20 } : undefined
+            }
+          >
+            {children}
+          </Content>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
+
+  content: { paddingHorizontal: 20, paddingBottom: 12 },
+  amountWrap: { alignItems: "center", paddingVertical: 24 },
+  amountText: { fontSize: 44, fontWeight: "800" },
+
+  formError: { textAlign: "center", marginBottom: 12, fontSize: 13 },
+
+  rowsCard: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 16 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+  },
+  rowDivider: { height: 1 },
+  rowIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowTextWrap: { flex: 1 },
+  rowLabel: { fontSize: 15, fontWeight: "600" },
+  rowLabelNoIcon: { flex: 1 },
+  rowSubLabel: { fontSize: 12, marginBottom: 1 },
+  keypad: { borderTopWidth: 1, paddingVertical: 6, paddingHorizontal: 12 },
+  keypadRow: { flexDirection: "row" },
+  keypadKey: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  keypadKeyText: { fontSize: 22, fontWeight: "600" },
+
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  sheetCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sheetTitle: { fontSize: 17, fontWeight: "800" },
+
   sectionLabel: { fontSize: 13, fontWeight: "700", marginBottom: 10 },
-  categoryRow: { flexDirection: "row", gap: 8 },
+  categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-  },
-  dateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
   },
   paidByRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   paidByChip: {
@@ -587,22 +943,5 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     width: 100,
     fontSize: 13,
-  },
-  formError: {
-    textAlign: "center",
-    marginTop: 16,
-    marginBottom: 4,
-    fontSize: 13,
-  },
-  submitButton: { marginTop: 20 },
-  deleteButton: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 16,
   },
 });

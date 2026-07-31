@@ -21,6 +21,7 @@ import {
   identifyUserForCrashReports,
 } from "@/lib/crashReporting";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { InAppNotificationToast } from "@/components/InAppNotificationToast";
 
 setupGlobalErrorHandlers();
 
@@ -73,6 +74,7 @@ export default function App() {
               <CircularRevealProvider>
                 <ThemedStatusBar />
                 <OfflineBanner />
+                <InAppNotificationToast />
                 <RootNavigator />
               </CircularRevealProvider>
             </ThemeProvider>

@@ -102,6 +102,7 @@ export function DashboardScreen() {
       style={[styles.flex, { backgroundColor: theme.background }]}
       edges={["top"]}
     >
+      {/* Top bar */}
       {searchOpen ? (
         <View style={styles.topBar}>
           <View
@@ -117,6 +118,7 @@ export function DashboardScreen() {
               placeholder="Search friends..."
               placeholderTextColor={theme.textMuted}
               autoFocus
+              accessibilityLabel="Search friends by name"
               style={[styles.expandedSearchInput, { color: theme.textPrimary }]}
             />
           </View>
@@ -125,6 +127,8 @@ export function DashboardScreen() {
               setSearchOpen(false);
               setSearchQuery("");
             }}
+            accessibilityLabel="Close search"
+            accessibilityRole="button"
             style={[
               styles.iconButton,
               { backgroundColor: theme.surface, borderColor: theme.border },
@@ -137,6 +141,8 @@ export function DashboardScreen() {
         <View style={styles.topBar}>
           <Pressable
             onPress={() => setSearchOpen(true)}
+            accessibilityLabel="Search friends"
+            accessibilityRole="button"
             style={[
               styles.iconButton,
               { backgroundColor: theme.surface, borderColor: theme.border },
@@ -147,6 +153,8 @@ export function DashboardScreen() {
           <View style={styles.topBarRight}>
             <Pressable
               onPress={() => navigation.navigate("Notifications")}
+              accessibilityLabel="Notifications"
+              accessibilityRole="button"
               style={[
                 styles.iconButton,
                 { backgroundColor: theme.surface, borderColor: theme.border },
@@ -159,6 +167,7 @@ export function DashboardScreen() {
         </View>
       )}
 
+      {/* Hero: greeting + overall balance */}
       <View style={styles.heroWrap}>
         <View style={styles.heroLeft}>
           <Logo size={28} />
@@ -179,120 +188,134 @@ export function DashboardScreen() {
         </Text>
       </View>
 
-      <FlatList
-        data={filteredFriends}
-        keyExtractor={(item) => item.friendId}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={theme.primary}
-          />
-        }
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }: { item: FriendBalanceResponse }) => (
-          <Pressable
-            onPress={() =>
-              navigation.navigate("FriendDetail", {
-                friendId: item.friendId,
-                friendName: item.friendName,
-              })
-            }
-            style={[
-              styles.friendRow,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <View
-              style={[
-                styles.avatar,
-                { backgroundColor: theme.primaryContainer },
-              ]}
-            >
-              <Text
-                style={{
-                  color: theme.primary,
-                  fontWeight: "700",
-                  fontSize: 13,
-                }}
-              >
-                {item.friendName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <Text style={[styles.friendName, { color: theme.textPrimary }]}>
-              {item.friendName}
-            </Text>
-            <Text
-              style={[
-                styles.friendAmount,
-                {
-                  color:
-                    Math.abs(item.netAmount) < 0.01
-                      ? theme.textMuted
-                      : item.netAmount >= 0
-                        ? theme.owed
-                        : theme.owe,
-                },
-              ]}
-            >
-              {Math.abs(item.netAmount) < 0.01
-                ? "settled up"
-                : item.netAmount >= 0
-                  ? `owes you ${formatAmount(item.netAmount)}`
-                  : `you owe ${formatAmount(item.netAmount)}`}
-            </Text>
-          </Pressable>
-        )}
-        ListFooterComponent={
-          !showSettled && settledCount > 0 ? (
-            <View style={styles.settledWrap}>
-              <Text
-                style={{
-                  color: theme.textMuted,
-                  fontSize: 12,
-                  marginBottom: 10,
-                }}
-              >
-                Hiding {settledCount} friend{settledCount === 1 ? "" : "s"}{" "}
-                you're settled up with
-              </Text>
-              <Pressable
-                onPress={() => setShowSettled(true)}
-                style={[
-                  styles.showSettledButton,
-                  { borderColor: theme.border },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: theme.textPrimary,
-                    fontWeight: "700",
-                    fontSize: 13,
-                  }}
-                >
-                  Show {settledCount} settled-up friend
-                  {settledCount === 1 ? "" : "s"}
-                </Text>
-              </Pressable>
-            </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          !isLoading ? (
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              No friend balances yet - add friends and start splitting expenses.
-            </Text>
-          ) : null
-        }
-      />
+      {/* Balances — single unified card, matching the mockup */}
+      <View style={styles.body}>
+        <View
+          style={[
+            styles.balancesCard,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.balancesHeader, { color: theme.textPrimary }]}>
+            Balances
+          </Text>
 
-      <Pressable
-        onPress={() => setAddModalOpen(true)}
-        style={[styles.fab, { backgroundColor: theme.primary }]}
-      >
-        <Plus color="#fff" size={18} />
-        <Text style={styles.fabText}>Add expense</Text>
-      </Pressable>
+          <FlatList
+            data={filteredFriends}
+            keyExtractor={(item) => item.friendId}
+            scrollEnabled={filteredFriends.length > 4}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={refetch}
+                tintColor={theme.primary}
+              />
+            }
+            ItemSeparatorComponent={() => (
+              <View
+                style={[styles.rowDivider, { backgroundColor: theme.border }]}
+              />
+            )}
+            renderItem={({ item }: { item: FriendBalanceResponse }) => {
+              const isSettled = Math.abs(item.netAmount) < 0.01;
+              return (
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate("FriendDetail", {
+                      friendId: item.friendId,
+                      friendName: item.friendName,
+                    })
+                  }
+                  style={styles.friendRow}
+                >
+                  <View
+                    style={[
+                      styles.avatar,
+                      { backgroundColor: theme.primaryContainer },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: theme.primary,
+                        fontWeight: "700",
+                        fontSize: 15,
+                      }}
+                    >
+                      {item.friendName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.friendTextWrap}>
+                    <Text
+                      style={[styles.friendName, { color: theme.textPrimary }]}
+                    >
+                      {item.friendName}
+                    </Text>
+                    <Text
+                      style={[styles.friendSubtext, { color: theme.textMuted }]}
+                    >
+                      {isSettled
+                        ? "settled up"
+                        : item.netAmount >= 0
+                          ? "owes you"
+                          : "you owe"}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.friendAmount,
+                      {
+                        color: isSettled
+                          ? theme.textMuted
+                          : item.netAmount >= 0
+                            ? theme.owed
+                            : theme.owe,
+                      },
+                    ]}
+                  >
+                    {formatAmount(item.netAmount)}
+                  </Text>
+                </Pressable>
+              );
+            }}
+            ListFooterComponent={
+              !showSettled && settledCount > 0 ? (
+                <Pressable
+                  onPress={() => setShowSettled(true)}
+                  style={styles.showSettledRow}
+                >
+                  <Text
+                    style={{
+                      color: theme.primary,
+                      fontWeight: "600",
+                      fontSize: 13,
+                    }}
+                  >
+                    Show {settledCount} settled-up friend
+                    {settledCount === 1 ? "" : "s"}
+                  </Text>
+                </Pressable>
+              ) : null
+            }
+            ListEmptyComponent={
+              !isLoading ? (
+                <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                  No friend balances yet — add friends and start splitting
+                  expenses.
+                </Text>
+              ) : null
+            }
+          />
+        </View>
+
+        {/* Full-width add-expense button, matching the mockup rather than a floating FAB */}
+        <Pressable
+          onPress={() => setAddModalOpen(true)}
+          style={[styles.addExpenseButton, { backgroundColor: theme.primary }]}
+        >
+          <Plus color="#fff" size={18} />
+          <Text style={styles.addExpenseButtonText}>Add expense</Text>
+        </Pressable>
+      </View>
 
       <Modal
         visible={addModalOpen}
@@ -306,7 +329,11 @@ export function DashboardScreen() {
               <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
                 Add an expense
               </Text>
-              <Pressable onPress={() => setAddModalOpen(false)}>
+              <Pressable
+                onPress={() => setAddModalOpen(false)}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+              >
                 <X size={22} color={theme.textMuted} />
               </Pressable>
             </View>
@@ -394,6 +421,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
+
   heroWrap: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
   heroLeft: {
     flexDirection: "row",
@@ -404,50 +432,58 @@ const styles = StyleSheet.create({
   greetingText: { fontSize: 13, fontWeight: "500" },
   overallLabel: { fontSize: 14, marginBottom: 2 },
   overallAmount: { fontSize: 32, fontWeight: "700" },
-  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 100 },
+
+  body: { flex: 1, paddingHorizontal: 20, paddingBottom: 16 },
+  balancesCard: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  balancesHeader: { fontSize: 15, fontWeight: "700", marginBottom: 8 },
+  rowDivider: { height: 1, marginLeft: 52 },
   friendRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 10,
+    paddingVertical: 12,
   },
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  friendName: { flex: 1, fontSize: 15, fontWeight: "600" },
-  friendAmount: { fontSize: 13, fontWeight: "600" },
-  settledWrap: { alignItems: "center", marginTop: 12 },
-  showSettledButton: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+  friendTextWrap: { flex: 1 },
+  friendName: { fontSize: 15, fontWeight: "600" },
+  friendSubtext: { fontSize: 12, marginTop: 1 },
+  friendAmount: { fontSize: 14, fontWeight: "700" },
+  showSettledRow: { paddingVertical: 14, alignItems: "center" },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 40,
+    marginBottom: 20,
+    fontSize: 14,
   },
-  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
+
+  addExpenseButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 28,
+    paddingVertical: 16,
+    borderRadius: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    elevation: 4,
   },
-  fabText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  addExpenseButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

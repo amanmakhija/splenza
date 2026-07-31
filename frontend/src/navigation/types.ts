@@ -48,11 +48,17 @@ export type MainTabParamList = {
 export type MainStackParamList = {
   Tabs: NavigatorScreenParams<MainTabParamList>;
   CreateGroup: undefined;
+  EditGroup: {
+    groupId: string;
+  };
   CreateExpense: {
     groupId?: string;
     friendId?: string;
     friendName?: string;
     expenseId?: string;
+  };
+  ExpenseDetail: {
+    expenseId: string;
   };
   AddFriend: undefined;
   SettleUp: {

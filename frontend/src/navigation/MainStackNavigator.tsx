@@ -4,7 +4,9 @@ import { MainStackParamList } from "./types";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { MainNavigator } from "./MainNavigator";
 import { CreateGroupScreen } from "@/screens/main/CreateGroupScreen";
+import { EditGroupScreen } from "@/screens/main/EditGroupScreen";
 import { CreateExpenseScreen } from "@/screens/main/CreateExpenseScreen";
+import { ExpenseDetailScreen } from "@/screens/main/ExpenseDetailScreen";
 import { AddFriendScreen } from "@/screens/main/AddFriendScreen";
 import { SettleUpScreen } from "@/screens/main/SettleUpScreen";
 import { NotificationsScreen } from "@/screens/main/NotificationsScreen";
@@ -35,9 +37,19 @@ export function MainStackNavigator() {
         options={{ title: "New Group" }}
       />
       <Stack.Screen
+        name="EditGroup"
+        component={EditGroupScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="CreateExpense"
         component={CreateExpenseScreen}
         options={{ title: "Add Expense" }}
+      />
+      <Stack.Screen
+        name="ExpenseDetail"
+        component={ExpenseDetailScreen}
+        options={{ title: "Expense" }}
       />
       <Stack.Screen
         name="AddFriend"

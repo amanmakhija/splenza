@@ -13,7 +13,7 @@ export function handleNotificationNavigation(data?: NotificationData) {
 
   switch (data.targetType) {
     case "EXPENSE":
-      navigationRef.navigate("CreateExpense", {
+      navigationRef.navigate("ExpenseDetail", {
         expenseId: data.referenceId,
       });
       break;

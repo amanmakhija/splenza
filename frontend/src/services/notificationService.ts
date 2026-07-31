@@ -7,9 +7,10 @@ import {
   onNotificationOpenedApp,
   getInitialNotification,
 } from "@react-native-firebase/messaging";
-import { Alert, PermissionsAndroid, Platform } from "react-native";
+import { PermissionsAndroid, Platform } from "react-native";
 import { handleNotificationNavigation } from "./notificationNavigation";
 import { apiClient } from "@/lib/apiClient";
+import { showInAppToast } from "./inAppToastService";
 
 const app = getApp();
 const messaging = getMessaging(app);
@@ -51,20 +52,11 @@ export function subscribeForegroundMessages() {
     const title = message.notification?.title ?? "Splenza";
     const body = message.notification?.body ?? "";
 
-    Alert.alert(title, body, [
-      {
-        text: "Open",
-        onPress: () =>
-          handleNotificationNavigation({
-            targetType: asString(message.data?.targetType),
-            referenceId: asString(message.data?.referenceId),
-          }),
-      },
-      {
-        text: "Dismiss",
-        style: "cancel",
-      },
-    ]);
+    showInAppToast({
+      title: title,
+      body: body,
+      data: message.data as Record<string, string>,
+    });
   });
 }
 

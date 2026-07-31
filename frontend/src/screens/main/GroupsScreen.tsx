@@ -15,7 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
-import { Group, GroupBalanceSummary } from "@/types/api";
+import { Group } from "@/types/api";
 import { MainStackParamList, GroupsStackParamList } from "@/navigation/types";
 
 type Nav = CompositeNavigationProp<
@@ -31,16 +31,24 @@ async function fetchGroups({
   const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
   return data;
 }
-async function fetchGroupSummaries({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<GroupBalanceSummary[]> {
-  const { data } = await apiClient.get<GroupBalanceSummary[]>(
-    "/api/v1/balances/groups",
-    { signal },
-  );
-  return data;
+
+// Cycles through a small palette so each group gets a distinct tile color,
+// matching the mockup's teal/blue/orange/purple variety. Derived from the
+// group id so a given group's color stays stable across refetches/reorders.
+const TILE_COLORS = [
+  "#2DD4BF",
+  "#3B82F6",
+  "#F59E0B",
+  "#8B5CF6",
+  "#EC4899",
+  "#22C55E",
+];
+function tileColorFor(groupId: string): string {
+  let hash = 0;
+  for (let i = 0; i < groupId.length; i++) {
+    hash = (hash * 31 + groupId.charCodeAt(i)) >>> 0;
+  }
+  return TILE_COLORS[hash % TILE_COLORS.length];
 }
 
 function initials(name: string): string {
@@ -59,14 +67,6 @@ export function GroupsScreen() {
     queryKey: ["groups"],
     queryFn: ({ signal }) => fetchGroups({ signal }),
   });
-  const summariesQuery = useQuery({
-    queryKey: ["group-summaries"],
-    queryFn: ({ signal }) => fetchGroupSummaries({ signal }),
-  });
-
-  const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
-  const summaryFor = (groupId: string) =>
-    summariesQuery.data?.find((s) => s.groupId === groupId);
 
   return (
     <SafeAreaView
@@ -75,7 +75,11 @@ export function GroupsScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>Groups</Text>
-        <Pressable onPress={() => navigation.navigate("CreateGroup")}>
+        <Pressable
+          onPress={() => navigation.navigate("CreateGroup")}
+          accessibilityLabel="Create group"
+          accessibilityRole="button"
+        >
           <Text
             style={{ color: theme.primary, fontWeight: "700", fontSize: 14 }}
           >
@@ -95,63 +99,46 @@ export function GroupsScreen() {
             tintColor={theme.primary}
           />
         }
-        renderItem={({ item }) => {
-          const summary = summaryFor(item.id);
-          const net = summary?.netAmount ?? 0;
-          const isSettled = Math.abs(net) < 0.01;
-          return (
-            <Pressable
-              onPress={() =>
-                navigation.navigate("GroupDetail", {
-                  groupId: item.id,
-                  groupName: item.name,
-                })
-              }
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() =>
+              navigation.navigate("GroupDetail", {
+                groupId: item.id,
+                groupName: item.name,
+              })
+            }
+            style={[
+              styles.card,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
               style={[
-                styles.card,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                styles.iconWrap,
+                { backgroundColor: `${tileColorFor(item.id)}26` },
               ]}
             >
-              <View
-                style={[
-                  styles.iconWrap,
-                  { backgroundColor: theme.primaryContainer },
-                ]}
+              <Text
+                style={{
+                  color: tileColorFor(item.id),
+                  fontWeight: "800",
+                  fontSize: 15,
+                }}
               >
-                <Text
-                  style={{
-                    color: theme.primary,
-                    fontWeight: "700",
-                    fontSize: 13,
-                  }}
-                >
-                  {initials(item.name)}
-                </Text>
-              </View>
-              <View style={styles.cardBody}>
-                <Text style={[styles.groupName, { color: theme.textPrimary }]}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.memberCount, { color: theme.textMuted }]}>
-                  {item.members.length} member
-                  {item.members.length === 1 ? "" : "s"}
-                </Text>
-              </View>
-              {!isSettled ? (
-                <Text
-                  style={{
-                    color: net >= 0 ? theme.owed : theme.owe,
-                    fontWeight: "700",
-                    fontSize: 13,
-                  }}
-                >
-                  {net >= 0 ? "+" : "-"}
-                  {formatAmount(net)}
-                </Text>
-              ) : null}
-            </Pressable>
-          );
-        }}
+                {initials(item.name)}
+              </Text>
+            </View>
+            <View style={styles.cardBody}>
+              <Text style={[styles.groupName, { color: theme.textPrimary }]}>
+                {item.name}
+              </Text>
+              <Text style={[styles.memberCount, { color: theme.textMuted }]}>
+                {item.members.length} member
+                {item.members.length === 1 ? "" : "s"}
+              </Text>
+            </View>
+          </Pressable>
+        )}
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.emptyWrap}>
@@ -167,6 +154,8 @@ export function GroupsScreen() {
 
       <Pressable
         onPress={() => navigation.navigate("CreateGroup")}
+        accessibilityLabel="Create group"
+        accessibilityRole="button"
         style={[styles.fab, { backgroundColor: theme.primary }]}
       >
         <Plus color="#fff" size={26} />
@@ -197,9 +186,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },

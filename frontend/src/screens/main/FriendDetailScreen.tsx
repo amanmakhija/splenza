@@ -193,7 +193,12 @@ export function FriendDetailScreen() {
         }
         renderItem={({ item }) =>
           item.type === "expense" ? (
-            <View
+            <Pressable
+              onPress={() =>
+                navigation.navigate("ExpenseDetail", {
+                  expenseId: item.data.id,
+                })
+              }
               style={[
                 styles.row,
                 { backgroundColor: theme.surface, borderColor: theme.border },
@@ -210,7 +215,7 @@ export function FriendDetailScreen() {
                   {item.data.expenseDate}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ) : (
             <View
               style={[

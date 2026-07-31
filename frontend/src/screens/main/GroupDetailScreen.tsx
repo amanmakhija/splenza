@@ -1,35 +1,47 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   Pressable,
-  Modal,
   RefreshControl,
   TextInput,
+  ActivityIndicator,
+  Modal,
+  Alert,
+  Animated,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  UseQueryResult,
+} from "@tanstack/react-query";
 import { usePaginatedMergedTimeline } from "@/hooks/usePaginatedMergedTimeline";
-import { ActivityIndicator } from "react-native";
 import {
   Plus,
-  UserPlus,
   X,
   LogOut,
   Download,
   FileText,
   Search,
+  ChevronLeft,
+  Pencil,
+  MoreVertical,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import {
   ActivityLogEntry,
+  BalanceEntry,
+  DebtEdge,
   Expense,
-  Friend,
   Group,
   GroupBalanceResponse,
   PageResponse,
@@ -78,6 +90,19 @@ async function fetchGroupSettlementsPage(
   );
   return data;
 }
+async function fetchGroupExpenseTotal(
+  groupId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<number> {
+  // No dedicated summary endpoint exists yet, so pull every expense once and
+  // sum client-side. Fine for the group sizes this app targets; worth
+  // swapping for a real aggregate endpoint if groups get very large.
+  const { data } = await apiClient.get<PageResponse<Expense>>(
+    `/api/v1/expenses/group/${groupId}`,
+    { params: { page: 0, size: 1000 }, signal },
+  );
+  return data.content.reduce((sum, e) => sum + e.amount, 0);
+}
 async function fetchGroupBalances(
   groupId: string,
   { signal }: { signal: AbortSignal },
@@ -86,14 +111,6 @@ async function fetchGroupBalances(
     `/api/v1/balances/group/${groupId}`,
     { signal },
   );
-  return data;
-}
-async function fetchFriends({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
   return data;
 }
 async function fetchActivity(
@@ -140,6 +157,29 @@ function describeActivity(item: ActivityLogEntry): string {
   }
 }
 
+const TILE_COLORS = [
+  "#2DD4BF",
+  "#3B82F6",
+  "#F59E0B",
+  "#8B5CF6",
+  "#EC4899",
+  "#22C55E",
+];
+function tileColorFor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++)
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return TILE_COLORS[hash % TILE_COLORS.length];
+}
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+}
+
 type TimelineItem =
   | { type: "expense"; date: string; data: Expense }
   | { type: "settlement"; date: string; data: Settlement };
@@ -151,14 +191,73 @@ export function GroupDetailScreen() {
   const { groupId } = params;
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-
   const [tab, setTab] = useState<"expenses" | "balances" | "activity">(
     "expenses",
   );
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Drives the collapsing "Total expenses / You're owed" card: as the active
+  // tab's list scrolls down, this card shrinks away so small-screen phones
+  // can see more of the list, while the group icon/name/member-count row
+  // above it always stays put.
+  //
+  // Important: this is a two-state toggle (expanded/collapsed) animated once
+  // when crossing a threshold, NOT a value continuously interpolated from
+  // scroll offset. Interpolating "height" directly off every scroll pixel
+  // forces a layout pass on the JS thread on every touch-move frame, which is
+  // what caused the lag when dragging slowly. Toggling between two fixed
+  // states keeps the expensive work to a single ~200ms animation.
+  const collapseAnim = useRef(new Animated.Value(0)).current; // 0 = expanded, 1 = collapsed
+  const isCollapsedRef = useRef(false);
+  const COLLAPSE_AT = 40;
+  const EXPAND_AT = 8;
+
+  const setCollapsed = (collapsed: boolean) => {
+    if (isCollapsedRef.current === collapsed) return;
+    isCollapsedRef.current = collapsed;
+    Animated.timing(collapseAnim, {
+      toValue: collapsed ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false, // animating height/margin, which don't support the native driver
+    }).start();
+  };
+
+  const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    if (y > COLLAPSE_AT) setCollapsed(true);
+    else if (y < EXPAND_AT) setCollapsed(false);
+  };
+
+  const balanceCardAnimatedStyle = {
+    height: collapseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [112, 0],
+    }),
+    opacity: collapseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 0],
+    }),
+  };
+  const summaryGapAnimatedStyle = {
+    marginBottom: collapseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [14, 0],
+    }),
+  };
+
+  React.useEffect(() => {
+    // Re-expand the summary whenever the person switches tabs, since each
+    // tab's list starts back at the top.
+    isCollapsedRef.current = false;
+    collapseAnim.setValue(0);
+  }, [tab, collapseAnim]);
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
@@ -174,11 +273,7 @@ export function GroupDetailScreen() {
     fetchB: (page, signal) => fetchGroupSettlementsPage(groupId, page, signal),
     toItem: (expense, settlement) =>
       expense
-        ? {
-            type: "expense",
-            date: expense.expenseDate,
-            data: expense,
-          }
+        ? { type: "expense", date: expense.expenseDate, data: expense }
         : {
             type: "settlement",
             date: settlement!.settledAt,
@@ -191,10 +286,9 @@ export function GroupDetailScreen() {
     queryKey: ["group-balances", groupId],
     queryFn: ({ signal }) => fetchGroupBalances(groupId, { signal }),
   });
-  const friendsQuery = useQuery({
-    queryKey: ["friends"],
-    queryFn: ({ signal }) => fetchFriends({ signal }),
-    enabled: inviteModalOpen,
+  const totalExpensesQuery = useQuery({
+    queryKey: ["group-expense-total", groupId],
+    queryFn: ({ signal }) => fetchGroupExpenseTotal(groupId, { signal }),
   });
   const activityQuery = useQuery({
     queryKey: ["group-activity", groupId],
@@ -213,22 +307,31 @@ export function GroupDetailScreen() {
     );
   }, [timeline.items, searchQuery]);
 
-  const inviteMutation = useMutation({
-    mutationFn: (userId: string) =>
-      apiClient.post(`/api/v1/groups/${groupId}/members/${userId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["group-balances", groupId] });
-    },
-  });
-
   const leaveMutation = useMutation({
     mutationFn: () => apiClient.post(`/api/v1/groups/${groupId}/leave`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       navigation.goBack();
     },
+    onError: (err) => {
+      Alert.alert("Couldn't leave group", getApiErrorMessage(err));
+    },
   });
+
+  const confirmLeave = () => {
+    Alert.alert(
+      "Leave group?",
+      "You'll need to be re-invited to rejoin. Make sure you're settled up first.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: () => leaveMutation.mutate(),
+        },
+      ],
+    );
+  };
 
   const handleExportCsv = async () => {
     setExporting("csv");
@@ -254,29 +357,20 @@ export function GroupDetailScreen() {
     switch (type) {
       case "SETTLEMENT_MADE":
         return "💸 Settlement";
-
       case "EXPENSE_CREATED":
         return "🧾 Expense";
-
       case "GROUP_CREATED":
         return "🎉 Group";
-
       case "IMPORT_COMPLETED":
         return "📥 Import";
-
       case "MEMBER_JOINED":
         return "👤 Member";
-
       default:
         return "Activity";
     }
   };
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
-  const memberIds = new Set(groupQuery.data?.members.map((m) => m.userId));
-  const invitableFriends = (friendsQuery.data ?? []).filter(
-    (f) => !memberIds.has(f.userId),
-  );
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString("en-GB", {
@@ -284,143 +378,238 @@ export function GroupDetailScreen() {
       month: "short",
       year: "numeric",
     });
-
   const formatDateShort = (date: string) =>
     new Date(date).toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
     });
 
+  const myNetBalance =
+    balancesQuery.data?.rawBalances.find((b) => b.userId === currentUser?.id)
+      ?.netAmount ?? 0;
+  const groupTile = groupId ? tileColorFor(groupId) : theme.primary;
+
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
-      <View style={styles.membersRow}>
-        <FlatList
-          data={groupQuery.data?.members ?? []}
-          keyExtractor={(m) => m.userId}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            flexGrow: 1,
-            gap: 10,
-            paddingHorizontal: 20,
-          }}
-          renderItem={({ item }) => (
-            <View style={styles.memberChip}>
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
-                  {item.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <Text
-                style={[styles.memberName, { color: theme.textSecondary }]}
-                numberOfLines={1}
-              >
-                {item.name}
-              </Text>
-            </View>
-          )}
-          ListFooterComponent={
-            <Pressable
-              onPress={() => setInviteModalOpen(true)}
-              style={styles.memberChip}
-            >
-              <View
-                style={[
-                  styles.avatar,
-                  {
-                    backgroundColor: theme.background,
-                    borderColor: theme.primary,
-                    borderStyle: "dashed",
-                  },
-                ]}
-              >
-                <UserPlus size={18} color={theme.primary} />
-              </View>
-              <Text style={[styles.memberName, { color: theme.primary }]}>
-                Invite
-              </Text>
-            </Pressable>
-          }
-        />
-      </View>
-
-      <View style={[styles.tabs, { borderColor: theme.border }]}>
-        <Pressable onPress={() => setTab("expenses")} style={styles.tabButton}>
-          <Text
-            style={{
-              color: tab === "expenses" ? theme.primary : theme.textMuted,
-              fontWeight: "700",
-            }}
-          >
-            Expenses
-          </Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <ChevronLeft size={26} color={theme.textPrimary} />
         </Pressable>
-        <Pressable onPress={() => setTab("balances")} style={styles.tabButton}>
-          <Text
-            style={{
-              color: tab === "balances" ? theme.primary : theme.textMuted,
-              fontWeight: "700",
-            }}
-          >
-            Balances
-          </Text>
-        </Pressable>
-        <Pressable onPress={() => setTab("activity")} style={styles.tabButton}>
-          <Text
-            style={{
-              color: tab === "activity" ? theme.primary : theme.textMuted,
-              fontWeight: "700",
-            }}
-          >
-            Activity
-          </Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          Group details
+        </Text>
+        <Pressable
+          onPress={() => setMenuOpen(true)}
+          accessibilityLabel="Group options"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <MoreVertical size={22} color={theme.textPrimary} />
         </Pressable>
       </View>
 
-      {searchOpen && tab === "expenses" ? (
-        <View style={styles.toolbar}>
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setMenuOpen(false)}
+        >
           <View
             style={[
-              styles.expandedSearchBox,
+              styles.menuCard,
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Search size={16} color={theme.textMuted} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search expenses..."
-              placeholderTextColor={theme.textMuted}
-              autoFocus
-              style={[styles.expandedSearchInput, { color: theme.textPrimary }]}
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                navigation.navigate("EditGroup", { groupId });
+              }}
+              accessibilityLabel="Edit group"
+              accessibilityRole="button"
+              style={styles.menuItem}
+            >
+              <Pencil size={16} color={theme.textPrimary} />
+              <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
+                Edit group
+              </Text>
+            </Pressable>
+            <View
+              style={[styles.menuDivider, { backgroundColor: theme.border }]}
             />
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                confirmLeave();
+              }}
+              accessibilityLabel="Leave group"
+              accessibilityRole="button"
+              style={styles.menuItem}
+            >
+              <LogOut size={16} color={theme.danger} />
+              <Text style={{ color: theme.danger, fontWeight: "600" }}>
+                Leave group
+              </Text>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => {
-              setSearchOpen(false);
-              setSearchQuery("");
-            }}
+        </Pressable>
+      </Modal>
+
+      {/* Group summary card */}
+      <View style={styles.summaryWrap}>
+        <Animated.View style={[styles.summaryTopRow, summaryGapAnimatedStyle]}>
+          <View
+            style={[styles.groupTile, { backgroundColor: `${groupTile}26` }]}
+          >
+            <Text style={{ color: groupTile, fontWeight: "800", fontSize: 16 }}>
+              {groupQuery.data ? initials(groupQuery.data.name) : ""}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.groupName, { color: theme.textPrimary }]}>
+              {groupQuery.data?.name ?? ""}
+            </Text>
+            <Text style={[styles.groupMemberCount, { color: theme.textMuted }]}>
+              {groupQuery.data?.members.length ?? 0} member
+              {groupQuery.data?.members.length === 1 ? "" : "s"}
+            </Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={[{ overflow: "hidden" }, balanceCardAnimatedStyle]}
+        >
+          <View
             style={[
-              styles.toolbarButton,
+              styles.balanceCard,
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <X size={16} color={theme.textSecondary} />
+            <View style={styles.balanceCardRow}>
+              <Text style={[styles.balanceLabel, { color: theme.textMuted }]}>
+                Total expenses
+              </Text>
+              <Text
+                style={[
+                  styles.totalExpensesAmount,
+                  { color: theme.textPrimary },
+                ]}
+              >
+                {totalExpensesQuery.data != null
+                  ? formatAmount(totalExpensesQuery.data)
+                  : "…"}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.balanceCardDivider,
+                { backgroundColor: theme.border },
+              ]}
+            />
+            <View style={styles.balanceCardRow}>
+              <Text style={[styles.balanceLabel, { color: theme.textMuted }]}>
+                {myNetBalance === 0
+                  ? "You're all settled up"
+                  : myNetBalance > 0
+                    ? "You're owed"
+                    : "You owe"}
+              </Text>
+              <Text
+                style={[
+                  styles.balanceAmount,
+                  { color: myNetBalance >= 0 ? theme.owed : theme.owe },
+                ]}
+              >
+                {formatAmount(myNetBalance)}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+
+      {/* Underline tabs */}
+      <View style={[styles.tabs, { borderColor: theme.border }]}>
+        {(["expenses", "balances", "activity"] as const).map((t) => (
+          <Pressable key={t} onPress={() => setTab(t)} style={styles.tabButton}>
+            <Text
+              style={{
+                color: tab === t ? theme.primary : theme.textMuted,
+                fontWeight: "700",
+                fontSize: 14,
+                textTransform: "capitalize",
+              }}
+            >
+              {t}
+            </Text>
+            {tab === t ? (
+              <View
+                style={[
+                  styles.tabUnderline,
+                  { backgroundColor: theme.primary },
+                ]}
+              />
+            ) : null}
           </Pressable>
-        </View>
-      ) : (
-        <View style={styles.toolbar}>
-          {tab === "expenses" ? (
+        ))}
+      </View>
+
+      {tab === "expenses" ? (
+        searchOpen ? (
+          <View style={styles.toolbar}>
+            <View
+              style={[
+                styles.expandedSearchBox,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Search size={16} color={theme.textMuted} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search expenses..."
+                placeholderTextColor={theme.textMuted}
+                autoFocus
+                accessibilityLabel="Search expenses in this group"
+                style={[
+                  styles.expandedSearchInput,
+                  { color: theme.textPrimary },
+                ]}
+              />
+            </View>
+            <Pressable
+              onPress={() => {
+                setSearchOpen(false);
+                setSearchQuery("");
+              }}
+              accessibilityLabel="Close search"
+              accessibilityRole="button"
+              style={[
+                styles.toolbarButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <X size={16} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.toolbar}>
             <Pressable
               onPress={() => setSearchOpen(true)}
+              accessibilityLabel="Search expenses"
+              accessibilityRole="button"
               style={[
                 styles.toolbarButton,
                 { backgroundColor: theme.surface, borderColor: theme.border },
@@ -428,511 +617,493 @@ export function GroupDetailScreen() {
             >
               <Search size={16} color={theme.textSecondary} />
             </Pressable>
-          ) : (
-            <View />
-          )}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable
-              onPress={handleExportCsv}
-              disabled={exporting !== null}
-              style={[
-                styles.toolbarButton,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-            >
-              <Download
-                size={16}
-                color={
-                  exporting === "csv" ? theme.textMuted : theme.textSecondary
-                }
-              />
-            </Pressable>
-            <Pressable
-              onPress={handleExportPdf}
-              disabled={exporting !== null}
-              style={[
-                styles.toolbarButton,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-            >
-              <FileText
-                size={16}
-                color={
-                  exporting === "pdf" ? theme.textMuted : theme.textSecondary
-                }
-              />
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable
+                onPress={handleExportCsv}
+                disabled={exporting !== null}
+                accessibilityLabel="Export as CSV"
+                accessibilityRole="button"
+                style={[
+                  styles.toolbarButton,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Download
+                  size={16}
+                  color={
+                    exporting === "csv" ? theme.textMuted : theme.textSecondary
+                  }
+                />
+              </Pressable>
+              <Pressable
+                onPress={handleExportPdf}
+                disabled={exporting !== null}
+                accessibilityLabel="Export as PDF"
+                accessibilityRole="button"
+                style={[
+                  styles.toolbarButton,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <FileText
+                  size={16}
+                  color={
+                    exporting === "pdf" ? theme.textMuted : theme.textSecondary
+                  }
+                />
+              </Pressable>
+            </View>
           </View>
-        </View>
-      )}
+        )
+      ) : null}
 
       {tab === "expenses" ? (
-        <FlatList
-          data={mergedTimeline}
-          keyExtractor={(item) => `${item.type}-${item.data.id}`}
-          contentContainerStyle={[styles.listContent, { paddingBottom: 90 }]}
-          refreshControl={
-            <RefreshControl
-              refreshing={timeline.isRefetching}
-              onRefresh={timeline.refresh}
-              tintColor={theme.primary}
-            />
-          }
-          onEndReached={() => {
-            if (!searchQuery && timeline.hasMore && !timeline.isFetchingMore) {
-              timeline.loadMore();
-            }
-          }}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            timeline.isFetchingMore ? (
-              <ActivityIndicator
-                style={{ marginVertical: 24 }}
-                color={theme.primary}
-              />
-            ) : null
-          }
-          renderItem={({ item }) => {
-            if (item.type === "settlement") {
-              const s = item.data;
-
-              return (
+        <View style={styles.body}>
+          <View
+            style={[
+              styles.unifiedCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <FlatList
+              data={mergedTimeline}
+              keyExtractor={(item) => `${item.type}-${item.data.id}`}
+              scrollEnabled
+              onScroll={handleListScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={{ paddingBottom: 84 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={timeline.isRefetching}
+                  onRefresh={timeline.refresh}
+                  tintColor={theme.primary}
+                />
+              }
+              onEndReached={() => {
+                if (
+                  !searchQuery &&
+                  timeline.hasMore &&
+                  !timeline.isFetchingMore
+                ) {
+                  timeline.loadMore();
+                }
+              }}
+              onEndReachedThreshold={0.3}
+              ItemSeparatorComponent={() => (
                 <View
-                  style={[
-                    styles.paymentCard,
-                    {
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.paymentHeader}>
-                    <View
-                      style={[
-                        styles.paymentBadge,
-                        {
-                          backgroundColor: `${theme.primary}12`,
-                        },
-                      ]}
-                    >
+                  style={[styles.rowDivider, { backgroundColor: theme.border }]}
+                />
+              )}
+              ListFooterComponent={
+                timeline.isFetchingMore ? (
+                  <ActivityIndicator
+                    style={{ marginVertical: 24 }}
+                    color={theme.primary}
+                  />
+                ) : null
+              }
+              renderItem={({ item }) => {
+                if (item.type === "settlement") {
+                  const s = item.data;
+                  return (
+                    <View style={styles.row}>
+                      <View style={styles.rowBody}>
+                        <Text
+                          style={[
+                            styles.rowTitle,
+                            { color: theme.textPrimary },
+                          ]}
+                        >
+                          {s.paidByName} paid {s.paidToName}
+                        </Text>
+                        <Text
+                          style={[styles.rowSub, { color: theme.textMuted }]}
+                        >
+                          Settlement · {formatDateShort(s.settledAt)}
+                        </Text>
+                      </View>
                       <Text
-                        style={[
-                          styles.paymentBadgeText,
-                          {
-                            color: theme.primary,
-                          },
-                        ]}
+                        style={{
+                          color: theme.success,
+                          fontWeight: "800",
+                          fontSize: 15,
+                        }}
                       >
-                        💸 Settlement
+                        {formatAmount(s.amount)}
                       </Text>
                     </View>
+                  );
+                }
 
-                    <Text
-                      style={[
-                        styles.paymentDate,
-                        {
-                          color: theme.textMuted,
-                        },
-                      ]}
-                    >
-                      {formatDate(s.settledAt)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.paymentBody}>
-                    <View style={styles.expenseBody}>
+                const expense = item.data;
+                const myShare =
+                  expense.participants.find((p) => p.userId === currentUser?.id)
+                    ?.shareAmount ?? 0;
+                const iPaid = expense.paidBy === currentUser?.id;
+                return (
+                  <Pressable
+                    onPress={() =>
+                      navigation.navigate("ExpenseDetail", {
+                        expenseId: expense.id,
+                      })
+                    }
+                    style={styles.row}
+                  >
+                    <View style={styles.rowBody}>
                       <Text
-                        style={[
-                          styles.expenseTitle,
-                          {
-                            color: theme.textPrimary,
-                          },
-                        ]}
+                        style={[styles.rowTitle, { color: theme.textPrimary }]}
                       >
-                        {s.paidByName} paid {s.paidToName}
+                        {expense.title}
                       </Text>
-
-                      <Text
-                        style={[
-                          styles.expenseSub,
-                          {
-                            color: theme.textMuted,
-                          },
-                        ]}
-                      >
-                        Settlement
+                      <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                        {expense.paidByName} paid {formatAmount(expense.amount)}{" "}
+                        · {formatDateShort(expense.expenseDate)}
                       </Text>
                     </View>
-
-                    <View style={styles.amountColumn}>
+                    <View style={{ alignItems: "flex-end" }}>
                       <Text
-                        style={[
-                          styles.expenseShare,
-                          {
-                            color: theme.success,
-                          },
-                        ]}
+                        style={{
+                          color: iPaid ? theme.success : theme.danger,
+                          fontWeight: "800",
+                          fontSize: 15,
+                        }}
                       >
-                        ₹{s.amount.toFixed(2)}
+                        {formatAmount(
+                          iPaid ? expense.amount - myShare : myShare,
+                        )}
                       </Text>
-
                       <Text
                         style={{
                           color: theme.textMuted,
                           fontSize: 11,
-                          marginTop: 4,
+                          marginTop: 2,
                         }}
                       >
-                        Amount
+                        {iPaid ? "you lent" : "your share"}
                       </Text>
                     </View>
-                  </View>
-                </View>
-              );
-            }
-
-            const expense = item.data;
-            const myShare =
-              expense.participants.find((p) => p.userId === currentUser?.id)
-                ?.shareAmount ?? 0;
-            const iPaid = expense.paidBy === currentUser?.id;
-            return (
-              <Pressable
-                onPress={() =>
-                  navigation.navigate("CreateExpense", {
-                    groupId,
-                    expenseId: expense.id,
-                  })
-                }
-                style={[
-                  styles.expenseRow,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <View style={styles.expenseBody}>
-                  <Text
-                    style={[styles.expenseTitle, { color: theme.textPrimary }]}
-                  >
-                    {expense.title}
+                  </Pressable>
+                );
+              }}
+              ListEmptyComponent={
+                !timeline.isLoading ? (
+                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                    No expenses yet. Tap + to add one.
                   </Text>
-
-                  <Text style={[styles.expenseSub, { color: theme.textMuted }]}>
-                    {expense.paidByName} paid ₹{expense.amount.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.amountColumn}>
-                  <Text
-                    style={{
-                      color: theme.textMuted,
-                      fontSize: 11,
-                    }}
-                  >
-                    {iPaid ? "You lent" : "Your share"}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.expenseShare,
-                      {
-                        color: iPaid ? theme.success : theme.danger,
-                      },
-                    ]}
-                  >
-                    {formatAmount(iPaid ? expense.amount - myShare : myShare)}
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: theme.textMuted,
-                      fontSize: 11,
-                      marginTop: 4,
-                    }}
-                  >
-                    {formatDateShort(expense.expenseDate)}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          }}
-          ListEmptyComponent={
-            !timeline.isLoading ? (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                No expenses yet. Tap + to add one.
-              </Text>
-            ) : null
+                ) : null
+              }
+            />
+          </View>
+        </View>
+      ) : tab === "balances" ? (
+        <ScrollableBalances
+          theme={theme}
+          balancesQuery={balancesQuery}
+          currentUserId={currentUser?.id}
+          formatAmount={formatAmount}
+          onScroll={handleListScroll}
+          onSettle={(debt) =>
+            navigation.navigate("SettleUp", {
+              groupId,
+              paidTo: debt.toUserId,
+              paidToName: debt.toUserName,
+              suggestedAmount: debt.amount,
+            })
           }
         />
-      ) : tab === "balances" ? (
-        <View style={[styles.listContent, { paddingBottom: 20 }]}>
-          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-            Suggested settlements
-          </Text>
-          {(balancesQuery.data?.simplifiedDebts ?? []).length === 0 ? (
-            <Text style={{ color: theme.textMuted, marginBottom: 20 }}>
-              Everyone is settled up
-            </Text>
-          ) : (
-            balancesQuery.data?.simplifiedDebts.map((debt, idx) => (
-              <View
-                key={idx}
-                style={[
-                  styles.debtRow,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.debtText,
-                      {
-                        color: theme.textPrimary,
-                      },
-                    ]}
-                  >
-                    {debt.fromUserName}
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: theme.textMuted,
-                      marginTop: 2,
-                      fontSize: 12,
-                    }}
-                  >
-                    pays {debt.toUserName}
-                  </Text>
-                </View>
-                <View style={styles.debtRight}>
-                  <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
-                    {formatAmount(debt.amount)}
-                  </Text>
-                  {debt.fromUserId === currentUser?.id ? (
-                    <Pressable
-                      onPress={() =>
-                        navigation.navigate("SettleUp", {
-                          groupId,
-                          paidTo: debt.toUserId,
-                          paidToName: debt.toUserName,
-                          suggestedAmount: debt.amount,
-                        })
-                      }
-                      style={[
-                        styles.settleButton,
-                        { backgroundColor: theme.primary },
-                      ]}
-                    >
-                      <Text style={styles.settleButtonText}>Settle</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              </View>
-            ))
-          )}
-
-          <Text
+      ) : (
+        <View style={styles.body}>
+          <View
             style={[
-              styles.sectionTitle,
-              { color: theme.textPrimary, marginTop: 20 },
+              styles.unifiedCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            All balances
-          </Text>
-          {(balancesQuery.data?.rawBalances ?? []).map((b) => (
-            <View
-              key={b.userId}
-              style={[
-                styles.debtRow,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-            >
-              <Text style={[styles.debtText, { color: theme.textPrimary }]}>
-                {b.userName}
-              </Text>
-              <Text
-                style={{
-                  color: b.netAmount >= 0 ? theme.success : theme.danger,
-                  fontWeight: "700",
-                }}
-              >
-                {b.netAmount >= 0 ? "+" : "-"}
-                {formatAmount(b.netAmount)}
-              </Text>
-            </View>
-          ))}
-
-          <Pressable
-            onPress={() => leaveMutation.mutate()}
-            style={[styles.leaveButton, { borderColor: theme.danger }]}
-          >
-            <LogOut size={16} color={theme.danger} />
-            <Text style={{ color: theme.danger, fontWeight: "700" }}>
-              Leave group
-            </Text>
-          </Pressable>
-          {leaveMutation.isError ? (
-            <Text style={[styles.formError, { color: theme.danger }]}>
-              {getApiErrorMessage(leaveMutation.error)}
-            </Text>
-          ) : null}
-        </View>
-      ) : (
-        <FlatList
-          data={activityQuery.data ?? []}
-          keyExtractor={(a) => a.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
-          refreshControl={
-            <RefreshControl
-              refreshing={activityQuery.isRefetching}
-              onRefresh={activityQuery.refetch}
-              tintColor={theme.primary}
+            <FlatList
+              data={activityQuery.data ?? []}
+              keyExtractor={(a) => a.id}
+              onScroll={handleListScroll}
+              scrollEventThrottle={16}
+              refreshControl={
+                <RefreshControl
+                  refreshing={activityQuery.isRefetching}
+                  onRefresh={activityQuery.refetch}
+                  tintColor={theme.primary}
+                />
+              }
+              ItemSeparatorComponent={() => (
+                <View
+                  style={[styles.rowDivider, { backgroundColor: theme.border }]}
+                />
+              )}
+              renderItem={({ item }) => (
+                <View style={styles.activityRow}>
+                  <Text style={[styles.activityType, { color: theme.primary }]}>
+                    {activityLabel(item.actionType)}
+                  </Text>
+                  <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>
+                    {describeActivity(item)}
+                  </Text>
+                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                    {formatDate(item.createdAt)}
+                  </Text>
+                </View>
+              )}
+              ListEmptyComponent={
+                !activityQuery.isLoading ? (
+                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                    No activity yet.
+                  </Text>
+                ) : null
+              }
             />
-          }
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.activityCard,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.activityType,
-                  {
-                    color: theme.primary,
-                  },
-                ]}
-              >
-                {activityLabel(item.actionType)}
-              </Text>
-
-              <Text
-                style={[
-                  styles.activityTitle,
-                  {
-                    color: theme.textPrimary,
-                  },
-                ]}
-              >
-                {describeActivity(item)}
-              </Text>
-
-              <Text
-                style={[
-                  styles.activityDate,
-                  {
-                    color: theme.textMuted,
-                  },
-                ]}
-              >
-                {formatDate(item.createdAt)}
-              </Text>
-            </View>
-          )}
-          ListEmptyComponent={
-            !activityQuery.isLoading ? (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                No activity yet.
-              </Text>
-            ) : null
-          }
-        />
+          </View>
+        </View>
       )}
 
       {tab === "expenses" && (
         <Pressable
           onPress={() => navigation.navigate("CreateExpense", { groupId })}
+          accessibilityLabel="Add expense"
+          accessibilityRole="button"
           style={[styles.fab, { backgroundColor: theme.primary }]}
         >
           <Plus color="#fff" size={26} />
         </Pressable>
       )}
-
-      <Modal
-        visible={inviteModalOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setInviteModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                Invite friends
-              </Text>
-              <Pressable onPress={() => setInviteModalOpen(false)}>
-                <X size={22} color={theme.textMuted} />
-              </Pressable>
-            </View>
-            <FlatList
-              data={invitableFriends}
-              keyExtractor={(f) => f.userId}
-              renderItem={({ item }) => (
-                <View style={styles.inviteRow}>
-                  <View style={styles.rowBodyFlex}>
-                    <Text
-                      style={{ color: theme.textPrimary, fontWeight: "600" }}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                      {item.email}
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={() => inviteMutation.mutate(item.userId)}
-                    style={[
-                      styles.inviteButton,
-                      { backgroundColor: theme.primary },
-                    ]}
-                  >
-                    <Text style={styles.settleButtonText}>Invite</Text>
-                  </Pressable>
-                </View>
-              )}
-              ListEmptyComponent={
-                <Text style={{ color: theme.textMuted, padding: 12 }}>
-                  Everyone you're friends with is already in this group.
-                </Text>
-              }
-            />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
+  );
+}
+
+// Balances tab pulled into its own component only to keep the ScrollView vs
+// FlatList mixing (suggested settlements + all balances aren't a flat list,
+// they're two separate cards) contained and readable.
+interface ScrollableBalancesProps {
+  theme: ReturnType<typeof useAppTheme>["theme"];
+  balancesQuery: UseQueryResult<GroupBalanceResponse>;
+  currentUserId: string | undefined;
+  formatAmount: (n: number) => string;
+  onSettle: (debt: DebtEdge) => void;
+  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+}
+
+function ScrollableBalances({
+  theme,
+  balancesQuery,
+  currentUserId,
+  formatAmount,
+  onSettle,
+  onScroll,
+}: ScrollableBalancesProps) {
+  return (
+    <View style={styles.body}>
+      <FlatList
+        data={[{ key: "content" }]}
+        keyExtractor={(i) => i.key}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        renderItem={() => (
+          <View>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
+              Suggested settlements
+            </Text>
+            <View
+              style={[
+                styles.unifiedCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  marginBottom: 20,
+                },
+              ]}
+            >
+              {(balancesQuery.data?.simplifiedDebts ?? []).length === 0 ? (
+                <Text style={{ color: theme.textMuted, padding: 16 }}>
+                  Everyone is settled up
+                </Text>
+              ) : (
+                balancesQuery.data?.simplifiedDebts.map(
+                  (debt: DebtEdge, idx: number) => (
+                    <View key={idx}>
+                      {idx > 0 ? (
+                        <View
+                          style={[
+                            styles.rowDivider,
+                            { backgroundColor: theme.border },
+                          ]}
+                        />
+                      ) : null}
+                      <View style={styles.row}>
+                        <View style={styles.rowBody}>
+                          <Text
+                            style={[
+                              styles.rowTitle,
+                              { color: theme.textPrimary },
+                            ]}
+                          >
+                            {debt.fromUserName}
+                          </Text>
+                          <Text
+                            style={[styles.rowSub, { color: theme.textMuted }]}
+                          >
+                            pays {debt.toUserName}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: "flex-end", gap: 6 }}>
+                          <Text
+                            style={{
+                              color: theme.textPrimary,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {formatAmount(debt.amount)}
+                          </Text>
+                          {debt.fromUserId === currentUserId ? (
+                            <Pressable
+                              onPress={() => onSettle(debt)}
+                              style={[
+                                styles.settleButton,
+                                { backgroundColor: theme.primary },
+                              ]}
+                            >
+                              <Text style={styles.settleButtonText}>
+                                Settle
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                  ),
+                )
+              )}
+            </View>
+
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
+              All balances
+            </Text>
+            <View
+              style={[
+                styles.unifiedCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              {(balancesQuery.data?.rawBalances ?? []).map(
+                (b: BalanceEntry, idx: number) => (
+                  <View key={b.userId}>
+                    {idx > 0 ? (
+                      <View
+                        style={[
+                          styles.rowDivider,
+                          { backgroundColor: theme.border },
+                        ]}
+                      />
+                    ) : null}
+                    <View style={styles.row}>
+                      <Text
+                        style={[styles.rowTitle, { color: theme.textPrimary }]}
+                      >
+                        {b.userName}
+                      </Text>
+                      <Text
+                        style={{
+                          color:
+                            b.netAmount >= 0 ? theme.success : theme.danger,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {b.netAmount >= 0 ? "+" : "-"}
+                        {formatAmount(b.netAmount)}
+                      </Text>
+                    </View>
+                  </View>
+                ),
+              )}
+            </View>
+          </View>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  membersRow: { paddingTop: 12, paddingBottom: 4 },
-  memberChip: { alignItems: "center", width: 56, gap: 4 },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
+
+  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.15)" },
+  menuCard: {
+    position: "absolute",
+    top: 54,
+    right: 16,
+    minWidth: 180,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuDivider: { height: 1, marginHorizontal: 4 },
+
+  summaryWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 16 },
+  summaryTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+  },
+  groupTile: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
   },
-  memberName: { fontSize: 11 },
+  groupName: { fontSize: 19, fontWeight: "800" },
+  groupMemberCount: { fontSize: 13, marginTop: 2 },
+  balanceCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  balanceLabel: { fontSize: 13 },
+  balanceAmount: { fontSize: 24, fontWeight: "800", marginTop: 4 },
+  balanceCardRow: { paddingVertical: 4 },
+  totalExpensesAmount: { fontSize: 20, fontWeight: "800", marginTop: 4 },
+  balanceCardDivider: { height: 1, marginVertical: 10 },
+
   tabs: {
     flexDirection: "row",
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    marginTop: 12,
-    marginBottom: 12,
     gap: 24,
   },
-  tabButton: { paddingBottom: 12 },
+  tabButton: { paddingBottom: 10, alignItems: "center" },
+  tabUnderline: { height: 2, width: "100%", borderRadius: 1, marginTop: 8 },
+
   toolbar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingVertical: 14,
     gap: 8,
   },
   toolbarButton: {
@@ -954,49 +1125,36 @@ const styles = StyleSheet.create({
     height: 34,
   },
   expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
-  listContent: { flexGrow: 1, paddingHorizontal: 20 },
-  expenseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  expenseBody: {
+
+  body: { flex: 1, paddingHorizontal: 20, paddingBottom: 16 },
+  unifiedCard: {
     flex: 1,
-    paddingRight: 16,
-  },
-  expenseTitle: { fontSize: 17, fontWeight: "700" },
-  expenseSub: { fontSize: 13, marginTop: 6 },
-  expenseShare: { fontSize: 20, fontWeight: "800" },
-  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
-  sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 20 },
-  debtRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    marginBottom: 20,
+    paddingHorizontal: 16,
   },
-  debtText: { fontSize: 14, fontWeight: "600" },
-  debtRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  rowDivider: { height: 1 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+  },
+  rowBody: { flex: 1, paddingRight: 12 },
+  rowTitle: { fontSize: 15, fontWeight: "700" },
+  rowSub: { fontSize: 12, marginTop: 3 },
+
+  emptyText: {
+    textAlign: "center",
+    marginTop: 40,
+    marginBottom: 20,
+    fontSize: 14,
+  },
+  sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10 },
+
   settleButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
   settleButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
-  leaveButton: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderRadius: 18,
-    paddingVertical: 14,
-    marginTop: 24,
-  },
-  formError: { textAlign: "center", marginTop: 10, fontSize: 13 },
+
   fab: {
     position: "absolute",
     right: 20,
@@ -1012,97 +1170,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: "70%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  modalTitle: { fontSize: 18, fontWeight: "800" },
-  inviteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  rowBodyFlex: { flex: 1 },
-  inviteButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  paymentLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginBottom: 8,
-  },
-  paymentFooter: {
-    marginTop: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  paymentBadge: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  paymentBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  paymentCard: {
-    padding: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  paymentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  paymentDate: {
-    fontSize: 12,
-  },
-  activityCard: {
-    padding: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  activityType: {
-    fontSize: 11,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  activityTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 22,
-  },
-  activityDate: {
-    marginTop: 10,
-    fontSize: 12,
-  },
-  paymentBody: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  amountColumn: {
-    minWidth: 110,
-    alignItems: "flex-end",
-  },
+
+  activityRow: { paddingVertical: 14 },
+  activityType: { fontSize: 11, fontWeight: "700", marginBottom: 6 },
 });
