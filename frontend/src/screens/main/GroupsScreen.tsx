@@ -11,26 +11,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CompositeNavigationProp } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
-import { apiClient } from "@/lib/apiClient";
-import { Group } from "@/types/api";
+import { useGroupsQuery } from "@/hooks/useGroupsQuery";
 import { MainStackParamList, GroupsStackParamList } from "@/navigation/types";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<GroupsStackParamList>,
   NativeStackNavigationProp<MainStackParamList>
 >;
-
-async function fetchGroups({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Group[]> {
-  const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
-  return data;
-}
 
 // Cycles through a small palette so each group gets a distinct tile color,
 // matching the mockup's teal/blue/orange/purple variety. Derived from the
@@ -63,10 +52,7 @@ function initials(name: string): string {
 export function GroupsScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
-  const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ["groups"],
-    queryFn: ({ signal }) => fetchGroups({ signal }),
-  });
+  const { data, isLoading, refetch, isRefetching } = useGroupsQuery();
 
   return (
     <SafeAreaView

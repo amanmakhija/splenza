@@ -18,7 +18,8 @@ import { CompositeNavigationProp } from "@react-navigation/native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
-import { DashboardSummary, FriendBalanceResponse, Group } from "@/types/api";
+import { useGroupsQuery } from "@/hooks/useGroupsQuery";
+import { DashboardSummary, FriendBalanceResponse } from "@/types/api";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -40,14 +41,6 @@ async function fetchSummary({
     "/api/v1/balances/summary",
     { signal },
   );
-  return data;
-}
-async function fetchGroups({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Group[]> {
-  const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
   return data;
 }
 
@@ -72,11 +65,7 @@ export function DashboardScreen() {
     queryKey: ["dashboard-summary"],
     queryFn: ({ signal }) => fetchSummary({ signal }),
   });
-  const groupsQuery = useQuery({
-    queryKey: ["groups"],
-    queryFn: ({ signal }) => fetchGroups({ signal }),
-    enabled: addModalOpen,
-  });
+  const groupsQuery = useGroupsQuery({ enabled: addModalOpen });
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
 

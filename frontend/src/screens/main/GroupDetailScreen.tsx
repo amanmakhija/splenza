@@ -38,13 +38,13 @@ import {
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
+import { useGroupQuery } from "@/hooks/useGroupQuery";
 import {
   ActivityLogEntry,
   BalanceEntry,
   DebtEdge,
   Expense,
   ExpenseParticipant,
-  Group,
   GroupBalanceResponse,
   PageResponse,
   Settlement,
@@ -65,15 +65,6 @@ type Nav = CompositeNavigationProp<
 type Route = RouteProp<GroupsStackParamList, "GroupDetail">;
 const PAGE_SIZE = 20;
 
-async function fetchGroup(
-  groupId: string,
-  { signal }: { signal: AbortSignal },
-): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
-    signal,
-  });
-  return data;
-}
 async function fetchGroupExpensesPage(
   groupId: string,
   page: number,
@@ -354,10 +345,7 @@ export function GroupDetailScreen() {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const groupQuery = useQuery({
-    queryKey: ["group", groupId],
-    queryFn: ({ signal }) => fetchGroup(groupId, { signal }),
-  });
+  const groupQuery = useGroupQuery(groupId);
   const timeline = usePaginatedMergedTimeline<
     Expense,
     Settlement,

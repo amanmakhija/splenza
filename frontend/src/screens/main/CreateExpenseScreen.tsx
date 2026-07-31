@@ -38,7 +38,8 @@ import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { useOfflineQueueStore } from "@/store/offlineQueueStore";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { Category, Expense, Group, SplitType } from "@/types/api";
+import { useGroupQuery } from "@/hooks/useGroupQuery";
+import { Category, Expense, SplitType } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
@@ -55,15 +56,6 @@ interface Participant {
 
 type ActiveSheet = "title" | "category" | "paidBy" | "split" | null;
 
-async function fetchGroup(
-  groupId: string,
-  { signal }: { signal: AbortSignal },
-): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
-    signal,
-  });
-  return data;
-}
 async function fetchCategories({
   signal,
 }: {
@@ -125,11 +117,7 @@ export function CreateExpenseScreen() {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const groupQuery = useQuery({
-    queryKey: ["group", groupId],
-    queryFn: ({ signal }) => fetchGroup(groupId as string, { signal }),
-    enabled: Boolean(groupId),
-  });
+  const groupQuery = useGroupQuery(groupId);
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: ({ signal }) => fetchCategories({ signal }),

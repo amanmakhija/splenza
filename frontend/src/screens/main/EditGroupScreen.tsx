@@ -16,7 +16,8 @@ import { ChevronLeft, UserMinus, UserPlus } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
-import { Friend, Group } from "@/types/api";
+import { useGroupQuery } from "@/hooks/useGroupQuery";
+import { Friend } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { MainStackParamList } from "@/navigation/types";
@@ -25,15 +26,6 @@ type Nav = NativeStackNavigationProp<MainStackParamList, "EditGroup">;
 type Route = RouteProp<MainStackParamList, "EditGroup">;
 type FormValues = { name: string; description: string };
 
-async function fetchGroup(
-  groupId: string,
-  { signal }: { signal: AbortSignal },
-): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
-    signal,
-  });
-  return data;
-}
 async function fetchFriends({
   signal,
 }: {
@@ -58,10 +50,7 @@ export function EditGroupScreen() {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const groupQuery = useQuery({
-    queryKey: ["group", groupId],
-    queryFn: ({ signal }) => fetchGroup(groupId, { signal }),
-  });
+  const groupQuery = useGroupQuery(groupId);
   const friendsQuery = useQuery({
     queryKey: ["friends"],
     queryFn: ({ signal }) => fetchFriends({ signal }),

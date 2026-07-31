@@ -32,10 +32,11 @@ import {
 import {
   ExecuteImportPayload,
   Friend,
-  Group,
   ImportResultResponse,
   ParsedCsv,
 } from "@/types/api";
+import { useGroupsQuery } from "@/hooks/useGroupsQuery";
+import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { SegmentedControl } from "@/components/SegmentedControl";
@@ -51,23 +52,6 @@ async function fetchFriends({
   signal: AbortSignal;
 }): Promise<Friend[]> {
   const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
-  return data;
-}
-async function fetchGroups({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Group[]> {
-  const { data } = await apiClient.get<Group[]>("/api/v1/groups", { signal });
-  return data;
-}
-async function fetchGroup(
-  groupId: string,
-  { signal }: { signal: AbortSignal },
-): Promise<Group> {
-  const { data } = await apiClient.get<Group>(`/api/v1/groups/${groupId}`, {
-    signal,
-  });
   return data;
 }
 
@@ -95,16 +79,8 @@ export function ImportCsvScreen() {
     queryKey: ["friends"],
     queryFn: ({ signal }) => fetchFriends({ signal }),
   });
-  const groupsQuery = useQuery({
-    queryKey: ["groups"],
-    queryFn: ({ signal }) => fetchGroups({ signal }),
-    enabled: groupMode === "existing",
-  });
-  const existingGroupDetailQuery = useQuery({
-    queryKey: ["group", existingGroupId],
-    queryFn: ({ signal }) => fetchGroup(existingGroupId as string, { signal }),
-    enabled: Boolean(existingGroupId),
-  });
+  const groupsQuery = useGroupsQuery({ enabled: groupMode === "existing" });
+  const existingGroupDetailQuery = useGroupQuery(existingGroupId ?? undefined);
 
   const summary = useMemo(
     () => (parsed ? summarizeParsedCsv(parsed) : null),
