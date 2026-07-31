@@ -176,3 +176,7 @@ export function getApiErrorCode(error: unknown) {
   }
   return undefined;
 }
+
+export function isNetworkError(error: unknown): boolean {
+  return axios.isAxiosError(error) && !error.response;
+}

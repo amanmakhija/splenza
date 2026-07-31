@@ -201,7 +201,7 @@ export function ProfileScreen() {
         <View style={styles.footer}>
           <Logo size={28} />
           <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-            Splenza v1.0.0
+            Splenza v1.1.0
           </Text>
         </View>
       </ScrollView>

@@ -8,6 +8,7 @@ import {
   Pressable,
   Platform,
   Modal,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -35,6 +36,8 @@ import {
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
+import { useOfflineQueueStore } from "@/store/offlineQueueStore";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { Category, Expense, Group, SplitType } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
@@ -115,6 +118,8 @@ export function CreateExpenseScreen() {
   const isEditMode = Boolean(expenseId);
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const isConnected = useNetworkStatus();
+  const enqueueOffline = useOfflineQueueStore((s) => s.enqueue);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -310,8 +315,23 @@ export function CreateExpenseScreen() {
   const onSubmit = () => {
     const payload = validateAndBuildPayload();
     if (!payload) return;
-    if (isEditMode) updateMutation.mutate(payload);
-    else createMutation.mutate(payload);
+
+    if (isEditMode) {
+      updateMutation.mutate(payload);
+      return;
+    }
+
+    if (!isConnected) {
+      enqueueOffline(payload, { groupId, friendId });
+      Alert.alert(
+        "Saved offline",
+        "This expense will sync automatically once you're back online.",
+      );
+      navigation.goBack();
+      return;
+    }
+
+    createMutation.mutate(payload);
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -890,6 +910,18 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 15, fontWeight: "600" },
   rowLabelNoIcon: { flex: 1 },
   rowSubLabel: { fontSize: 12, marginBottom: 1 },
+
+  deleteButton: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 20,
+  },
+
   keypad: { borderTopWidth: 1, paddingVertical: 6, paddingHorizontal: 12 },
   keypadRow: { flexDirection: "row" },
   keypadKey: {

@@ -34,6 +34,7 @@ import {
   ChevronLeft,
   Pencil,
   MoreVertical,
+  CloudOff,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -42,6 +43,7 @@ import {
   BalanceEntry,
   DebtEdge,
   Expense,
+  ExpenseParticipant,
   Group,
   GroupBalanceResponse,
   PageResponse,
@@ -49,6 +51,10 @@ import {
 } from "@/types/api";
 import { downloadAndShare } from "@/lib/exportFile";
 import { useAuthStore } from "@/store/authStore";
+import {
+  useOfflineQueueStore,
+  PendingExpense,
+} from "@/store/offlineQueueStore";
 import { MainStackParamList, GroupsStackParamList } from "@/navigation/types";
 import { CompositeNavigationProp } from "@react-navigation/native";
 
@@ -181,8 +187,89 @@ function initials(name: string): string {
 }
 
 type TimelineItem =
-  | { type: "expense"; date: string; data: Expense }
+  | { type: "expense"; date: string; data: Expense; pending?: boolean }
   | { type: "settlement"; date: string; data: Settlement };
+
+/**
+ * Turns a still-queued offline expense into something shaped like a real
+ * Expense so it can be rendered inline in the same list, on the same device,
+ * before it's ever reached the server. Only the creator sees this (it lives
+ * in their local queue) - once it syncs, this is discarded in favour of the
+ * real record everyone else can also see.
+ */
+function buildPendingDisplayExpense(
+  item: PendingExpense,
+  members: { userId: string; name: string }[] | undefined,
+  currentUserId: string | undefined,
+): Expense {
+  const payload = item.payload as {
+    title: string;
+    amount: number;
+    currency?: string;
+    categoryId: string | null;
+    notes: string | null;
+    expenseDate: string;
+    paidBy: string;
+    splitType: Expense["splitType"];
+    participants: Array<{
+      userId: string;
+      amount?: number;
+      percentage?: number;
+      shares?: number;
+    }>;
+  };
+
+  const nameFor = (userId: string) =>
+    userId === currentUserId
+      ? "You"
+      : (members?.find((m) => m.userId === userId)?.name ?? "Someone");
+
+  const rawParticipants = payload.participants ?? [];
+  const totalShares = rawParticipants.reduce(
+    (sum, p) => sum + (p.shares ?? 0),
+    0,
+  );
+
+  const participants: ExpenseParticipant[] = rawParticipants.map((p) => {
+    let shareAmount: number;
+    if (payload.splitType === "EXACT") {
+      shareAmount = p.amount ?? 0;
+    } else if (payload.splitType === "PERCENTAGE") {
+      shareAmount = (payload.amount * (p.percentage ?? 0)) / 100;
+    } else if (payload.splitType === "SHARES") {
+      shareAmount =
+        totalShares > 0 ? (payload.amount * (p.shares ?? 0)) / totalShares : 0;
+    } else {
+      shareAmount = payload.amount / (rawParticipants.length || 1);
+    }
+    return {
+      userId: p.userId,
+      userName: nameFor(p.userId),
+      shareAmount,
+      percentage: p.percentage ?? null,
+      shares: p.shares ?? null,
+    };
+  });
+
+  return {
+    id: `pending-${item.localId}`,
+    groupId: item.groupId,
+    title: payload.title,
+    amount: payload.amount,
+    currency: payload.currency ?? "INR",
+    categoryId: payload.categoryId ?? null,
+    categoryName: null,
+    notes: payload.notes ?? null,
+    expenseDate: payload.expenseDate,
+    paidBy: payload.paidBy,
+    paidByName: nameFor(payload.paidBy),
+    splitType: payload.splitType,
+    createdBy: currentUserId ?? payload.paidBy,
+    createdAt: item.createdAt,
+    updatedAt: item.createdAt,
+    participants,
+  };
+}
 
 export function GroupDetailScreen() {
   const { theme } = useAppTheme();
@@ -190,6 +277,11 @@ export function GroupDetailScreen() {
   const { params } = useRoute<Route>();
   const { groupId } = params;
   const currentUser = useAuthStore((s) => s.user);
+  const pendingOfflineExpenses = useOfflineQueueStore((s) =>
+    s.items.filter((i) => i.groupId === groupId),
+  );
+  const syncOfflineQueue = useOfflineQueueStore((s) => s.syncAll);
+  const isSyncingOfflineQueue = useOfflineQueueStore((s) => s.isSyncing);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"expenses" | "balances" | "activity">(
     "expenses",
@@ -299,16 +391,46 @@ export function GroupDetailScreen() {
     enabled: tab === "activity",
   });
 
+  const pendingTimelineItems: TimelineItem[] = useMemo(
+    () =>
+      pendingOfflineExpenses.map((item) => {
+        const data = buildPendingDisplayExpense(
+          item,
+          groupQuery.data?.members,
+          currentUser?.id,
+        );
+        return {
+          type: "expense" as const,
+          // Sort by the date the person actually picked for the expense
+          // (same field a synced Expense sorts by), not by when it was
+          // queued - otherwise a backdated offline expense would jump to
+          // the top now and then jump again to its correct spot once
+          // synced, which is exactly the "scattered" reordering this fixes.
+          date: data.expenseDate,
+          data,
+          pending: true,
+        };
+      }),
+    [pendingOfflineExpenses, groupQuery.data?.members, currentUser?.id],
+  );
+
   const mergedTimeline: TimelineItem[] = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    if (!q) return timeline.items;
-    return timeline.items.filter((item) =>
+    // Same newest-first ordering usePaginatedMergedTimeline uses internally,
+    // applied once more across the combined (pending + synced) list so
+    // pending items sit in their correct chronological spot rather than
+    // always pinned to the top.
+    const combined = [...pendingTimelineItems, ...timeline.items].sort(
+      (x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0),
+    );
+    if (!q) return combined;
+    return combined.filter((item) =>
       item.type === "expense"
         ? item.data.title.toLowerCase().includes(q)
         : item.data.paidByName.toLowerCase().includes(q) ||
           item.data.paidToName.toLowerCase().includes(q),
     );
-  }, [timeline.items, searchQuery]);
+  }, [pendingTimelineItems, timeline.items, searchQuery]);
 
   const leaveMutation = useMutation({
     mutationFn: () => apiClient.post(`/api/v1/groups/${groupId}/leave`),
@@ -600,6 +722,30 @@ export function GroupDetailScreen() {
         )}
       </View>
 
+      {pendingOfflineExpenses.length > 0 ? (
+        <Pressable
+          onPress={() => syncOfflineQueue()}
+          disabled={isSyncingOfflineQueue}
+          style={[
+            styles.offlineQueueBanner,
+            {
+              backgroundColor: theme.primaryContainer,
+              borderColor: theme.primary,
+            },
+          ]}
+        >
+          <CloudOff size={15} color={theme.primary} />
+          <Text
+            style={[styles.offlineQueueText, { color: theme.primary }]}
+            numberOfLines={1}
+          >
+            {isSyncingOfflineQueue
+              ? "Syncing…"
+              : `${pendingOfflineExpenses.length} expense${pendingOfflineExpenses.length === 1 ? "" : "s"} waiting to sync · tap to retry`}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* Underline tabs */}
       <View style={[styles.tabs, { borderColor: theme.border }]}>
         {(["expenses", "balances", "activity"] as const).map((t) => (
@@ -796,18 +942,26 @@ export function GroupDetailScreen() {
                 }
 
                 const expense = item.data;
+                const isPending = item.pending === true;
                 const myShare =
                   expense.participants.find((p) => p.userId === currentUser?.id)
                     ?.shareAmount ?? 0;
                 const iPaid = expense.paidBy === currentUser?.id;
                 return (
                   <Pressable
-                    onPress={() =>
+                    onPress={() => {
+                      if (isPending) {
+                        Alert.alert(
+                          "Still syncing",
+                          "This expense hasn't finished syncing yet. It'll be viewable and editable once it's back online.",
+                        );
+                        return;
+                      }
                       navigation.navigate("ExpenseDetail", {
                         expenseId: expense.id,
-                      })
-                    }
-                    style={styles.row}
+                      });
+                    }}
+                    style={[styles.row, isPending && styles.rowPending]}
                   >
                     <View style={styles.rowBody}>
                       <Text
@@ -815,10 +969,24 @@ export function GroupDetailScreen() {
                       >
                         {expense.title}
                       </Text>
-                      <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                        {expense.paidByName} paid {formatAmount(expense.amount)}{" "}
-                        · {formatDateShort(expense.expenseDate)}
-                      </Text>
+                      <View style={styles.rowSubLine}>
+                        {isPending ? (
+                          <CloudOff
+                            size={11}
+                            color={theme.textMuted}
+                            style={{ marginRight: 4 }}
+                          />
+                        ) : null}
+                        <Text
+                          style={[styles.rowSub, { color: theme.textMuted }]}
+                        >
+                          {expense.paidByName} paid{" "}
+                          {formatAmount(expense.amount)} ·{" "}
+                          {isPending
+                            ? "Syncing…"
+                            : formatDateShort(expense.expenseDate)}
+                        </Text>
+                      </View>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
                       <Text
@@ -1158,6 +1326,19 @@ const styles = StyleSheet.create({
   tabButton: { paddingBottom: 10, alignItems: "center" },
   tabUnderline: { height: 2, width: "100%", borderRadius: 1, marginTop: 8 },
 
+  offlineQueueBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  offlineQueueText: { fontSize: 12, fontWeight: "700", flexShrink: 1 },
+
   toolbar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1203,6 +1384,8 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, paddingRight: 12 },
   rowTitle: { fontSize: 15, fontWeight: "700" },
   rowSub: { fontSize: 12, marginTop: 3 },
+  rowSubLine: { flexDirection: "row", alignItems: "center" },
+  rowPending: { opacity: 0.55 },
 
   emptyText: {
     textAlign: "center",
