@@ -198,6 +198,9 @@ export function GroupDetailScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [balanceCardHeight, setBalanceCardHeight] = useState<number | null>(
+    null,
+  );
 
   // Drives the collapsing "Total expenses / You're owed" card: as the active
   // tab's list scrolls down, this card shrinks away so small-screen phones
@@ -234,7 +237,7 @@ export function GroupDetailScreen() {
   const balanceCardAnimatedStyle = {
     height: collapseAnim.interpolate({
       inputRange: [0, 1],
-      outputRange: [112, 0],
+      outputRange: [balanceCardHeight ?? 0, 0],
     }),
     opacity: collapseAnim.interpolate({
       inputRange: [0, 1],
@@ -489,10 +492,17 @@ export function GroupDetailScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View
-          style={[{ overflow: "hidden" }, balanceCardAnimatedStyle]}
-        >
+        {balanceCardHeight === null ? (
+          // First render: no Animated wrapper at all. An Animated.View with
+          // overflow:hidden and an interpolated height starting at 0 would
+          // clip its own content before onLayout ever gets a chance to
+          // measure it — so we render plain here just long enough to learn
+          // the card's natural height, then switch to the animated version.
           <View
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h > 0) setBalanceCardHeight(h);
+            }}
             style={[
               styles.balanceCard,
               { backgroundColor: theme.surface, borderColor: theme.border },
@@ -537,7 +547,57 @@ export function GroupDetailScreen() {
               </Text>
             </View>
           </View>
-        </Animated.View>
+        ) : (
+          <Animated.View
+            style={[{ overflow: "hidden" }, balanceCardAnimatedStyle]}
+          >
+            <View
+              style={[
+                styles.balanceCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <View style={styles.balanceCardRow}>
+                <Text style={[styles.balanceLabel, { color: theme.textMuted }]}>
+                  Total expenses
+                </Text>
+                <Text
+                  style={[
+                    styles.totalExpensesAmount,
+                    { color: theme.textPrimary },
+                  ]}
+                >
+                  {totalExpensesQuery.data != null
+                    ? formatAmount(totalExpensesQuery.data)
+                    : "…"}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.balanceCardDivider,
+                  { backgroundColor: theme.border },
+                ]}
+              />
+              <View style={styles.balanceCardRow}>
+                <Text style={[styles.balanceLabel, { color: theme.textMuted }]}>
+                  {myNetBalance === 0
+                    ? "You're all settled up"
+                    : myNetBalance > 0
+                      ? "You're owed"
+                      : "You owe"}
+                </Text>
+                <Text
+                  style={[
+                    styles.balanceAmount,
+                    { color: myNetBalance >= 0 ? theme.owed : theme.owe },
+                  ]}
+                >
+                  {formatAmount(myNetBalance)}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
       </View>
 
       {/* Underline tabs */}
@@ -1103,7 +1163,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 14,
     gap: 8,
   },
   toolbarButton: {
@@ -1126,7 +1186,7 @@ const styles = StyleSheet.create({
   },
   expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
 
-  body: { flex: 1, paddingHorizontal: 20, paddingBottom: 16 },
+  body: { flex: 1, paddingHorizontal: 20, paddingVertical: 16 },
   unifiedCard: {
     flex: 1,
     borderRadius: 20,
