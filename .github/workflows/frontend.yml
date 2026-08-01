@@ -51,26 +51,6 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
-      - name: Decode google-services.json
-        working-directory: ./frontend
-        run: |
-          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
-            echo "ERROR: secrets.GOOGLE_SERVICES_JSON is empty or not set" >&2
-            exit 1
-          fi
-          printf '%s' "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > google-services-secret.json || {
-            echo "ERROR: base64 decode failed" >&2
-            exit 1
-          }
-          echo "Decoded secret file -> $(pwd)/google-services-secret.json (size: $(wc -c < google-services-secret.json) bytes)"
-
-      - name: Verify google-services.json present
-        working-directory: ./frontend
-        run: |
-          echo "Listing project root files:"
-          ls -la .
-          echo "google-services-secret.json size: $(stat -c%s google-services-secret.json 2>/dev/null || echo 'MISSING')"
-
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
@@ -79,9 +59,9 @@ jobs:
 
       - name: Build development client locally
         working-directory: ./frontend
-        # ─── INJECT ENVIRONMENT PATH VARIABLE ───
+        # ─── INJECT RAW STRING INSTEAD OF SAVING FILES ───
         env:
-          GOOGLE_SERVICES_FILE_PATH: "./google-services-secret.json"
+          GOOGLE_SERVICES_JSON_STRING: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: eas build --platform android --profile development --local --non-interactive --output=./build.apk
 
       - name: Upload build artifact
@@ -90,11 +70,6 @@ jobs:
           name: dev-build-apk
           path: frontend/build.apk
           retention-days: 14
-
-      - name: Clean up secrets
-        if: always()
-        working-directory: ./frontend
-        run: rm -f google-services-secret.json
 
   # ------------------------------------------------------------------
   # main branch -> build a production AAB locally on the runner.
@@ -139,26 +114,6 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
-      - name: Decode google-services.json
-        working-directory: ./frontend
-        run: |
-          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
-            echo "ERROR: secrets.GOOGLE_SERVICES_JSON is empty or not set" >&2
-            exit 1
-          fi
-          printf '%s' "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > google-services-secret.json || {
-            echo "ERROR: base64 decode failed" >&2
-            exit 1
-          }
-          echo "Decoded secret file -> $(pwd)/google-services-secret.json (size: $(wc -c < google-services-secret.json) bytes)"
-
-      - name: Verify google-services.json present
-        working-directory: ./frontend
-        run: |
-          echo "Listing project root files:"
-          ls -la .
-          echo "google-services-secret.json size: $(stat -c%s google-services-secret.json 2>/dev/null || echo 'MISSING')"
-
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
@@ -167,9 +122,9 @@ jobs:
 
       - name: Build production AAB locally
         working-directory: ./frontend
-        # ─── INJECT ENVIRONMENT PATH VARIABLE ───
+        # ─── INJECT RAW STRING INSTEAD OF SAVING FILES ───
         env:
-          GOOGLE_SERVICES_FILE_PATH: "./google-services-secret.json"
+          GOOGLE_SERVICES_JSON_STRING: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: eas build --platform android --profile production --local --non-interactive --output=./build.aab
 
       - name: Upload build artifact
@@ -178,8 +133,3 @@ jobs:
           name: prod-build-aab
           path: frontend/build.aab
           retention-days: 30
-
-      - name: Clean up secrets
-        if: always()
-        working-directory: ./frontend
-        run: rm -f google-services-secret.json
