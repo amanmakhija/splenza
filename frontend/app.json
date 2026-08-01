@@ -38,7 +38,11 @@
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
-      "googleServicesFile": "./android/app/google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -73,6 +77,11 @@
       "eas": {
         "projectId": "8ef9b94d-d61c-4317-ad8d-a2e7ebbc8293"
       }
+    },
+    "sdkVersion": "54.0.0",
+    "platforms": ["ios", "android"],
+    "androidStatusBar": {
+      "backgroundColor": "#FAFAF8"
     }
   }
 }
