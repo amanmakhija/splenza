@@ -58,18 +58,20 @@ jobs:
             echo "ERROR: secrets.GOOGLE_SERVICES_JSON is empty or not set" >&2
             exit 1
           fi
-          printf '%s' "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > google-services.json || {
+          # Ensure the native android directory exists
+          mkdir -p android/app 
+          printf '%s' "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json || {
             echo "ERROR: base64 decode failed" >&2
             exit 1
           }
-          echo "Decoded google-services.json -> $(pwd)/google-services.json (size: $(wc -c < google-services.json) bytes)"
+          echo "Decoded google-services.json -> $(pwd)/android/app/google-services.json (size: $(wc -c < android/app/google-services.json) bytes)"
 
       - name: Verify google-services.json present
         working-directory: ./frontend
         run: |
-          echo "Listing project root:"
-          ls -la .
-          echo "google-services.json size: $(stat -c%s google-services.json 2>/dev/null || echo 'MISSING')"
+          echo "Listing android/app directory:"
+          ls -la android/app
+          echo "google-services.json size: $(stat -c%s android/app/google-services.json 2>/dev/null || echo 'MISSING')"
 
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
