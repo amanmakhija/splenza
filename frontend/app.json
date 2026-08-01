@@ -38,7 +38,7 @@
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
-      "googleServicesFile": "ENV(GOOGLE_SERVICES_FILE_PATH)"
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png",
