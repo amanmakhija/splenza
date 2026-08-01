@@ -15,4 +15,4 @@ target/
 .vscode/
 secrets/
 
-frontend/google-services.json
+frontend/google-services-secret.json
