@@ -127,6 +127,18 @@ export interface FriendRequestDto {
   createdAt: string;
 }
 
+/**
+ * One matched registered user for a phone number or email submitted to the
+ * contacts-lookup endpoint. `matchedValue` is whichever normalized phone
+ * number or lowercased email from the request this result corresponds to,
+ * so the client can map it back to the right contact.
+ */
+export interface UserLookupMatch {
+  matchedValue: string;
+  userId: string;
+  name: string;
+}
+
 export interface BalanceEntry {
   userId: string;
   userName: string;

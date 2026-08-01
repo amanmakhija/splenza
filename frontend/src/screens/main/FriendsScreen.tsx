@@ -15,7 +15,8 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
-import { Friend, FriendRequestDto } from "@/types/api";
+import { useFriendsQuery } from "@/hooks/useFriendsQuery";
+import { FriendRequestDto } from "@/types/api";
 import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 
 type Nav = CompositeNavigationProp<
@@ -23,14 +24,6 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 
-async function fetchFriends({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
-  return data;
-}
 async function fetchPendingRequests({
   signal,
 }: {
@@ -49,10 +42,7 @@ export function FriendsScreen() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"friends" | "requests">("friends");
 
-  const friendsQuery = useQuery({
-    queryKey: ["friends"],
-    queryFn: ({ signal }) => fetchFriends({ signal }),
-  });
+  const friendsQuery = useFriendsQuery();
   const requestsQuery = useQuery({
     queryKey: ["friend-requests"],
     queryFn: ({ signal }) => fetchPendingRequests({ signal }),

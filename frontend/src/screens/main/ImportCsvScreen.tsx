@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import {
@@ -31,12 +31,12 @@ import {
 } from "@/lib/csvImport";
 import {
   ExecuteImportPayload,
-  Friend,
   ImportResultResponse,
   ParsedCsv,
 } from "@/types/api";
 import { useGroupsQuery } from "@/hooks/useGroupsQuery";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
+import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { SegmentedControl } from "@/components/SegmentedControl";
@@ -45,15 +45,6 @@ import { MainStackParamList } from "@/navigation/types";
 type Nav = NativeStackNavigationProp<MainStackParamList, "ImportCsv">;
 type Step = "pick" | "group" | "mapping" | "preview" | "result";
 type GroupMode = "new" | "existing";
-
-async function fetchFriends({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
-  return data;
-}
 
 export function ImportCsvScreen() {
   const { theme } = useAppTheme();
@@ -75,10 +66,7 @@ export function ImportCsvScreen() {
 
   const [result, setResult] = useState<ImportResultResponse | null>(null);
 
-  const friendsQuery = useQuery({
-    queryKey: ["friends"],
-    queryFn: ({ signal }) => fetchFriends({ signal }),
-  });
+  const friendsQuery = useFriendsQuery();
   const groupsQuery = useGroupsQuery({ enabled: groupMode === "existing" });
   const existingGroupDetailQuery = useGroupQuery(existingGroupId ?? undefined);
 

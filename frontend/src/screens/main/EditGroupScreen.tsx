@@ -11,13 +11,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useForm, Controller } from "react-hook-form";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, UserMinus, UserPlus } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
-import { Friend } from "@/types/api";
+import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { MainStackParamList } from "@/navigation/types";
@@ -25,17 +25,6 @@ import { MainStackParamList } from "@/navigation/types";
 type Nav = NativeStackNavigationProp<MainStackParamList, "EditGroup">;
 type Route = RouteProp<MainStackParamList, "EditGroup">;
 type FormValues = { name: string; description: string };
-
-async function fetchFriends({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", {
-    signal,
-  });
-  return data;
-}
 
 export function EditGroupScreen() {
   const { theme } = useAppTheme();
@@ -51,11 +40,7 @@ export function EditGroupScreen() {
   }, [navigation]);
 
   const groupQuery = useGroupQuery(groupId);
-  const friendsQuery = useQuery({
-    queryKey: ["friends"],
-    queryFn: ({ signal }) => fetchFriends({ signal }),
-    enabled: inviteOpen,
-  });
+  const friendsQuery = useFriendsQuery({ enabled: inviteOpen });
 
   const {
     control,

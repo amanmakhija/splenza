@@ -4,10 +4,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useForm, Controller } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
-import { Friend, Group } from "@/types/api";
+import { useFriendsQuery } from "@/hooks/useFriendsQuery";
+import { Group } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
@@ -15,15 +16,6 @@ import { MainStackParamList } from "@/navigation/types";
 
 type FormValues = { name: string; description: string };
 type Nav = NativeStackNavigationProp<MainStackParamList, "CreateGroup">;
-
-async function fetchFriends({
-  signal,
-}: {
-  signal: AbortSignal;
-}): Promise<Friend[]> {
-  const { data } = await apiClient.get<Friend[]>("/api/v1/friends", { signal });
-  return data;
-}
 
 export function CreateGroupScreen() {
   const { theme } = useAppTheme();
@@ -39,10 +31,7 @@ export function CreateGroupScreen() {
     defaultValues: { name: "", description: "" },
   });
 
-  const friendsQuery = useQuery({
-    queryKey: ["friends"],
-    queryFn: ({ signal }) => fetchFriends({ signal }),
-  });
+  const friendsQuery = useFriendsQuery();
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
