@@ -23,7 +23,7 @@ describe("OfflineBanner", () => {
     });
 
     render(<OfflineBanner />);
-    expect(screen.queryByText("No internet connection")).toBeNull();
+    expect(screen.queryByLabelText("No internet connection")).toBeNull();
   });
 
   it("shows the banner when isInternetReachable is false", async () => {
@@ -34,7 +34,7 @@ describe("OfflineBanner", () => {
 
     render(<OfflineBanner />);
     await waitFor(() => {
-      expect(screen.getByText("No internet connection")).toBeTruthy();
+      expect(screen.getByLabelText("No internet connection")).toBeTruthy();
     });
   });
 
@@ -45,7 +45,7 @@ describe("OfflineBanner", () => {
     });
 
     render(<OfflineBanner />);
-    expect(screen.queryByText("No internet connection")).toBeNull();
+    expect(screen.queryByLabelText("No internet connection")).toBeNull();
   });
 
   it("unsubscribes from NetInfo on unmount", () => {
