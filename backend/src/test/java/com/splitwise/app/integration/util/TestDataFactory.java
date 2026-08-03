@@ -225,4 +225,12 @@ public final class TestDataFactory {
 
         return request;
     }
+
+    public static SendFriendRequestRequest sendFriendRequestByUserId(UUID userId) {
+        
+        SendFriendRequestRequest request = new SendFriendRequestRequest();
+        request.setUserId(userId);
+
+        return request;
+    }
 }

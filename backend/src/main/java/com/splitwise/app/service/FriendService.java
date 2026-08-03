@@ -36,7 +36,10 @@ public class FriendService {
         User sender = userRepository.findById(senderId).orElseThrow();
 
         User receiver;
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+        if (request.getUserId() != null) {
+            receiver = userRepository.findByIdAndDeletedFalse(request.getUserId())
+                    .orElseThrow(() -> ApiException.notFound("No user found with that ID"));
+        } else if (request.getEmail() != null && !request.getEmail().isBlank()) {
             receiver = userRepository.findByEmailAndDeletedFalse(request.getEmail().toLowerCase().trim())
                     .orElseThrow(() -> ApiException.notFound("No user found with that email"));
         } else {

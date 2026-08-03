@@ -6,8 +6,10 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
-@Schema(description = "Request to send a friend request by looking up another user by email or phone number. "
-        + "Exactly one of email or phoneNumber must be provided")
+import java.util.UUID;
+
+@Schema(description = "Request to send a friend request by looking up another user by email, phone number, or userId. "
+        + "Exactly one of email, phoneNumber, or userId must be provided")
 @Data
 public class SendFriendRequestRequest {
 
@@ -20,9 +22,14 @@ public class SendFriendRequestRequest {
     @Pattern(regexp = "^\\+?[1-9]\\d{7,14}$", message = "Phone number must be a valid number in international format, e.g. +919876543210")
     private String phoneNumber;
 
+    @Schema(description = "User ID of the user to send a friend request to", example = "550e8400-e29b-41d4-a716-446655440000")
+    private UUID userId;
+
     @Schema(hidden = true)
-    @AssertTrue(message = "Provide either an email or a phone number to find your friend")
+    @AssertTrue(message = "Provide either an email, a phone number, or a userId to find your friend")
     public boolean isIdentifierProvided() {
-        return (email != null && !email.isBlank()) || (phoneNumber != null && !phoneNumber.isBlank());
+        return (email != null && !email.isBlank())
+                || (phoneNumber != null && !phoneNumber.isBlank())
+                || (userId != null);
     }
 }

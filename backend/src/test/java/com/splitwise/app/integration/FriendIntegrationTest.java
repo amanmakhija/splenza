@@ -145,7 +145,7 @@ class FriendIntegrationTest extends BaseIntegrationTest {
                     .andExpect(status().isConflict());
         }
 
-        @Test
+@Test
         @DisplayName("should reject sending a request without authentication")
         void shouldRejectSendWithoutAuth() throws Exception {
 
@@ -157,8 +157,62 @@ class FriendIntegrationTest extends BaseIntegrationTest {
                             post("/api/v1/friends/requests")
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(objectMapper.writeValueAsString(request))
-                    )
-                    .andExpect(status().isUnauthorized());
+                        )
+                        .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("should send a friend request by userId")
+        void shouldSendRequestByUserId() throws Exception {
+
+            User sender = createVerifiedUser("sender@test.com", "Password123");
+            User receiver = createVerifiedUser("receiver@test.com", "Password123");
+
+            SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByUserId(receiver.getId());
+
+            mockMvc.perform(
+                            post("/api/v1/friends/requests")
+                                    .header("Authorization", bearerTokenFor(sender))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(request))
+                        )
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.senderId").value(sender.getId().toString()))
+                        .andExpect(jsonPath("$.status").value("PENDING"));
+        }
+
+        @Test
+        @DisplayName("should reject sending a request to a non-existent userId")
+        void shouldRejectUnknownUserId() throws Exception {
+
+            User sender = createVerifiedUser("sender@test.com", "Password123");
+
+            SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByUserId(UUID.randomUUID());
+
+            mockMvc.perform(
+                            post("/api/v1/friends/requests")
+                                    .header("Authorization", bearerTokenFor(sender))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(request))
+                        )
+                        .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("should reject sending a request to yourself by userId")
+        void shouldRejectSelfRequestByUserId() throws Exception {
+
+            User sender = createVerifiedUser("sender@test.com", "Password123");
+
+            SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByUserId(sender.getId());
+
+            mockMvc.perform(
+                            post("/api/v1/friends/requests")
+                                    .header("Authorization", bearerTokenFor(sender))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(request))
+                        )
+                        .andExpect(status().isBadRequest());
         }
     }
 
