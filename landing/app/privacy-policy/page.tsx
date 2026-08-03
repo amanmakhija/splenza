@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Privacy Policy — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>29/07/2026</strong>
+        Last updated: <strong>03/08/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -86,7 +86,41 @@ export default function PrivacyPolicyPage() {
       </table>
 
       <p style={styles.p}>
-        <strong>1.2 Information collected automatically</strong>
+        <strong>1.2 Information from your contacts (optional)</strong>
+      </p>
+      <p style={styles.p}>
+        Splenza includes an optional &quot;Find friends&quot; feature. If you
+        choose to grant contacts permission and use this feature, we read the
+        phone numbers and email addresses in your device&apos;s contacts and
+        send them to our servers to check which of your contacts already have a
+        Splenza account, so we can show you an option to add them as a friend.
+      </p>
+      <ul style={styles.ul}>
+        <li style={styles.li}>
+          This is entirely optional. You can decline the permission, or decline
+          it later from your device settings, and still use every other part of
+          the App normally.
+        </li>
+        <li style={styles.li}>
+          We do not store the contact list submitted for this check — it is used
+          only to compute matches at that moment and is not retained by our
+          servers afterward.
+        </li>
+        <li style={styles.li}>
+          We never message, notify, or contact anyone on your behalf
+          automatically. If you choose to invite a contact who isn&apos;t yet on
+          Splenza, that invitation is sent through your own device&apos;s
+          messaging or sharing apps (e.g. SMS, WhatsApp, email) that you select
+          — Splenza itself never sends anything to your contacts directly.
+        </li>
+        <li style={styles.li}>
+          You can revoke contacts access at any time from your device&apos;s
+          system settings.
+        </li>
+      </ul>
+
+      <p style={styles.p}>
+        <strong>1.3 Information collected automatically</strong>
       </p>
       <table style={styles.table}>
         <tbody>
@@ -122,7 +156,7 @@ export default function PrivacyPolicyPage() {
       </table>
 
       <p style={styles.p}>
-        <strong>1.3 Information from third-party sign-in</strong>
+        <strong>1.4 Information from third-party sign-in</strong>
       </p>
       <p style={styles.p}>
         If you choose to sign in with Google, we receive your Google
@@ -132,14 +166,16 @@ export default function PrivacyPolicyPage() {
       </p>
 
       <p style={styles.p}>
-        <strong>1.4 Information we do not collect</strong>
+        <strong>1.5 Information we do not collect</strong>
       </p>
       <ul style={styles.ul}>
         <li style={styles.li}>
           We do not collect precise or continuous location data.
         </li>
         <li style={styles.li}>
-          We do not access your contacts list automatically.
+          We do not access your contacts unless you explicitly grant permission
+          and choose to use the optional &quot;Find friends&quot; feature
+          described in section 1.2.
         </li>
         <li style={styles.li}>
           We do not read your device&apos;s SMS, call logs, or photos beyond an
@@ -161,6 +197,10 @@ export default function PrivacyPolicyPage() {
         <li style={styles.li}>
           Let you split expenses, create groups, add friends, and settle
           balances with other users
+        </li>
+        <li style={styles.li}>
+          Show you which of your device contacts already use Splenza, if you
+          choose to use the optional &quot;Find friends&quot; feature
         </li>
         <li style={styles.li}>
           Send you transactional push notifications (friend requests, expense
@@ -201,6 +241,11 @@ export default function PrivacyPolicyPage() {
           the app or complying with law.
         </li>
       </ul>
+      <p style={styles.p}>
+        Your device contacts (phone numbers/emails) submitted through the
+        &quot;Find friends&quot; feature are not shown to any other user — they
+        are only used server-side to check for matching Splenza accounts.
+      </p>
 
       <h2 style={styles.h2}>4. Third-Party Services We Use</h2>
       <table style={styles.table}>
@@ -234,7 +279,9 @@ export default function PrivacyPolicyPage() {
       </table>
       <p style={styles.p}>
         We do not share your personal data with any other third party for their
-        own marketing purposes.
+        own marketing purposes. Contacts data used by the &quot;Find
+        friends&quot; feature (section 1.2) is sent only to our own servers, not
+        to any third party.
       </p>
 
       <h2 style={styles.h2}>5. Data Security</h2>
@@ -272,7 +319,9 @@ export default function PrivacyPolicyPage() {
         necessary to preserve the integrity of other users&apos; shared
         financial records (e.g. an expense you were involved in may remain
         visible to other group members in an anonymized form, since deleting it
-        would corrupt their balance history).
+        would corrupt their balance history). Contact information submitted
+        through the &quot;Find friends&quot; feature is not retained at all —
+        see section 1.2.
       </p>
 
       <h2 style={styles.h2}>7. Your Rights and Choices</h2>
@@ -288,6 +337,10 @@ export default function PrivacyPolicyPage() {
         <li style={styles.li}>
           Withdraw consent for optional data (e.g. phone number) at any time by
           removing it from your profile
+        </li>
+        <li style={styles.li}>
+          Revoke contacts permission at any time via your device settings, which
+          immediately stops the App from being able to read your contacts
         </li>
       </ul>
       <p style={styles.p}>

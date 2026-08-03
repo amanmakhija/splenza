@@ -10,7 +10,7 @@ export default function TermsPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Terms & Conditions — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>29/07/2026</strong>
+        Last updated: <strong>03/08/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -114,7 +114,22 @@ export default function TermsPage() {
         settings.
       </p>
 
-      <h2 style={styles.h2}>7. Third-Party Sign-In</h2>
+      <h2 style={styles.h2}>7. Finding Friends via Your Contacts</h2>
+      <p style={styles.p}>
+        Splenza includes an optional feature that, with your permission, reads
+        your device&apos;s contacts to show you which of them already use the
+        App and lets you invite the ones who don&apos;t. Any invitation you
+        choose to send is delivered through your own device&apos;s messaging or
+        sharing apps (e.g. SMS, WhatsApp, email) — Splenza does not send
+        messages to your contacts on your behalf. You&apos;re responsible for
+        only inviting people you have a genuine relationship with or a
+        reasonable basis to contact, and for complying with any applicable
+        anti-spam or communications laws in your jurisdiction. You can decline
+        or revoke contacts access at any time through your device settings
+        without affecting your ability to use the rest of the App.
+      </p>
+
+      <h2 style={styles.h2}>8. Third-Party Sign-In</h2>
       <p style={styles.p}>
         If you sign in using Google, your use of that service is also governed
         by Google&apos;s own terms and privacy policy. We&apos;re not
@@ -122,7 +137,7 @@ export default function TermsPage() {
         providers.
       </p>
 
-      <h2 style={styles.h2}>8. Service Availability</h2>
+      <h2 style={styles.h2}>9. Service Availability</h2>
       <p style={styles.p}>
         We aim to keep Splenza available and reliable, but we don&apos;t
         guarantee uninterrupted access. The App may be unavailable occasionally
@@ -130,7 +145,7 @@ export default function TermsPage() {
         liable for any loss resulting from downtime.
       </p>
 
-      <h2 style={styles.h2}>9. Disclaimer of Warranties</h2>
+      <h2 style={styles.h2}>10. Disclaimer of Warranties</h2>
       <p style={styles.legal}>
         The App is provided &quot;as is&quot; and &quot;as available&quot;
         without warranties of any kind, either express or implied, including but
@@ -139,7 +154,7 @@ export default function TermsPage() {
         will be uninterrupted, error-free, or secure.
       </p>
 
-      <h2 style={styles.h2}>10. Limitation of Liability</h2>
+      <h2 style={styles.h2}>11. Limitation of Liability</h2>
       <p style={styles.legal}>
         To the maximum extent permitted by law, Splenza and its developers shall
         not be liable for any indirect, incidental, special, consequential, or
@@ -149,7 +164,7 @@ export default function TermsPage() {
         settlements recorded in the App.
       </p>
 
-      <h2 style={styles.h2}>11. Changes to the App or Terms</h2>
+      <h2 style={styles.h2}>12. Changes to the App or Terms</h2>
       <p style={styles.p}>
         We may update these Terms or change, suspend, or discontinue any part of
         the App at any time. We&apos;ll notify you of material changes to these
@@ -157,21 +172,21 @@ export default function TermsPage() {
         accept the updated Terms.
       </p>
 
-      <h2 style={styles.h2}>12. Termination</h2>
+      <h2 style={styles.h2}>13. Termination</h2>
       <p style={styles.p}>
         You may stop using Splenza and delete your account at any time. We may
         suspend or terminate your account if you violate these Terms or if we
         discontinue the service, with notice where reasonably possible.
       </p>
 
-      <h2 style={styles.h2}>13. Governing Law</h2>
+      <h2 style={styles.h2}>14. Governing Law</h2>
       <p style={styles.p}>
         These Terms are governed by the laws of India, without regard to
         conflict-of-law principles. Any disputes will be subject to the
         exclusive jurisdiction of the courts in India.
       </p>
 
-      <h2 style={styles.h2}>14. Contact Us</h2>
+      <h2 style={styles.h2}>15. Contact Us</h2>
       <div style={styles.contactBox}>
         <p style={{ margin: 0 }}>
           <strong>help@splenza.in</strong>
