@@ -246,6 +246,143 @@ class UserRepositoryTest extends BaseRepositoryTest {
         }).isInstanceOf(Exception.class);
     }
 
+    // Add these methods inside the existing UserRepositoryTest class.
+// None of these three repository methods currently have any test coverage —
+// notably findByEmailIgnoreCaseAndDeletedFalse, which UserService.lookupUsers
+// actually calls (the case-insensitive email matching depends on this exact
+// method behaving correctly, so it shouldn't be untested).
+    @Test
+    @DisplayName("findByEmailIgnoreCaseAndDeletedFalse should match regardless of case")
+    void findByEmailIgnoreCaseAndDeletedFalse_ShouldMatchRegardlessOfCase() {
+        User user = persistUser("User@Test.com", "9999999999", "google-1", false);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByEmailIgnoreCaseAndDeletedFalse("user@test.com");
+
+        assertThat(result)
+                .isPresent()
+                .get()
+                .extracting(User::getId)
+                .isEqualTo(user.getId());
+    }
+
+    @Test
+    @DisplayName("findByEmailIgnoreCaseAndDeletedFalse should also match exact case")
+    void findByEmailIgnoreCaseAndDeletedFalse_ShouldMatchExactCase() {
+        User user = persistUser("user@test.com", "9999999999", "google-1", false);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByEmailIgnoreCaseAndDeletedFalse("user@test.com");
+
+        assertThat(result)
+                .isPresent()
+                .get()
+                .extracting(User::getId)
+                .isEqualTo(user.getId());
+    }
+
+    @Test
+    @DisplayName("findByEmailIgnoreCaseAndDeletedFalse should return empty for deleted user")
+    void findByEmailIgnoreCaseAndDeletedFalse_ShouldReturnEmpty_WhenDeleted() {
+        persistUser("user@test.com", "9999999999", "google-1", true);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByEmailIgnoreCaseAndDeletedFalse("USER@TEST.COM");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByEmailIgnoreCaseAndDeletedFalse should return empty when no match exists")
+    void findByEmailIgnoreCaseAndDeletedFalse_ShouldReturnEmpty_WhenNoMatch() {
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByEmailIgnoreCaseAndDeletedFalse("missing@test.com");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByIdAndDeletedFalse should return user when active")
+    void findByIdAndDeletedFalse_ShouldReturnUser() {
+        User user = persistUser("user@test.com", "9999999999", "google-1", false);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByIdAndDeletedFalse(user.getId());
+
+        assertThat(result)
+                .isPresent()
+                .get()
+                .extracting(User::getId)
+                .isEqualTo(user.getId());
+    }
+
+    @Test
+    @DisplayName("findByIdAndDeletedFalse should return empty for deleted user")
+    void findByIdAndDeletedFalse_ShouldReturnEmpty_WhenDeleted() {
+        User user = persistUser("user@test.com", "9999999999", "google-1", true);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByIdAndDeletedFalse(user.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByIdAndDeletedFalse should return empty for a non-existent id")
+    void findByIdAndDeletedFalse_ShouldReturnEmpty_WhenIdDoesNotExist() {
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByIdAndDeletedFalse(java.util.UUID.randomUUID());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByEmail should return a user even if deleted (unlike findByEmailAndDeletedFalse)")
+    void findByEmail_ShouldReturnUserRegardlessOfDeletedStatus() {
+        User user = persistUser("user@test.com", "9999999999", "google-1", true);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByEmail("user@test.com");
+
+        // This is the key behavioral difference from findByEmailAndDeletedFalse:
+        // this variant does NOT filter out deleted users. If that's not the
+        // intended behavior for wherever this method is actually called, that's
+        // worth checking at the call site, not here - but the repository method
+        // itself should be tested for what it actually does.
+        assertThat(result)
+                .isPresent()
+                .get()
+                .extracting(User::getId)
+                .isEqualTo(user.getId());
+    }
+
+    @Test
+    @DisplayName("findByEmail should return empty when no match exists")
+    void findByEmail_ShouldReturnEmpty_WhenNoMatch() {
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> result = userRepository.findByEmail("missing@test.com");
+
+        assertThat(result).isEmpty();
+    }
+
     private User persistUser(
             String email,
             String phoneNumber,
