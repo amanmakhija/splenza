@@ -51,6 +51,9 @@ export type MainStackParamList = {
   EditGroup: {
     groupId: string;
   };
+  GroupSettings: {
+    groupId: string;
+  };
   CreateExpense: {
     groupId?: string;
     friendId?: string;
