@@ -11,6 +11,10 @@ import { AddFriendScreen } from "@/screens/main/AddFriendScreen";
 import { SettleUpScreen } from "@/screens/main/SettleUpScreen";
 import { NotificationsScreen } from "@/screens/main/NotificationsScreen";
 import { ImportCsvScreen } from "@/screens/main/ImportCsvScreen";
+import { PersonalInformationScreen } from "@/screens/main/PersonalInformationScreen";
+import { PaymentMethodsScreen } from "@/screens/main/PaymentMethodsScreen";
+import { HelpSupportScreen } from "@/screens/main/HelpSupportScreen";
+import { ChangePasswordScreen } from "@/screens/main/ChangePasswordScreen";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -70,6 +74,26 @@ export function MainStackNavigator() {
         name="ImportCsv"
         component={ImportCsvScreen}
         options={{ title: "Import from Splitwise" }}
+      />
+      <Stack.Screen
+        name="PersonalInformation"
+        component={PersonalInformationScreen}
+        options={{ title: "Personal Information" }}
+      />
+      <Stack.Screen
+        name="PaymentMethods"
+        component={PaymentMethodsScreen}
+        options={{ title: "Payment Methods" }}
+      />
+      <Stack.Screen
+        name="HelpSupport"
+        component={HelpSupportScreen}
+        options={{ title: "Help & Support" }}
+      />
+      <Stack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ title: "Change Password" }}
       />
     </Stack.Navigator>
   );

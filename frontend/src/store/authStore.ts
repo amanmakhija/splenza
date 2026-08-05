@@ -26,6 +26,7 @@ interface AuthState {
   completeLogin: (data: AuthResponse) => void;
   changePendingEmail: (oldEmail: string, newEmail: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 function persistSession(res: AuthResponse) {
@@ -159,5 +160,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
 
     storage.set(StorageKeys.PENDING_EMAIL, newEmail);
+  },
+
+  updateUser: (partial) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updated: User = { ...state.user, ...partial };
+      storageHelpers.setObject(StorageKeys.USER, updated);
+      return { user: updated };
+    });
   },
 }));

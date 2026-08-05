@@ -69,6 +69,10 @@ export type MainStackParamList = {
   };
   Notifications: undefined;
   ImportCsv: undefined;
+  PersonalInformation: undefined;
+  PaymentMethods: undefined;
+  HelpSupport: undefined;
+  ChangePassword: undefined;
 };
 
 export type RootStackParamList = {
