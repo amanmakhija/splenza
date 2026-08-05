@@ -34,11 +34,11 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.senderId").value(sender.getId().toString()))
                     .andExpect(jsonPath("$.status").value("PENDING"));
@@ -53,11 +53,11 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(sender.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -70,11 +70,11 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail("nobody@test.com");
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isNotFound());
         }
 
@@ -89,11 +89,11 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isConflict());
         }
 
@@ -107,19 +107,19 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isCreated());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isConflict());
         }
 
@@ -137,15 +137,15 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(userB.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(userA))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(userA))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isConflict());
         }
 
-@Test
+        @Test
         @DisplayName("should reject sending a request without authentication")
         void shouldRejectSendWithoutAuth() throws Exception {
 
@@ -154,11 +154,11 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                        )
-                        .andExpect(status().isUnauthorized());
+                    post("/api/v1/friends/requests")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isUnauthorized());
         }
 
         @Test
@@ -171,14 +171,14 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByUserId(receiver.getId());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                        )
-                        .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.senderId").value(sender.getId().toString()))
-                        .andExpect(jsonPath("$.status").value("PENDING"));
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.senderId").value(sender.getId().toString()))
+                    .andExpect(jsonPath("$.status").value("PENDING"));
         }
 
         @Test
@@ -190,12 +190,12 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByUserId(UUID.randomUUID());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                        )
-                        .andExpect(status().isNotFound());
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isNotFound());
         }
 
         @Test
@@ -207,12 +207,12 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByUserId(sender.getId());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                        )
-                        .andExpect(status().isBadRequest());
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
+                    .andExpect(status().isBadRequest());
         }
     }
 
@@ -233,9 +233,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             UUID requestId = sendRequest(sender, receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + requestId + "/accept")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    post("/api/v1/friends/requests/" + requestId + "/accept")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.userId").value(sender.getId().toString()));
 
@@ -253,9 +253,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             UUID requestId = sendRequest(sender, receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + requestId + "/accept")
-                                    .header("Authorization", bearerTokenFor(outsider))
-                    )
+                    post("/api/v1/friends/requests/" + requestId + "/accept")
+                            .header("Authorization", bearerTokenFor(outsider))
+            )
                     .andExpect(status().isForbidden());
         }
 
@@ -269,15 +269,15 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             UUID requestId = sendRequest(sender, receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + requestId + "/accept")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    post("/api/v1/friends/requests/" + requestId + "/accept")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isOk());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + requestId + "/accept")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    post("/api/v1/friends/requests/" + requestId + "/accept")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -288,9 +288,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             User receiver = createVerifiedUser("receiver@test.com", "Password123");
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + UUID.randomUUID() + "/accept")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    post("/api/v1/friends/requests/" + UUID.randomUUID() + "/accept")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isNotFound());
         }
 
@@ -304,9 +304,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             UUID requestId = sendRequest(sender, receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + requestId + "/reject")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    post("/api/v1/friends/requests/" + requestId + "/reject")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(friendRepository.areFriends(sender.getId(), receiver.getId())).isFalse();
@@ -322,19 +322,19 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             UUID requestId = sendRequest(sender, receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests/" + requestId + "/reject")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    post("/api/v1/friends/requests/" + requestId + "/reject")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isNoContent());
 
             SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(receiver.getEmail());
 
             mockMvc.perform(
-                            post("/api/v1/friends/requests")
-                                    .header("Authorization", bearerTokenFor(sender))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/friends/requests")
+                            .header("Authorization", bearerTokenFor(sender))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.status").value("PENDING"));
         }
@@ -357,9 +357,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             sendRequest(sender, receiver.getEmail());
 
             mockMvc.perform(
-                            get("/api/v1/friends/requests/pending")
-                                    .header("Authorization", bearerTokenFor(receiver))
-                    )
+                    get("/api/v1/friends/requests/pending")
+                            .header("Authorization", bearerTokenFor(receiver))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].senderId").value(sender.getId().toString()));
@@ -374,9 +374,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             makeFriends(user, friend);
 
             mockMvc.perform(
-                            get("/api/v1/friends")
-                                    .header("Authorization", bearerTokenFor(user))
-                    )
+                    get("/api/v1/friends")
+                            .header("Authorization", bearerTokenFor(user))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].userId").value(friend.getId().toString()));
@@ -393,10 +393,10 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             makeFriends(user, otherFriend);
 
             mockMvc.perform(
-                            get("/api/v1/friends/search")
-                                    .header("Authorization", bearerTokenFor(user))
-                                    .param("query", "pri")
-                    )
+                    get("/api/v1/friends/search")
+                            .header("Authorization", bearerTokenFor(user))
+                            .param("query", "pri")
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].name").value("Priya"));
@@ -411,9 +411,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             makeFriends(user, friend);
 
             mockMvc.perform(
-                            delete("/api/v1/friends/" + friend.getId())
-                                    .header("Authorization", bearerTokenFor(user))
-                    )
+                    delete("/api/v1/friends/" + friend.getId())
+                            .header("Authorization", bearerTokenFor(user))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(friendRepository.areFriends(user.getId(), friend.getId())).isFalse();
@@ -427,9 +427,9 @@ class FriendIntegrationTest extends BaseIntegrationTest {
             User stranger = createVerifiedUser("stranger@test.com", "Password123");
 
             mockMvc.perform(
-                            delete("/api/v1/friends/" + stranger.getId())
-                                    .header("Authorization", bearerTokenFor(user))
-                    )
+                    delete("/api/v1/friends/" + stranger.getId())
+                            .header("Authorization", bearerTokenFor(user))
+            )
                     .andExpect(status().isNotFound());
         }
 
@@ -439,6 +439,41 @@ class FriendIntegrationTest extends BaseIntegrationTest {
 
             mockMvc.perform(get("/api/v1/friends"))
                     .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("should include a friend's upiId in the friends list when set")
+        void shouldIncludeUpiIdWhenSet() throws Exception {
+
+            User user = createVerifiedUser("user@test.com", "Password123");
+            User friend = createVerifiedUser("friend@test.com", "Password123", "Rahul Verma");
+            friend.setUpiId("rahul@ybl");
+            userRepository.save(friend);
+            makeFriends(user, friend);
+
+            mockMvc.perform(
+                    get("/api/v1/friends")
+                            .header("Authorization", bearerTokenFor(user))
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].upiId").value("rahul@ybl"));
+        }
+
+        @Test
+        @DisplayName("should return null upiId for a friend who hasn't set one")
+        void shouldReturnNullUpiIdWhenUnset() throws Exception {
+
+            User user = createVerifiedUser("user@test.com", "Password123");
+            User friend = createVerifiedUser("friend@test.com", "Password123");
+            makeFriends(user, friend);
+
+            mockMvc.perform(
+                    get("/api/v1/friends")
+                            .header("Authorization", bearerTokenFor(user))
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].upiId").value(org.hamcrest.Matchers.nullValue()));
         }
     }
 
@@ -450,11 +485,11 @@ class FriendIntegrationTest extends BaseIntegrationTest {
         SendFriendRequestRequest request = TestDataFactory.sendFriendRequestByEmail(receiverEmail);
 
         String response = mockMvc.perform(
-                        post("/api/v1/friends/requests")
-                                .header("Authorization", bearerTokenFor(sender))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+                post("/api/v1/friends/requests")
+                        .header("Authorization", bearerTokenFor(sender))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        )
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 

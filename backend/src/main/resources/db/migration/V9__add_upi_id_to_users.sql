@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN upi_id VARCHAR(256);

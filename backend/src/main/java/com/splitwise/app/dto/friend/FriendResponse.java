@@ -27,4 +27,7 @@ public class FriendResponse {
 
     @Schema(description = "URL of the friend's profile picture, or null if not set")
     private String profilePictureUrl;
+
+    @Schema(description = "The friend's UPI VPA, for autofilling settle-up payee, or null if not set", example = "rahul@ybl")
+    private String upiId;
 }

@@ -201,6 +201,7 @@ public class FriendService {
                 .email(u.getEmail())
                 .phoneNumber(u.getPhoneNumber())
                 .profilePictureUrl(u.getProfilePictureUrl())
+                .upiId(u.getUpiId())
                 .build();
     }
 }

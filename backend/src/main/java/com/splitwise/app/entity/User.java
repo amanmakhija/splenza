@@ -46,6 +46,9 @@ public class User {
     @Column(name = "profile_picture_url", columnDefinition = "TEXT")
     private String profilePictureUrl;
 
+    @Column(name = "upi_id", length = 256)
+    private String upiId;
+
     @Column(name = "preferred_currency", nullable = false, length = 10)
     @Builder.Default
     private String preferredCurrency = "INR";

@@ -45,6 +45,31 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
+    @ExceptionHandler(FieldValidationException.class)
+    public ResponseEntity<ErrorResponse> handleFieldValidation(
+            FieldValidationException ex,
+            HttpServletRequest request
+    ) {
+
+        log.warn(
+                "{} {} -> Validation failed: {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                ex.getFieldErrors()
+        );
+
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Validation Failed")
+                .message("One or more fields are invalid")
+                .path(request.getRequestURI())
+                .fieldErrors(ex.getFieldErrors())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException ex,

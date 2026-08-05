@@ -1,8 +1,12 @@
 package com.splitwise.app.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.splitwise.app.dto.user.UserLookupRequest;
 import com.splitwise.app.dto.user.UserLookupResponse;
+import com.splitwise.app.dto.user.UserProfileResponse;
 import com.splitwise.app.entity.User;
+import com.splitwise.app.exception.ApiException;
+import com.splitwise.app.exception.FieldValidationException;
 import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,8 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -31,6 +37,7 @@ public class UserService {
     private static final Pattern PHONE_PATTERN = Pattern.compile("^\\+?[1-9]\\d{7,14}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final Pattern UPI_PATTERN = Pattern.compile("^[\\w.\\-]{2,256}@[a-zA-Z]{2,64}$");
 
     /**
      * Normalizes a raw phone number for lookup purposes. Handles the most
@@ -133,5 +140,96 @@ public class UserService {
         }
 
         return results;
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfile(UUID userId) {
+        User user = userRepository.findByIdAndDeletedFalse(userId)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+        return toProfileResponse(user);
+    }
+
+    /**
+     * Partial update, driven off a raw JsonNode rather than a typed DTO. This
+     * is deliberate: a plain POJO can't distinguish "field omitted from the
+     * request" (leave unchanged) from "field explicitly set to null" (clear the
+     * value) - Jackson maps both to Java null on a normal field. JsonNode's
+     * has()/isNull() let us tell those two cases apart, which the spec for this
+     * endpoint explicitly requires (omit phoneNumber -> keep existing value;
+     * send phoneNumber: null -> clear it).
+     */
+    @Transactional
+    public UserProfileResponse updateProfile(UUID userId, JsonNode body) {
+        User user = userRepository.findByIdAndDeletedFalse(userId)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+
+        Map<String, String> fieldErrors = new HashMap<>();
+
+        if (body.has("name")) {
+            JsonNode nameNode = body.get("name");
+            // name is never nullable - explicit null or blank is a validation
+            // error, not a way to clear it (unlike phoneNumber/upiId below).
+            if (nameNode.isNull() || nameNode.asText().isBlank()) {
+                fieldErrors.put("name", "Name must not be blank");
+            } else {
+                user.setName(nameNode.asText().trim());
+            }
+        }
+
+        if (body.has("phoneNumber")) {
+            JsonNode phoneNode = body.get("phoneNumber");
+            if (phoneNode.isNull()) {
+                user.setPhoneNumber(null);
+            } else {
+                String normalized = normalizePhoneNumber(phoneNode.asText());
+                if (!PHONE_PATTERN.matcher(normalized).matches()) {
+                    fieldErrors.put("phoneNumber",
+                            "Phone number must be in international format, e.g. +919876543210");
+                } else {
+                    user.setPhoneNumber(normalized);
+                }
+            }
+        }
+
+        if (body.has("upiId")) {
+            JsonNode upiNode = body.get("upiId");
+            if (upiNode.isNull()) {
+                user.setUpiId(null);
+            } else {
+                String upiId = upiNode.asText().trim();
+                if (!UPI_PATTERN.matcher(upiId).matches()) {
+                    fieldErrors.put("upiId", "UPI ID must be a valid VPA, e.g. name@bank");
+                } else {
+                    user.setUpiId(upiId);
+                }
+            }
+        }
+
+        if (!fieldErrors.isEmpty()) {
+            // Nothing gets saved if ANY field fails - this is a single-object
+            // update (not a batch/list like the lookup endpoint), so
+            // all-or-nothing here is correct and matches the spec: an invalid
+            // field returns a clear per-field error and does NOT save the
+            // invalid value, and also doesn't partially apply the other
+            // fields from the same request silently.
+            throw new FieldValidationException(fieldErrors);
+        }
+
+        user = userRepository.save(user);
+
+        log.info("Profile updated for user {}.", userId);
+
+        return toProfileResponse(user);
+    }
+
+    private UserProfileResponse toProfileResponse(User user) {
+        return UserProfileResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .upiId(user.getUpiId())
+                .build();
     }
 }
