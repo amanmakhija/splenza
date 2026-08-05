@@ -8,7 +8,6 @@ import {
   RefreshControl,
   TextInput,
   ActivityIndicator,
-  Modal,
   Alert,
   Animated,
   NativeSyntheticEvent,
@@ -27,18 +26,17 @@ import { usePaginatedMergedTimeline } from "@/hooks/usePaginatedMergedTimeline";
 import {
   Plus,
   X,
-  LogOut,
   Download,
   FileText,
   Search,
   ChevronLeft,
-  Pencil,
-  MoreVertical,
+  Info,
   CloudOff,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
-import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
+import { apiClient } from "@/lib/apiClient";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
+import { useGroupExport } from "@/hooks/useGroupExport";
 import {
   ActivityLogEntry,
   BalanceEntry,
@@ -49,7 +47,6 @@ import {
   PageResponse,
   Settlement,
 } from "@/types/api";
-import { downloadAndShare } from "@/lib/exportFile";
 import { useAuthStore } from "@/store/authStore";
 import {
   useOfflineQueueStore,
@@ -279,8 +276,6 @@ export function GroupDetailScreen() {
   );
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [balanceCardHeight, setBalanceCardHeight] = useState<number | null>(
     null,
   );
@@ -420,51 +415,10 @@ export function GroupDetailScreen() {
     );
   }, [pendingTimelineItems, timeline.items, searchQuery]);
 
-  const leaveMutation = useMutation({
-    mutationFn: () => apiClient.post(`/api/v1/groups/${groupId}/leave`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
-      navigation.goBack();
-    },
-    onError: (err) => {
-      Alert.alert("Couldn't leave group", getApiErrorMessage(err));
-    },
-  });
-
-  const confirmLeave = () => {
-    Alert.alert(
-      "Leave group?",
-      "You'll need to be re-invited to rejoin. Make sure you're settled up first.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Leave",
-          style: "destructive",
-          onPress: () => leaveMutation.mutate(),
-        },
-      ],
-    );
-  };
-
-  const handleExportCsv = async () => {
-    setExporting("csv");
-    await downloadAndShare(
-      `/api/v1/export/csv/group/${groupId}`,
-      `${groupQuery.data?.name ?? "splenza"}.csv`,
-      "text/csv",
-    );
-    setExporting(null);
-  };
-
-  const handleExportPdf = async () => {
-    setExporting("pdf");
-    await downloadAndShare(
-      `/api/v1/export/pdf/group/${groupId}`,
-      `${groupQuery.data?.name ?? "splenza"}.pdf`,
-      "application/pdf",
-    );
-    setExporting(null);
-  };
+  const { exporting, handleExportCsv, handleExportPdf } = useGroupExport(
+    groupId,
+    groupQuery.data?.name,
+  );
 
   const activityLabel = (type: string) => {
     switch (type) {
@@ -521,65 +475,14 @@ export function GroupDetailScreen() {
           Group details
         </Text>
         <Pressable
-          onPress={() => setMenuOpen(true)}
-          accessibilityLabel="Group options"
+          onPress={() => navigation.navigate("GroupSettings", { groupId })}
+          accessibilityLabel="Group settings"
           accessibilityRole="button"
           hitSlop={8}
         >
-          <MoreVertical size={22} color={theme.textPrimary} />
+          <Info size={22} color={theme.textPrimary} />
         </Pressable>
       </View>
-
-      <Modal
-        visible={menuOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuOpen(false)}
-      >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setMenuOpen(false)}
-        >
-          <View
-            style={[
-              styles.menuCard,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                navigation.navigate("EditGroup", { groupId });
-              }}
-              accessibilityLabel="Edit group"
-              accessibilityRole="button"
-              style={styles.menuItem}
-            >
-              <Pencil size={16} color={theme.textPrimary} />
-              <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
-                Edit group
-              </Text>
-            </Pressable>
-            <View
-              style={[styles.menuDivider, { backgroundColor: theme.border }]}
-            />
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                confirmLeave();
-              }}
-              accessibilityLabel="Leave group"
-              accessibilityRole="button"
-              style={styles.menuItem}
-            >
-              <LogOut size={16} color={theme.danger} />
-              <Text style={{ color: theme.danger, fontWeight: "600" }}>
-                Leave group
-              </Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
 
       {/* Group summary card */}
       <View style={styles.summaryWrap}>
@@ -1253,30 +1156,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   headerTitle: { fontSize: 16, fontWeight: "700" },
-
-  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.15)" },
-  menuCard: {
-    position: "absolute",
-    top: 54,
-    right: 16,
-    minWidth: 180,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  menuDivider: { height: 1, marginHorizontal: 4 },
 
   summaryWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 16 },
   summaryTopRow: {
