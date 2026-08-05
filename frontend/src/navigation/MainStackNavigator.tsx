@@ -5,6 +5,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { MainNavigator } from "./MainNavigator";
 import { CreateGroupScreen } from "@/screens/main/CreateGroupScreen";
 import { EditGroupScreen } from "@/screens/main/EditGroupScreen";
+import { GroupSettingsScreen } from "@/screens/main/GroupSettingsScreen";
 import { CreateExpenseScreen } from "@/screens/main/CreateExpenseScreen";
 import { ExpenseDetailScreen } from "@/screens/main/ExpenseDetailScreen";
 import { AddFriendScreen } from "@/screens/main/AddFriendScreen";
@@ -43,6 +44,11 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="EditGroup"
         component={EditGroupScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="GroupSettings"
+        component={GroupSettingsScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
