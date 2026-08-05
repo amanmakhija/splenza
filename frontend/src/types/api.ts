@@ -27,6 +27,8 @@ export interface User {
   email: string;
   phoneNumber?: string | null;
   profilePictureUrl?: string | null;
+  /** UPI VPA (e.g. "name@bank") the user has set for receiving payments. */
+  upiId?: string | null;
 }
 
 export type SplitType = "EQUAL" | "EXACT" | "PERCENTAGE" | "SHARES";
@@ -116,6 +118,9 @@ export interface Friend {
   email: string;
   phoneNumber: string | null;
   profilePictureUrl: string | null;
+  /** UPI VPA the friend has set for receiving payments, if any - used to
+   * autofill the UPI intent when settling up with them. */
+  upiId: string | null;
 }
 
 export interface FriendRequestDto {
