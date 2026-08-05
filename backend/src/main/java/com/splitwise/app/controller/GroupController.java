@@ -71,23 +71,43 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Delete group", description = "Deletes a group by ID.")
+    @Operation(summary = "Delete group", description = "Soft-deletes a group. Only the group creator can delete. All balances must be settled first.")
     @ApiResponse(responseCode = "204", description = "Group deleted successfully")
+    @ApiResponse(responseCode = "403", description = "Not the group creator")
+    @ApiResponse(responseCode = "404", description = "Group not found or user is not a member")
+    @ApiResponse(responseCode = "409", description = "Group has outstanding balances")
     @DeleteMapping("/{groupId}")
     public ResponseEntity<Void> delete(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
 
         UUID userId = SecurityUtils.getCurrentUserId();
 
-        log.debug("Delete group {} requested by user {}.",
-                groupId,
-                userId);
+        log.debug("Delete group {} requested by user {}.", groupId, userId);
 
         groupService.delete(userId, groupId);
 
-        log.info("Group {} deleted by user {}.",
-                groupId,
-                userId);
+        log.info("Group {} soft-deleted by user {}.", groupId, userId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Restore deleted group",
+            description = "Restores a previously soft-deleted group along with all its data. Only the original creator may restore.")
+    @ApiResponse(responseCode = "204", description = "Group restored successfully")
+    @ApiResponse(responseCode = "403", description = "Not the group creator")
+    @ApiResponse(responseCode = "404", description = "Group not found")
+    @ApiResponse(responseCode = "409", description = "Group is not deleted")
+    @PostMapping("/{groupId}/restore")
+    public ResponseEntity<Void> restore(
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Restore group {} requested by user {}.", groupId, userId);
+
+        groupService.restore(userId, groupId);
+
+        log.info("Group {} restored by user {}.", groupId, userId);
 
         return ResponseEntity.noContent().build();
     }

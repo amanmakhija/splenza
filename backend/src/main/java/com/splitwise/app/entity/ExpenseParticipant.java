@@ -8,7 +8,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "expense_participants")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ExpenseParticipant {
 
     @Id
@@ -30,4 +34,8 @@ public class ExpenseParticipant {
     private BigDecimal percentage;
 
     private Integer shares;
+
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
 }

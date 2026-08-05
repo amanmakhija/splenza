@@ -11,6 +11,7 @@ import com.splitwise.app.repository.GroupRepository;
 import com.splitwise.app.repository.PasswordResetTokenRepository;
 import com.splitwise.app.repository.PendingSignupRepository;
 import com.splitwise.app.repository.RefreshTokenRepository;
+import com.splitwise.app.repository.SettlementRepository;
 import com.splitwise.app.repository.UserRepository;
 import com.splitwise.app.security.JwtService;
 
@@ -113,6 +114,9 @@ public abstract class BaseIntegrationTest {
 
     @Autowired
     protected FriendRequestRepository friendRequestRepository;
+
+    @Autowired
+    protected SettlementRepository settlementRepository;
 
     @BeforeEach
     void setup() {

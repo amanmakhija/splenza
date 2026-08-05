@@ -1,6 +1,7 @@
 package com.splitwise.app.service;
 
 import com.splitwise.app.dto.balance.BalanceEntry;
+import com.splitwise.app.dto.balance.GroupBalanceResponse;
 import com.splitwise.app.dto.group.*;
 import com.splitwise.app.entity.*;
 import com.splitwise.app.exception.ApiException;
@@ -13,12 +14,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -41,6 +44,12 @@ class GroupServiceTest {
     private NotificationService notificationService;
     @Mock
     private BalanceService balanceService;
+    @Mock
+    private ExpenseRepository expenseRepository;
+    @Mock
+    private ExpenseParticipantRepository expenseParticipantRepository;
+    @Mock
+    private SettlementRepository settlementRepository;
 
     @InjectMocks
     private GroupService groupService;
@@ -284,36 +293,179 @@ class GroupServiceTest {
     }
 
     @Test
-    void delete_shouldMarkGroupDeleted() {
+    void delete_creatorOfSettledGroup_shouldSoftDeleteGroupAndCascade() {
 
         when(groupRepository.findById(group.getId()))
                 .thenReturn(Optional.of(group));
 
-        when(groupMemberRepository.findByGroupIdAndUserIdAndLeftAtIsNull(
-                group.getId(),
-                creatorId))
-                .thenReturn(Optional.of(adminMember()));
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                group.getId(), creatorId))
+                .thenReturn(true);
 
-        groupService.delete(
-                creatorId,
-                group.getId());
+        // All balances are zero - group is fully settled
+        GroupBalanceResponse settled = new GroupBalanceResponse(group.getId(), Collections.emptyList(), Collections.emptyList());
+        when(balanceService.getGroupBalances(group.getId()))
+                .thenReturn(settled);
+
+        when(expenseRepository.findAllIdsByGroupId(group.getId()))
+                .thenReturn(Collections.emptyList());
+
+        groupService.delete(creatorId, group.getId());
 
         assertTrue(group.isDeleted());
-
         verify(groupRepository).save(group);
+        // Cascade updates must all have been called
+        verify(expenseRepository).softDeleteByGroupId(group.getId());
+        verify(settlementRepository).softDeleteByGroupId(group.getId());
+        verify(groupMemberRepository).softDeleteByGroupId(group.getId());
     }
 
     @Test
-    void delete_shouldThrowWhenGroupMissing() {
+    void delete_creatorOfGroupWithOutstandingBalances_shouldThrow409() {
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                group.getId(), creatorId))
+                .thenReturn(true);
+
+        // Non-zero balance exists
+        BalanceEntry debt = new BalanceEntry(UUID.randomUUID(), "Other", new BigDecimal("500.00"));
+        GroupBalanceResponse unsettled = new GroupBalanceResponse(group.getId(), List.of(debt), Collections.emptyList());
+        when(balanceService.getGroupBalances(group.getId()))
+                .thenReturn(unsettled);
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.delete(creatorId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getStatus());
+        assertFalse(group.isDeleted());
+        // Nothing should have been cascade-deleted
+        verify(groupRepository, never()).save(any());
+        verify(expenseRepository, never()).softDeleteByGroupId(any());
+    }
+
+    @Test
+    void delete_nonCreatorMember_shouldThrow403() {
+
+        UUID nonCreatorId = UUID.randomUUID();
+        User nonCreator = User.builder().id(nonCreatorId).name("Other").email("other@test.com").build();
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                group.getId(), nonCreatorId))
+                .thenReturn(true);
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.delete(nonCreatorId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.FORBIDDEN, ex.getStatus());
+        assertFalse(group.isDeleted());
+    }
+
+    @Test
+    void delete_nonMember_shouldThrow404() {
+
+        UUID outsiderId = UUID.randomUUID();
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        when(groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(
+                group.getId(), outsiderId))
+                .thenReturn(false);
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.delete(outsiderId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, ex.getStatus());
+    }
+
+    @Test
+    void delete_groupNotFound_shouldThrow404() {
 
         when(groupRepository.findById(group.getId()))
                 .thenReturn(Optional.empty());
 
-        assertThrows(
-                ApiException.class,
-                () -> groupService.delete(
-                        creatorId,
-                        group.getId()));
+        assertThrows(ApiException.class,
+                () -> groupService.delete(creatorId, group.getId()));
+    }
+
+    @Test
+    void delete_alreadyDeletedGroup_shouldThrow404() {
+
+        group.setDeleted(true);
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.delete(creatorId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, ex.getStatus());
+    }
+
+    // ---- restore() ----
+    @Test
+    void restore_creatorRestoresDeletedGroup_shouldClearDeletedAndRestoreCascade() {
+
+        group.setDeleted(true);
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        when(expenseRepository.findAllIdsByGroupId(group.getId()))
+                .thenReturn(Collections.emptyList());
+
+        groupService.restore(creatorId, group.getId());
+
+        assertFalse(group.isDeleted());
+        verify(groupRepository).save(group);
+        verify(expenseRepository).restoreByGroupId(group.getId());
+        verify(settlementRepository).restoreByGroupId(group.getId());
+        verify(groupMemberRepository).restoreByGroupId(group.getId());
+    }
+
+    @Test
+    void restore_nonCreator_shouldThrow403() {
+
+        UUID nonCreatorId = UUID.randomUUID();
+        group.setDeleted(true);
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.restore(nonCreatorId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.FORBIDDEN, ex.getStatus());
+        assertTrue(group.isDeleted());
+    }
+
+    @Test
+    void restore_groupNotDeleted_shouldThrow409() {
+
+        // group.deleted is false (default from setUp)
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.restore(creatorId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getStatus());
+    }
+
+    @Test
+    void restore_groupNotFound_shouldThrow404() {
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class,
+                () -> groupService.restore(creatorId, group.getId()));
     }
 
     @Test

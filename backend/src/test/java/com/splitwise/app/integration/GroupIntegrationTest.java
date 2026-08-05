@@ -1,7 +1,11 @@
 package com.splitwise.app.integration;
 
+import com.splitwise.app.dto.expense.CreateExpenseRequest;
+import com.splitwise.app.dto.expense.ExpenseParticipantInput;
 import com.splitwise.app.dto.group.CreateGroupRequest;
 import com.splitwise.app.dto.group.UpdateGroupRequest;
+import com.splitwise.app.dto.settlement.CreateSettlementRequest;
+import com.splitwise.app.entity.Expense;
 import com.splitwise.app.entity.User;
 import com.splitwise.app.integration.util.TestDataFactory;
 
@@ -10,6 +14,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,11 +40,11 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             CreateGroupRequest request = TestDataFactory.createGroupRequest("Goa Trip");
 
             String response = mockMvc.perform(
-                            post("/api/v1/groups")
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("Goa Trip"))
                     .andExpect(jsonPath("$.createdBy").value(creator.getId().toString()))
@@ -64,15 +69,15 @@ class GroupIntegrationTest extends BaseIntegrationTest {
 
             makeFriends(creator, friend);
 
-            CreateGroupRequest request =
-                    TestDataFactory.createGroupRequest("Goa Trip", List.of(friend.getId()));
+            CreateGroupRequest request
+                    = TestDataFactory.createGroupRequest("Goa Trip", List.of(friend.getId()));
 
             mockMvc.perform(
-                            post("/api/v1/groups")
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.members.length()").value(2));
         }
@@ -84,15 +89,15 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             User creator = createVerifiedUser("creator@test.com", "Password123");
             User stranger = createVerifiedUser("stranger@test.com", "Password123");
 
-            CreateGroupRequest request =
-                    TestDataFactory.createGroupRequest("Goa Trip", List.of(stranger.getId()));
+            CreateGroupRequest request
+                    = TestDataFactory.createGroupRequest("Goa Trip", List.of(stranger.getId()));
 
             mockMvc.perform(
-                            post("/api/v1/groups")
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -105,11 +110,11 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             CreateGroupRequest request = TestDataFactory.createGroupRequest("");
 
             mockMvc.perform(
-                            post("/api/v1/groups")
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    post("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -118,11 +123,11 @@ class GroupIntegrationTest extends BaseIntegrationTest {
         void shouldRejectCreateWithoutAuth() throws Exception {
 
             mockMvc.perform(
-                            post("/api/v1/groups")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.createGroupRequest("Goa Trip")))
-                    )
+                    post("/api/v1/groups")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.createGroupRequest("Goa Trip")))
+            )
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -144,11 +149,11 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UpdateGroupRequest request = TestDataFactory.updateGroupRequest("Goa Trip 2.0");
 
             mockMvc.perform(
-                            put("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
-                    )
+                    put("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("Goa Trip 2.0"));
         }
@@ -164,12 +169,12 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend);
 
             mockMvc.perform(
-                            put("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(friend))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.updateGroupRequest("Hijacked")))
-                    )
+                    put("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(friend))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.updateGroupRequest("Hijacked")))
+            )
                     .andExpect(status().isForbidden());
         }
 
@@ -180,12 +185,12 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             User creator = createVerifiedUser("creator@test.com", "Password123");
 
             mockMvc.perform(
-                            put("/api/v1/groups/" + UUID.randomUUID())
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(
-                                            TestDataFactory.updateGroupRequest("Ghost Group")))
-                    )
+                    put("/api/v1/groups/" + UUID.randomUUID())
+                            .header("Authorization", bearerTokenFor(creator))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    TestDataFactory.updateGroupRequest("Ghost Group")))
+            )
                     .andExpect(status().isNotFound());
         }
     }
@@ -198,44 +203,383 @@ class GroupIntegrationTest extends BaseIntegrationTest {
     class DeleteGroupTests {
 
         @Test
-        @DisplayName("should let the admin soft-delete the group")
-        void shouldDeleteGroupSuccessfully() throws Exception {
+        @DisplayName("creator deletes a fully-settled group → 204, group no longer appears in listings")
+        void creatorDeletesSettledGroup() throws Exception {
 
             User creator = createVerifiedUser("creator@test.com", "Password123");
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            delete("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isNoContent());
 
+            // is_deleted flag must be set
             assertThat(groupRepository.findById(groupId).orElseThrow().isDeleted()).isTrue();
 
-            // deleted groups are no longer reachable via getById
+            // Deleted group no longer appears in the group list
             mockMvc.perform(
-                            get("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(creator))   // <-- added
-                    )
+                    get("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+
+            // Deleted group no longer reachable via getById
+            mockMvc.perform(
+                    get("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isNotFound());
         }
 
         @Test
-        @DisplayName("should reject delete from a non-admin member")
-        void shouldRejectDeleteFromNonAdmin() throws Exception {
+        @DisplayName("creator attempts to delete a group with outstanding balances → 409, group unchanged")
+        void creatorCannotDeleteGroupWithOutstandingBalances() throws Exception {
 
             User creator = createVerifiedUser("creator@test.com", "Password123");
-            User friend = createVerifiedUser("friend@test.com", "Password123");
-            makeFriends(creator, friend);
+            User member = createVerifiedUser("member@test.com", "Password123");
+            makeFriends(creator, member);
+            UUID groupId = createGroup(creator, "Goa Trip", member);
 
-            UUID groupId = createGroup(creator, "Goa Trip", friend);
+            // Add an expense without settling so balances are non-zero
+            addExpense(creator, groupId,
+                    List.of(TestDataFactory.participant(creator.getId()),
+                            TestDataFactory.participant(member.getId())),
+                    new BigDecimal("1000.00"));
 
             mockMvc.perform(
-                            delete("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(friend))
-                    )
-                    .andExpect(status().isForbidden());
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message")
+                            .value("The group cannot be deleted until all balances are settled."));
+
+            // Group must be completely unchanged
+            assertThat(groupRepository.findById(groupId).orElseThrow().isDeleted()).isFalse();
         }
+
+        @Test
+        @DisplayName("non-creator member (even an admin) attempts to delete → 403, group still exists")
+        void nonCreatorMemberCannotDelete() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            User member = createVerifiedUser("member@test.com", "Password123");
+            makeFriends(creator, member);
+            UUID groupId = createGroup(creator, "Goa Trip", member);
+
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(member))
+            )
+                    .andExpect(status().isForbidden());
+
+            assertThat(groupRepository.findById(groupId).orElseThrow().isDeleted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("user with no membership attempts to delete → 404 (doesn't leak group existence)")
+        void nonMemberGets404() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            User outsider = createVerifiedUser("outsider@test.com", "Password123");
+            UUID groupId = createGroup(creator, "Goa Trip");
+
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(outsider))
+            )
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("unauthenticated request → 401")
+        void unauthenticatedRequestIs401() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            UUID groupId = createGroup(creator, "Goa Trip");
+
+            mockMvc.perform(delete("/api/v1/groups/" + groupId))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("all associated entities are soft-deleted together in the same transaction")
+        void allAssociatedEntitiesAreSoftDeleted() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            User member = createVerifiedUser("member@test.com", "Password123");
+            makeFriends(creator, member);
+            UUID groupId = createGroup(creator, "Goa Trip", member);
+
+            // Add an expense and then fully settle it so balances are zero
+            addExpense(creator, groupId,
+                    List.of(TestDataFactory.participant(creator.getId()),
+                            TestDataFactory.participant(member.getId())),
+                    new BigDecimal("1000.00"));
+            settleUp(member, groupId, creator.getId(), new BigDecimal("500.00"));
+
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            // Group deleted
+            assertThat(groupRepository.findById(groupId).orElseThrow().isDeleted()).isTrue();
+
+            // All group expenses deleted
+            var expenses = expenseRepository.findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(groupId);
+            assertThat(expenses).isEmpty();
+
+            // All settlements deleted
+            var settlements = settlementRepository.findByGroupIdAndDeletedFalseOrderBySettledAtDesc(groupId);
+            assertThat(settlements).isEmpty();
+
+            // No active group members
+            var members = groupMemberRepository.findByGroupIdAndLeftAtIsNullAndDeletedFalse(groupId);
+            assertThat(members).isEmpty();
+        }
+
+        @Test
+        @DisplayName("deleted groups do not appear in group list or search")
+        void deletedGroupsExcludedFromAllNormalQueries() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            UUID activeGroupId = createGroup(creator, "Active Trip");
+            UUID deletedGroupId = createGroup(creator, "Deleted Trip");
+
+            // Delete the second group
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + deletedGroupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            // List should show only the active one
+            mockMvc.perform(
+                    get("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].id").value(activeGroupId.toString()));
+
+            // Search should also exclude the deleted one
+            mockMvc.perform(
+                    get("/api/v1/groups/search")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .param("query", "trip")
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].id").value(activeGroupId.toString()));
+        }
+
+        @Test
+        @DisplayName("attempting to delete an already-deleted group → 404")
+        void deletingAlreadyDeletedGroupIs404() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            UUID groupId = createGroup(creator, "Goa Trip");
+
+            // First delete
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            // Second delete on same group
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    // --------------------------------------------------------
+    // Restore group
+    // --------------------------------------------------------
+    @Nested
+    @DisplayName("Restore group")
+    class RestoreGroupTests {
+
+        @Test
+        @DisplayName("creator restores a deleted group → 204, group appears again in listings")
+        void creatorRestoresDeletedGroup() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            UUID groupId = createGroup(creator, "Goa Trip");
+
+            // Delete it
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            // Restore it
+            mockMvc.perform(
+                    post("/api/v1/groups/" + groupId + "/restore")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            assertThat(groupRepository.findById(groupId).orElseThrow().isDeleted()).isFalse();
+
+            // Group appears in listing again
+            mockMvc.perform(
+                    get("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].id").value(groupId.toString()));
+        }
+
+        @Test
+        @DisplayName("expenses, settlements, memberships and activity logs are all restored")
+        void allAssociatedEntitiesAreRestored() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            User member = createVerifiedUser("member@test.com", "Password123");
+            makeFriends(creator, member);
+            UUID groupId = createGroup(creator, "Goa Trip", member);
+
+            addExpense(creator, groupId,
+                    List.of(TestDataFactory.participant(creator.getId()),
+                            TestDataFactory.participant(member.getId())),
+                    new BigDecimal("1000.00"));
+            settleUp(member, groupId, creator.getId(), new BigDecimal("500.00"));
+
+            // Delete
+            mockMvc.perform(
+                    delete("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            assertThat(expenseRepository.findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(groupId)).isEmpty();
+            assertThat(settlementRepository.findByGroupIdAndDeletedFalseOrderBySettledAtDesc(groupId)).isEmpty();
+
+            // Restore
+            mockMvc.perform(
+                    post("/api/v1/groups/" + groupId + "/restore")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNoContent());
+
+            // All data visible again
+            assertThat(expenseRepository.findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(groupId)).hasSize(1);
+            assertThat(settlementRepository.findByGroupIdAndDeletedFalseOrderBySettledAtDesc(groupId)).hasSize(1);
+            assertThat(groupMemberRepository.findByGroupIdAndLeftAtIsNullAndDeletedFalse(groupId)).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("other members can access the restored group immediately")
+        void otherMembersCanAccessRestoredGroup() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            User member = createVerifiedUser("member@test.com", "Password123");
+            makeFriends(creator, member);
+            UUID groupId = createGroup(creator, "Goa Trip", member);
+
+            mockMvc.perform(delete("/api/v1/groups/" + groupId)
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(post("/api/v1/groups/" + groupId + "/restore")
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isNoContent());
+
+            // The other member can now reach it again
+            mockMvc.perform(
+                    get("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(member))
+            )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(groupId.toString()));
+        }
+
+        @Test
+        @DisplayName("non-creator member attempts restore → 403")
+        void nonCreatorCannotRestore() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            User member = createVerifiedUser("member@test.com", "Password123");
+            makeFriends(creator, member);
+            UUID groupId = createGroup(creator, "Goa Trip", member);
+
+            mockMvc.perform(delete("/api/v1/groups/" + groupId)
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(
+                    post("/api/v1/groups/" + groupId + "/restore")
+                            .header("Authorization", bearerTokenFor(member))
+            )
+                    .andExpect(status().isForbidden());
+
+            // Group stays deleted
+            assertThat(groupRepository.findById(groupId).orElseThrow().isDeleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("restoring an active (non-deleted) group → 409")
+        void restoringActiveGroupIs409() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            UUID groupId = createGroup(creator, "Goa Trip");
+
+            mockMvc.perform(
+                    post("/api/v1/groups/" + groupId + "/restore")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isConflict());
+        }
+
+        @Test
+        @DisplayName("restoring a non-existent group → 404")
+        void restoringNonExistentGroupIs404() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+
+            mockMvc.perform(
+                    post("/api/v1/groups/" + UUID.randomUUID() + "/restore")
+                            .header("Authorization", bearerTokenFor(creator))
+            )
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    // --------------------------------------------------------
+    // Additional test helpers (add at the bottom of the class)
+    // --------------------------------------------------------
+    private void addExpense(User paidBy, UUID groupId,
+            List<ExpenseParticipantInput> participants,
+            BigDecimal amount) throws Exception {
+        CreateExpenseRequest request = TestDataFactory.expenseRequest(
+                groupId, paidBy.getId(), amount, Expense.SplitType.EQUAL, participants);
+        mockMvc.perform(
+                post("/api/v1/expenses")
+                        .header("Authorization", bearerTokenFor(paidBy))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isCreated());
+    }
+
+    private void settleUp(User paidBy, UUID groupId, UUID paidTo, BigDecimal amount) throws Exception {
+        CreateSettlementRequest request = TestDataFactory.settlementRequest(groupId, paidTo, amount);
+        mockMvc.perform(
+                post("/api/v1/settlements")
+                        .header("Authorization", bearerTokenFor(paidBy))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isCreated());
     }
 
     // --------------------------------------------------------
@@ -253,19 +597,19 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/archive")
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .param("archived", "true")
-                    )
+                    post("/api/v1/groups/" + groupId + "/archive")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .param("archived", "true")
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(groupRepository.findById(groupId).orElseThrow().isArchived()).isTrue();
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/archive")
-                                    .header("Authorization", bearerTokenFor(creator))
-                                    .param("archived", "false")
-                    )
+                    post("/api/v1/groups/" + groupId + "/archive")
+                            .header("Authorization", bearerTokenFor(creator))
+                            .param("archived", "false")
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(groupRepository.findById(groupId).orElseThrow().isArchived()).isFalse();
@@ -282,9 +626,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend);
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/archive")
-                                    .header("Authorization", bearerTokenFor(friend))
-                    )
+                    post("/api/v1/groups/" + groupId + "/archive")
+                            .header("Authorization", bearerTokenFor(friend))
+            )
                     .andExpect(status().isForbidden());
         }
     }
@@ -307,9 +651,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/members/" + friend.getId())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    post("/api/v1/groups/" + groupId + "/members/" + friend.getId())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.members.length()").value(2));
 
@@ -327,9 +671,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/members/" + stranger.getId())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    post("/api/v1/groups/" + groupId + "/members/" + stranger.getId())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isBadRequest());
         }
 
@@ -344,9 +688,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend);
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/members/" + friend.getId())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    post("/api/v1/groups/" + groupId + "/members/" + friend.getId())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isConflict());
         }
 
@@ -362,9 +706,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/members/" + friendOfOutsider.getId())
-                                    .header("Authorization", bearerTokenFor(outsider))
-                    )
+                    post("/api/v1/groups/" + groupId + "/members/" + friendOfOutsider.getId())
+                            .header("Authorization", bearerTokenFor(outsider))
+            )
                     .andExpect(status().isForbidden());
         }
     }
@@ -387,9 +731,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend);
 
             mockMvc.perform(
-                            delete("/api/v1/groups/" + groupId + "/members/" + friend.getId())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    delete("/api/v1/groups/" + groupId + "/members/" + friend.getId())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(groupMemberRepository.findByGroupIdAndUserIdAndLeftAtIsNull(groupId, friend.getId()))
@@ -409,9 +753,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend1, friend2);
 
             mockMvc.perform(
-                            delete("/api/v1/groups/" + groupId + "/members/" + friend2.getId())
-                                    .header("Authorization", bearerTokenFor(friend1))
-                    )
+                    delete("/api/v1/groups/" + groupId + "/members/" + friend2.getId())
+                            .header("Authorization", bearerTokenFor(friend1))
+            )
                     .andExpect(status().isForbidden());
         }
 
@@ -425,9 +769,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            delete("/api/v1/groups/" + groupId + "/members/" + outsider.getId())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    delete("/api/v1/groups/" + groupId + "/members/" + outsider.getId())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isNotFound());
         }
     }
@@ -450,9 +794,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend);
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/leave")
-                                    .header("Authorization", bearerTokenFor(friend))
-                    )
+                    post("/api/v1/groups/" + groupId + "/leave")
+                            .header("Authorization", bearerTokenFor(friend))
+            )
                     .andExpect(status().isNoContent());
 
             assertThat(groupMemberRepository.findByGroupIdAndUserIdAndLeftAtIsNull(groupId, friend.getId()))
@@ -469,9 +813,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/leave")
-                                    .header("Authorization", bearerTokenFor(outsider))
-                    )
+                    post("/api/v1/groups/" + groupId + "/leave")
+                            .header("Authorization", bearerTokenFor(outsider))
+            )
                     .andExpect(status().isNotFound());
         }
 
@@ -486,15 +830,15 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip", friend);
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/leave")
-                                    .header("Authorization", bearerTokenFor(friend))
-                    )
+                    post("/api/v1/groups/" + groupId + "/leave")
+                            .header("Authorization", bearerTokenFor(friend))
+            )
                     .andExpect(status().isNoContent());
 
             mockMvc.perform(
-                            post("/api/v1/groups/" + groupId + "/members/" + friend.getId())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    post("/api/v1/groups/" + groupId + "/members/" + friend.getId())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.members.length()").value(2));
 
@@ -518,9 +862,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            get("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    get("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("Goa Trip"));
         }
@@ -535,9 +879,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             UUID groupId = createGroup(creator, "Goa Trip");
 
             mockMvc.perform(
-                            get("/api/v1/groups/" + groupId)
-                                    .header("Authorization", bearerTokenFor(outsider))
-                    )
+                    get("/api/v1/groups/" + groupId)
+                            .header("Authorization", bearerTokenFor(outsider))
+            )
                     .andExpect(status().isForbidden());
         }
 
@@ -559,9 +903,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             User creator = createVerifiedUser("creator@test.com", "Password123");
 
             mockMvc.perform(
-                            get("/api/v1/groups/" + UUID.randomUUID())
-                                    .header("Authorization", bearerTokenFor(creator))
-                    )
+                    get("/api/v1/groups/" + UUID.randomUUID())
+                            .header("Authorization", bearerTokenFor(creator))
+            )
                     .andExpect(status().isNotFound());
         }
 
@@ -576,9 +920,9 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             createGroup(otherUser, "Their Trip");
 
             mockMvc.perform(
-                            get("/api/v1/groups")
-                                    .header("Authorization", bearerTokenFor(user))
-                    )
+                    get("/api/v1/groups")
+                            .header("Authorization", bearerTokenFor(user))
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].name").value("My Trip"));
@@ -594,10 +938,10 @@ class GroupIntegrationTest extends BaseIntegrationTest {
             createGroup(user, "Office Lunch");
 
             mockMvc.perform(
-                            get("/api/v1/groups/search")
-                                    .header("Authorization", bearerTokenFor(user))
-                                    .param("query", "goa")
-                    )
+                    get("/api/v1/groups/search")
+                            .header("Authorization", bearerTokenFor(user))
+                            .param("query", "goa")
+            )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].name").value("Goa Beach Trip"));
@@ -624,11 +968,11 @@ class GroupIntegrationTest extends BaseIntegrationTest {
         CreateGroupRequest request = TestDataFactory.createGroupRequest(name, memberIds);
 
         String response = mockMvc.perform(
-                        post("/api/v1/groups")
-                                .header("Authorization", bearerTokenFor(creator))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+                post("/api/v1/groups")
+                        .header("Authorization", bearerTokenFor(creator))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        )
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 

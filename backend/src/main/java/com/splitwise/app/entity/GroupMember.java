@@ -8,7 +8,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "group_members")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class GroupMember {
 
     @Id
@@ -35,5 +39,11 @@ public class GroupMember {
     @Column(name = "left_at")
     private Instant leftAt;
 
-    public enum Role { ADMIN, MEMBER }
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
+
+    public enum Role {
+        ADMIN, MEMBER
+    }
 }

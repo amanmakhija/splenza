@@ -9,7 +9,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "settlements")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Settlement {
 
     @Id
@@ -45,4 +49,8 @@ public class Settlement {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
 }
