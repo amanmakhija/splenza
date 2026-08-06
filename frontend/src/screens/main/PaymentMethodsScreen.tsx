@@ -1,23 +1,28 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Wallet } from "lucide-react-native";
+import { ChevronLeft, Wallet } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { useMyProfileQuery } from "@/hooks/useMyProfileQuery";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { MainStackParamList } from "@/navigation/types";
 
 // Standard UPI VPA shape, e.g. "name@okhdfcbank" or "9876543210@ybl".
 const UPI_ID_REGEX = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+type Nav = NativeStackNavigationProp<MainStackParamList>;
 
 export function PaymentMethodsScreen() {
   const { theme } = useAppTheme();
   const queryClient = useQueryClient();
   const updateUser = useAuthStore((s) => s.updateUser);
   const profileQuery = useMyProfileQuery();
+  const navigation = useNavigation<Nav>();
 
   const [upiId, setUpiId] = useState(profileQuery.data?.upiId ?? "");
   const [touched, setTouched] = useState(false);
@@ -45,8 +50,22 @@ export function PaymentMethodsScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <ChevronLeft size={26} color={theme.textPrimary} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          Payment Methods
+        </Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -110,6 +129,14 @@ export function PaymentMethodsScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
 
   infoCard: {
     flexDirection: "row",

@@ -6,15 +6,19 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { normalizePhoneNumber } from "@/lib/phoneFormat";
+import { pickSquareImage } from "@/hooks/useImagePicker";
+import { uploadImage } from "@/lib/uploadImage";
 import { useAuthStore } from "@/store/authStore";
 import { useMyProfileQuery } from "@/hooks/useMyProfileQuery";
 import { TextField } from "@/components/TextField";
@@ -60,6 +64,22 @@ export function PersonalInformationScreen() {
     },
   });
 
+  const photoMutation = useMutation({
+    mutationFn: async () => {
+      const uri = await pickSquareImage();
+      if (!uri) return null;
+      return uploadImage("/api/v1/users/me/photo", uri);
+    },
+    onSuccess: (result) => {
+      if (!result) return; // person cancelled the picker
+      updateUser({ profilePictureUrl: result.url });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+    onError: (err) => {
+      Alert.alert("Couldn't update photo", getApiErrorMessage(err));
+    },
+  });
+
   const hasChanges =
     name.trim() !== (profileQuery.data?.name ?? "") ||
     normalizePhoneNumber(phoneNumber) !==
@@ -68,8 +88,22 @@ export function PersonalInformationScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <ChevronLeft size={26} color={theme.textPrimary} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          Personal Information
+        </Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -81,17 +115,22 @@ export function PersonalInformationScreen() {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.avatarText, { color: theme.primary }]}>
-              {name.charAt(0).toUpperCase() || "?"}
-            </Text>
+            {photoMutation.isPending ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : profileQuery.data?.profilePictureUrl ? (
+              <Image
+                source={{ uri: profileQuery.data.profilePictureUrl }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={[styles.avatarText, { color: theme.primary }]}>
+                {name.charAt(0).toUpperCase() || "?"}
+              </Text>
+            )}
           </View>
           <Pressable
-            onPress={() =>
-              Alert.alert(
-                "Coming soon",
-                "Changing your profile photo isn't available yet.",
-              )
-            }
+            onPress={() => photoMutation.mutate()}
+            disabled={photoMutation.isPending}
           >
             <Text style={[styles.changePhoto, { color: theme.primary }]}>
               Change photo
@@ -167,6 +206,14 @@ export function PersonalInformationScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
 
   avatarSection: { alignItems: "center", marginBottom: 28 },
   avatar: {
@@ -177,8 +224,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     marginBottom: 10,
+    overflow: "hidden",
   },
   avatarText: { fontSize: 32, fontWeight: "800" },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 42 },
   changePhoto: { fontSize: 14, fontWeight: "700" },
 
   label: { fontSize: 13, fontWeight: "600", marginBottom: 6 },

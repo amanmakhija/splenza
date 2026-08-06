@@ -54,6 +54,11 @@ export type MainStackParamList = {
   GroupSettings: {
     groupId: string;
   };
+  GroupMembers: {
+    groupId: string;
+  };
+  NotificationSettings: undefined;
+  DeletedGroups: undefined;
   CreateExpense: {
     groupId?: string;
     friendId?: string;
