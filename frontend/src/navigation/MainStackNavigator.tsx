@@ -16,6 +16,9 @@ import { PersonalInformationScreen } from "@/screens/main/PersonalInformationScr
 import { PaymentMethodsScreen } from "@/screens/main/PaymentMethodsScreen";
 import { HelpSupportScreen } from "@/screens/main/HelpSupportScreen";
 import { ChangePasswordScreen } from "@/screens/main/ChangePasswordScreen";
+import { DeletedGroupsScreen } from "@/screens/main/DeletedGroupsScreen";
+import { GroupMembersScreen } from "@/screens/main/GroupMembersScreen";
+import { NotificationSettingsScreen } from "@/screens/main/NotificationSettingsScreen";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -39,7 +42,7 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="CreateGroup"
         component={CreateGroupScreen}
-        options={{ title: "New Group" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="EditGroup"
@@ -54,12 +57,12 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="CreateExpense"
         component={CreateExpenseScreen}
-        options={{ title: "Add Expense" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ExpenseDetail"
         component={ExpenseDetailScreen}
-        options={{ title: "Expense" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AddFriend"
@@ -84,22 +87,37 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="PersonalInformation"
         component={PersonalInformationScreen}
-        options={{ title: "Personal Information" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PaymentMethods"
         component={PaymentMethodsScreen}
-        options={{ title: "Payment Methods" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="HelpSupport"
         component={HelpSupportScreen}
-        options={{ title: "Help & Support" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
-        options={{ title: "Change Password" }}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="DeletedGroups"
+        component={DeletedGroupsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="GroupMembers"
+        component={GroupMembersScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

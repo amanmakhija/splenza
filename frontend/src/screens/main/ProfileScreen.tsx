@@ -6,6 +6,7 @@ import {
   Pressable,
   Linking,
   ScrollView,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -24,11 +25,8 @@ import { useAuthStore } from "@/store/authStore";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MainStackParamList } from "@/navigation/types";
-import Constants from "expo-constants";
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
-
-const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
 export function ProfileScreen() {
   const { theme } = useAppTheme();
@@ -94,9 +92,16 @@ export function ProfileScreen() {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.avatarText, { color: theme.primary }]}>
-              {user?.name?.charAt(0).toUpperCase() ?? "?"}
-            </Text>
+            {user?.profilePictureUrl ? (
+              <Image
+                source={{ uri: user.profilePictureUrl }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={[styles.avatarText, { color: theme.primary }]}>
+                {user?.name?.charAt(0).toUpperCase() ?? "?"}
+              </Text>
+            )}
           </View>
           <Text style={[styles.name, { color: theme.textPrimary }]}>
             {user?.name}
@@ -150,7 +155,7 @@ export function ProfileScreen() {
         <View style={styles.footer}>
           <Logo size={28} />
           <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-            Splenza v{APP_VERSION}
+            Splenza v1.1.0
           </Text>
         </View>
       </ScrollView>
@@ -183,7 +188,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     marginBottom: 12,
+    overflow: "hidden",
   },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 36 },
   avatarText: { fontSize: 28, fontWeight: "800" },
   name: { fontSize: 18, fontWeight: "700" },
   email: { fontSize: 13, marginTop: 2 },

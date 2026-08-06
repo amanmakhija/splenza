@@ -32,7 +32,6 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { Expense } from "@/types/api";
-import { Button } from "@/components/Button";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "ExpenseDetail">;
@@ -80,10 +79,6 @@ export function ExpenseDetailScreen() {
   const { expenseId } = params;
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
 
   const expenseQuery = useQuery({
     queryKey: ["expense", expenseId],

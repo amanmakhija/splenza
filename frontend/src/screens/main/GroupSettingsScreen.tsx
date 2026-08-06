@@ -6,11 +6,12 @@ import {
   Pressable,
   Alert,
   ScrollView,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,16 +21,25 @@ import {
   Download,
   LogOut,
   Trash2,
+  FileText,
+  Table,
+  X,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useGroupExport } from "@/hooks/useGroupExport";
+import { GroupBalanceResponse } from "@/types/api";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "GroupSettings">;
 type Route = RouteProp<MainStackParamList, "GroupSettings">;
+
+// A group only qualifies as "settled up" once every member's net balance is
+// (practically) zero. Floating point math on money can leave tiny residues
+// (e.g. 0.0000000004), so treat anything under a cent as settled.
+const SETTLED_EPSILON = 0.01;
 
 function tileColorFor(id: string): string {
   const TILE_COLORS = [
@@ -54,6 +64,17 @@ function initials(name: string): string {
     .join("");
 }
 
+async function fetchGroupBalances(
+  groupId: string,
+  { signal }: { signal: AbortSignal },
+): Promise<GroupBalanceResponse> {
+  const { data } = await apiClient.get<GroupBalanceResponse>(
+    `/api/v1/balances/group/${groupId}`,
+    { signal },
+  );
+  return data;
+}
+
 export function GroupSettingsScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
@@ -63,10 +84,16 @@ export function GroupSettingsScreen() {
   const queryClient = useQueryClient();
 
   const groupQuery = useGroupQuery(groupId);
+  const balancesQuery = useQuery({
+    queryKey: ["group-balances", groupId],
+    queryFn: ({ signal }) => fetchGroupBalances(groupId, { signal }),
+  });
   const { exporting, handleExportCsv, handleExportPdf } = useGroupExport(
     groupId,
     groupQuery.data?.name,
   );
+
+  const [exportModalOpen, setExportModalOpen] = React.useState(false);
 
   const isCreator = groupQuery.data?.createdBy === currentUser?.id;
   const creatorName = isCreator
@@ -75,6 +102,10 @@ export function GroupSettingsScreen() {
         (m) => m.userId === groupQuery.data?.createdBy,
       )?.name ?? "someone");
   const groupTile = groupId ? tileColorFor(groupId) : theme.primary;
+
+  const isSettledUp = (balancesQuery.data?.rawBalances ?? []).every(
+    (b) => Math.abs(b.netAmount) < SETTLED_EPSILON,
+  );
 
   const leaveMutation = useMutation({
     mutationFn: () => apiClient.post(`/api/v1/groups/${groupId}/leave`),
@@ -88,12 +119,18 @@ export function GroupSettingsScreen() {
   });
 
   // NOTE: DELETE /api/v1/groups/{groupId} doesn't exist elsewhere in this
-  // codebase yet - this needs a new backend endpoint. See the accompanying
-  // spec/prompt for the exact contract expected.
+  // codebase yet - this needs a new backend endpoint. It's expected to be a
+  // SOFT delete (recoverable from the "Recently deleted groups" screen), and
+  // the backend should itself reject the request with a clear error if the
+  // group isn't fully settled - the isSettledUp check below is a client-side
+  // convenience so people aren't even shown an enabled button in the common
+  // case, not a substitute for that server-side check. See the accompanying
+  // spec for the exact contract expected.
   const deleteMutation = useMutation({
     mutationFn: () => apiClient.delete(`/api/v1/groups/${groupId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["deleted-groups"] });
       goBackToGroupsList();
     },
     onError: (err) => {
@@ -140,7 +177,7 @@ export function GroupSettingsScreen() {
   const confirmDelete = () => {
     Alert.alert(
       "Delete this group?",
-      "This permanently deletes the group and its expenses for everyone in it. This can't be undone.",
+      "This moves the group to Recently Deleted, where it can be restored for the next 30 days before it's gone for good.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -150,14 +187,6 @@ export function GroupSettingsScreen() {
         },
       ],
     );
-  };
-
-  const handleExportPress = () => {
-    Alert.alert("Export expenses", "Choose a format", [
-      { text: "Cancel", style: "cancel" },
-      { text: "CSV", onPress: handleExportCsv },
-      { text: "PDF", onPress: handleExportPdf },
-    ]);
   };
 
   return (
@@ -219,7 +248,7 @@ export function GroupSettingsScreen() {
           </Pressable>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <Pressable
-            onPress={() => navigation.navigate("EditGroup", { groupId })}
+            onPress={() => navigation.navigate("GroupMembers", { groupId })}
             style={styles.row}
           >
             <View style={styles.rowLeft}>
@@ -232,7 +261,7 @@ export function GroupSettingsScreen() {
           </Pressable>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <Pressable
-            onPress={() => navigation.navigate("Notifications")}
+            onPress={() => navigation.navigate("NotificationSettings")}
             style={styles.row}
           >
             <View style={styles.rowLeft}>
@@ -245,7 +274,7 @@ export function GroupSettingsScreen() {
           </Pressable>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <Pressable
-            onPress={handleExportPress}
+            onPress={() => setExportModalOpen(true)}
             disabled={exporting !== null}
             style={styles.row}
           >
@@ -289,8 +318,8 @@ export function GroupSettingsScreen() {
               />
               <Pressable
                 onPress={confirmDelete}
-                disabled={deleteMutation.isPending}
-                style={styles.row}
+                disabled={deleteMutation.isPending || !isSettledUp}
+                style={[styles.row, !isSettledUp && { opacity: 0.5 }]}
               >
                 <View style={styles.rowLeft}>
                   <Trash2 size={18} color={theme.danger} />
@@ -299,10 +328,98 @@ export function GroupSettingsScreen() {
                   </Text>
                 </View>
               </Pressable>
+              {!isSettledUp && !balancesQuery.isLoading ? (
+                <Text style={[styles.settleUpNote, { color: theme.textMuted }]}>
+                  Everyone in this group needs to be settled up before it can be
+                  deleted.
+                </Text>
+              ) : null}
             </>
           ) : null}
         </View>
       </ScrollView>
+
+      {/* Export format picker - matches the bottom-sheet modal style used
+          elsewhere in the app (e.g. the invite/remove-member sheets). */}
+      <Modal
+        visible={exportModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setExportModalOpen(false)}
+      >
+        <Pressable
+          style={styles.exportOverlay}
+          onPress={() => setExportModalOpen(false)}
+        >
+          <Pressable
+            style={[styles.exportSheet, { backgroundColor: theme.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.exportHeader}>
+              <Text style={[styles.exportTitle, { color: theme.textPrimary }]}>
+                Export expenses
+              </Text>
+              <Pressable
+                onPress={() => setExportModalOpen(false)}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+              >
+                <X size={22} color={theme.textMuted} />
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={() => {
+                setExportModalOpen(false);
+                handleExportCsv();
+              }}
+              style={[styles.exportOption, { borderColor: theme.border }]}
+            >
+              <Table size={20} color={theme.primary} />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.exportOptionTitle,
+                    { color: theme.textPrimary },
+                  ]}
+                >
+                  Export as CSV
+                </Text>
+                <Text
+                  style={[styles.exportOptionSub, { color: theme.textMuted }]}
+                >
+                  Open in a spreadsheet app
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setExportModalOpen(false);
+                handleExportPdf();
+              }}
+              style={[styles.exportOption, { borderColor: theme.border }]}
+            >
+              <FileText size={20} color={theme.primary} />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.exportOptionTitle,
+                    { color: theme.textPrimary },
+                  ]}
+                >
+                  Export as PDF
+                </Text>
+                <Text
+                  style={[styles.exportOptionSub, { color: theme.textMuted }]}
+                >
+                  A shareable, printable summary
+                </Text>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -352,6 +469,12 @@ const styles = StyleSheet.create({
   rowLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   rowLabel: { fontSize: 15, fontWeight: "500" },
   divider: { height: 1 },
+  settleUpNote: {
+    fontSize: 12,
+    lineHeight: 17,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+  },
 
   sectionTitle: {
     fontSize: 13,
@@ -360,4 +483,34 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+
+  exportOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  exportSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  exportHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  exportTitle: { fontSize: 18, fontWeight: "800" },
+  exportOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+  },
+  exportOptionTitle: { fontSize: 15, fontWeight: "700" },
+  exportOptionSub: { fontSize: 12, marginTop: 2 },
 });

@@ -68,6 +68,12 @@
         {
           "contactsPermission": "Allow Splenza to access your contacts to help you find friends who already use the app."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Splenza to access your photos so you can set a group photo."
+        }
       ]
     ],
     "extra": {
