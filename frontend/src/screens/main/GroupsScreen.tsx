@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -104,15 +105,22 @@ export function GroupsScreen() {
                 { backgroundColor: `${tileColorFor(item.id)}26` },
               ]}
             >
-              <Text
-                style={{
-                  color: tileColorFor(item.id),
-                  fontWeight: "800",
-                  fontSize: 15,
-                }}
-              >
-                {initials(item.name)}
-              </Text>
+              {item.imageUrl ? (
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.iconImage}
+                />
+              ) : (
+                <Text
+                  style={{
+                    color: tileColorFor(item.id),
+                    fontWeight: "800",
+                    fontSize: 15,
+                  }}
+                >
+                  {initials(item.name)}
+                </Text>
+              )}
             </View>
             <View style={styles.cardBody}>
               <Text style={[styles.groupName, { color: theme.textPrimary }]}>
@@ -187,7 +195,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  iconImage: { width: "100%", height: "100%" },
   cardBody: { flex: 1 },
   groupName: { fontSize: 16, fontWeight: "700", marginBottom: 2 },
   memberCount: { fontSize: 13 },

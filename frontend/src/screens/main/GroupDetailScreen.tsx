@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
@@ -490,9 +491,18 @@ export function GroupDetailScreen() {
           <View
             style={[styles.groupTile, { backgroundColor: `${groupTile}26` }]}
           >
-            <Text style={{ color: groupTile, fontWeight: "800", fontSize: 16 }}>
-              {groupQuery.data ? initials(groupQuery.data.name) : ""}
-            </Text>
+            {groupQuery.data?.imageUrl ? (
+              <Image
+                source={{ uri: groupQuery.data.imageUrl }}
+                style={styles.groupTileImage}
+              />
+            ) : (
+              <Text
+                style={{ color: groupTile, fontWeight: "800", fontSize: 16 }}
+              >
+                {groupQuery.data ? initials(groupQuery.data.name) : ""}
+              </Text>
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.groupName, { color: theme.textPrimary }]}>
@@ -1170,7 +1180,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  groupTileImage: { width: "100%", height: "100%" },
   groupName: { fontSize: 19, fontWeight: "800" },
   groupMemberCount: { fontSize: 13, marginTop: 2 },
   balanceCard: {
