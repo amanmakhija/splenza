@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Pressable,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
@@ -7,6 +14,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
+import { ChevronLeft } from "lucide-react-native";
 
 /**
  * NOTE: this hits POST /api/v1/auth/change-password, which doesn't exist
@@ -42,8 +50,22 @@ export function ChangePasswordScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <ChevronLeft size={26} color={theme.textPrimary} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          Change Password
+        </Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -101,6 +123,14 @@ export function ChangePasswordScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
   description: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
   errorText: { fontSize: 13, textAlign: "center", marginBottom: 8 },
 });

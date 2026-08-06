@@ -21,9 +21,13 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  ChevronLeft,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
+import { useNavigation } from "@react-navigation/native";
+import { MainStackParamList } from "@/navigation/types";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 const DELETE_CONFIRM_WORD = "DELETE";
 const SUPPORT_EMAIL = "help@splenza.in";
@@ -53,9 +57,12 @@ const FAQS: { question: string; answer: string }[] = [
   },
 ];
 
+type Nav = NativeStackNavigationProp<MainStackParamList>;
+
 export function HelpSupportScreen() {
   const { theme } = useAppTheme();
   const { user, deleteAccount } = useAuthStore();
+  const navigation = useNavigation<Nav>();
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
@@ -127,8 +134,22 @@ export function HelpSupportScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <ChevronLeft size={26} color={theme.textPrimary} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          Help & Support
+        </Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
           FAQs
@@ -370,6 +391,14 @@ export function HelpSupportScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
 
   sectionTitle: {
     fontSize: 14,

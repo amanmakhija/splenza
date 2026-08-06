@@ -136,6 +136,16 @@ export function GroupsScreen() {
             </View>
           ) : null
         }
+        ListFooterComponent={
+          <Pressable
+            onPress={() => navigation.navigate("DeletedGroups")}
+            style={styles.deletedLink}
+          >
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+              Recently deleted groups
+            </Text>
+          </Pressable>
+        }
       />
 
       <Pressable
@@ -188,6 +198,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyText: { textAlign: "center", fontSize: 14 },
+  deletedLink: { alignItems: "center", paddingVertical: 16 },
   fab: {
     position: "absolute",
     right: 20,

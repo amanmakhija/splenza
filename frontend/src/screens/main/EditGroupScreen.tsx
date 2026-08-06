@@ -1,23 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  Image,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useForm, Controller } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, UserMinus, UserPlus } from "lucide-react-native";
+import { ChevronLeft, Camera } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
-import { useAuthStore } from "@/store/authStore";
+import { pickSquareImage } from "@/hooks/useImagePicker";
+import { uploadImage } from "@/lib/uploadImage";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
-import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { MainStackParamList } from "@/navigation/types";
@@ -26,21 +28,26 @@ type Nav = NativeStackNavigationProp<MainStackParamList, "EditGroup">;
 type Route = RouteProp<MainStackParamList, "EditGroup">;
 type FormValues = { name: string; description: string };
 
+// Member management (invite/remove) now lives on its own screen -
+// GroupMembersScreen, reached from Group Settings. This screen is purely
+// "Edit Group Details": photo, name, and description.
 export function EditGroupScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<Route>();
   const { groupId } = params;
-  const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-  const [inviteOpen, setInviteOpen] = useState(false);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const groupQuery = useGroupQuery(groupId);
-  const friendsQuery = useFriendsQuery({ enabled: inviteOpen });
+
+  const invalidateGroup = () => {
+    queryClient.invalidateQueries({ queryKey: ["group", groupId] });
+    queryClient.invalidateQueries({ queryKey: ["groups"] });
+  };
 
   const {
     control,
@@ -58,12 +65,6 @@ export function EditGroupScreen() {
     }
   }, [groupQuery.data, reset]);
 
-  const invalidateGroup = () => {
-    queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-    queryClient.invalidateQueries({ queryKey: ["groups"] });
-    queryClient.invalidateQueries({ queryKey: ["group-balances", groupId] });
-  };
-
   const saveMutation = useMutation({
     mutationFn: (values: FormValues) =>
       apiClient.put(`/api/v1/groups/${groupId}`, {
@@ -77,39 +78,24 @@ export function EditGroupScreen() {
     },
   });
 
-  const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) =>
-      apiClient.delete(`/api/v1/groups/${groupId}/members/${userId}`),
-    onSuccess: () => invalidateGroup(),
-    onError: (err) =>
-      Alert.alert("Couldn't remove member", getApiErrorMessage(err)),
+  // The group already exists here (unlike Create Group), so a new photo
+  // uploads immediately on pick rather than waiting for "Save changes".
+  const photoMutation = useMutation({
+    mutationFn: async () => {
+      const uri = await pickSquareImage();
+      if (!uri) return null;
+      return uploadImage(`/api/v1/groups/${groupId}/photo`, uri);
+    },
+    onSuccess: (result) => {
+      if (!result) return; // person cancelled the picker
+      invalidateGroup();
+    },
+    onError: (err) => {
+      Alert.alert("Couldn't update photo", getApiErrorMessage(err));
+    },
   });
-
-  const inviteMutation = useMutation({
-    mutationFn: (userId: string) =>
-      apiClient.post(`/api/v1/groups/${groupId}/members/${userId}`),
-    onSuccess: () => invalidateGroup(),
-    onError: (err) =>
-      Alert.alert("Couldn't add member", getApiErrorMessage(err)),
-  });
-
-  const confirmRemove = (userId: string, name: string) => {
-    Alert.alert("Remove member?", `${name} will be removed from this group.`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => removeMemberMutation.mutate(userId),
-      },
-    ]);
-  };
 
   const onSubmit = (values: FormValues) => saveMutation.mutate(values);
-
-  const memberIds = new Set(groupQuery.data?.members.map((m) => m.userId));
-  const invitableFriends = (friendsQuery.data ?? []).filter(
-    (f) => !memberIds.has(f.userId),
-  );
 
   return (
     <SafeAreaView
@@ -126,7 +112,7 @@ export function EditGroupScreen() {
           <ChevronLeft size={26} color={theme.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
-          Edit group
+          Edit Group Details
         </Text>
         <View style={{ width: 26 }} />
       </View>
@@ -135,6 +121,36 @@ export function EditGroupScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.photoSection}>
+          <Pressable
+            onPress={() => photoMutation.mutate()}
+            disabled={photoMutation.isPending}
+            style={[
+              styles.photoPicker,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            {photoMutation.isPending ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : groupQuery.data?.imageUrl ? (
+              <Image
+                source={{ uri: groupQuery.data.imageUrl }}
+                style={styles.groupImage}
+              />
+            ) : (
+              <Camera size={30} color={theme.primary} />
+            )}
+          </Pressable>
+          <Pressable
+            onPress={() => photoMutation.mutate()}
+            disabled={photoMutation.isPending}
+          >
+            <Text style={[styles.changePhoto, { color: theme.primary }]}>
+              {groupQuery.data?.imageUrl ? "Change photo" : "Add photo"}
+            </Text>
+          </Pressable>
+        </View>
+
         <Controller
           control={control}
           name="name"
@@ -173,125 +189,8 @@ export function EditGroupScreen() {
           title="Save changes"
           onPress={handleSubmit(onSubmit)}
           loading={saveMutation.isPending}
-          style={{ marginTop: 4, marginBottom: 28 }}
+          style={{ marginTop: 4 }}
         />
-
-        {/* Members */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-            Members
-          </Text>
-          <Pressable
-            onPress={() => setInviteOpen((v) => !v)}
-            accessibilityLabel="Invite friends"
-            accessibilityRole="button"
-            style={styles.inviteToggle}
-          >
-            <UserPlus size={14} color={theme.primary} />
-            <Text
-              style={{ color: theme.primary, fontWeight: "700", fontSize: 13 }}
-            >
-              Invite
-            </Text>
-          </Pressable>
-        </View>
-
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          {(groupQuery.data?.members ?? []).map((m, idx) => (
-            <View key={m.userId}>
-              {idx > 0 ? (
-                <View
-                  style={[styles.divider, { backgroundColor: theme.border }]}
-                />
-              ) : null}
-              <View style={styles.memberRow}>
-                <View style={styles.rowBodyFlex}>
-                  <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
-                    {m.name}
-                    {m.userId === currentUser?.id ? " (you)" : ""}
-                  </Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                    {m.role === "ADMIN" ? "Admin" : "Member"}
-                  </Text>
-                </View>
-                {m.userId !== currentUser?.id ? (
-                  <Pressable
-                    onPress={() => confirmRemove(m.userId, m.name)}
-                    disabled={removeMemberMutation.isPending}
-                    accessibilityLabel={`Remove ${m.name}`}
-                    accessibilityRole="button"
-                    hitSlop={8}
-                  >
-                    <UserMinus size={18} color={theme.danger} />
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {inviteOpen ? (
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                marginTop: 12,
-              },
-            ]}
-          >
-            {friendsQuery.isLoading ? (
-              <Text style={{ color: theme.textMuted, padding: 14 }}>
-                Loading friends...
-              </Text>
-            ) : invitableFriends.length === 0 ? (
-              <Text style={{ color: theme.textMuted, padding: 14 }}>
-                Everyone you're friends with is already in this group.
-              </Text>
-            ) : (
-              invitableFriends.map((f, idx) => (
-                <View key={f.userId}>
-                  {idx > 0 ? (
-                    <View
-                      style={[
-                        styles.divider,
-                        { backgroundColor: theme.border },
-                      ]}
-                    />
-                  ) : null}
-                  <View style={styles.memberRow}>
-                    <View style={styles.rowBodyFlex}>
-                      <Text
-                        style={{ color: theme.textPrimary, fontWeight: "600" }}
-                      >
-                        {f.name}
-                      </Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                        {f.email}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => inviteMutation.mutate(f.userId)}
-                      disabled={inviteMutation.isPending}
-                      style={[
-                        styles.addButton,
-                        { backgroundColor: theme.primary },
-                      ]}
-                    >
-                      <Text style={styles.addButtonText}>Add</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -311,24 +210,17 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40 },
   formError: { textAlign: "center", marginBottom: 12, fontSize: 13 },
 
-  sectionHeaderRow: {
-    flexDirection: "row",
+  photoSection: { alignItems: "center", marginBottom: 24 },
+  photoPicker: {
+    width: 96,
+    height: 96,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginBottom: 10,
+    overflow: "hidden",
   },
-  sectionLabel: { fontSize: 13, fontWeight: "700" },
-  inviteToggle: { flexDirection: "row", alignItems: "center", gap: 4 },
-
-  card: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 14 },
-  divider: { height: 1 },
-  memberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    gap: 12,
-  },
-  rowBodyFlex: { flex: 1 },
-  addButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  addButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  groupImage: { width: "100%", height: "100%" },
+  changePhoto: { fontSize: 14, fontWeight: "700" },
 });
