@@ -35,6 +35,22 @@ apiClient.interceptors.request.use((config) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // FormData uploads (photo upload, etc.) must NOT carry the instance's
+  // default "Content-Type: application/json" header. Axios's own FormData
+  // handling skips JSON-stringifying the body, but it does not strip an
+  // already-present Content-Type header - so without this, the request
+  // goes out with "application/json" (or worse, whatever a custom
+  // transformRequest happens to fall back to) instead of letting React
+  // Native generate the correct "multipart/form-data; boundary=..."
+  // header itself. Stripping it here, in the request interceptor, runs
+  // after axios merges the instance defaults into config.headers but
+  // before any transform/serialization touches the body - the reliable
+  // place to do this regardless of axios version.
+  if (config.data instanceof FormData && config.headers) {
+    delete config.headers["Content-Type"];
+  }
+
   return config;
 });
 
@@ -167,6 +183,17 @@ export function getApiErrorMessage(
       return "Something went wrong on our end. Please try again in a moment.";
     }
   }
+
+  // uploadImage.ts (and anything else using fetch directly instead of
+  // apiClient) throws plain Errors with an already-human-readable message
+  // baked in - use it directly rather than falling through to the generic
+  // fallback, which would otherwise mask the real reason (network/timeout/
+  // field validation/etc.) behind "Something went wrong. Please try again."
+  // regardless of what actually happened.
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+
   return fallback;
 }
 
