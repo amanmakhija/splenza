@@ -8,6 +8,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "SettleUp">;
@@ -61,8 +62,9 @@ export function SettleUpScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <ScreenHeader title="Settle Up" />
       <View style={styles.content}>
         <Text style={[styles.description, { color: theme.textSecondary }]}>
           Record a payment you made to{" "}

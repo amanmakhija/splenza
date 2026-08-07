@@ -40,6 +40,7 @@ import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { SegmentedControl } from "@/components/SegmentedControl";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "ImportCsv">;
@@ -189,8 +190,9 @@ export function ImportCsvScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <ScreenHeader title="Import from Splitwise" />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
