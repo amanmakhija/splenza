@@ -30,6 +30,7 @@ import { UserLookupMatch } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { SegmentedControl } from "@/components/SegmentedControl";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "AddFriend">;
@@ -170,8 +171,9 @@ export function AddFriendScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <ScreenHeader title="Add Friend" />
       <FlatList
         data={contactsPermission === "granted" ? filteredContacts : []}
         keyExtractor={(c) => c.id}
