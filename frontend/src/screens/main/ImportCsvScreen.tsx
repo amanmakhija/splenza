@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Modal,
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,6 +40,7 @@ import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { AppModal } from "@/components/AppModal";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "ImportCsv">;
@@ -453,50 +453,35 @@ export function ImportCsvScreen() {
               style={{ marginTop: 20 }}
             />
 
-            <Modal
+            <AppModal
               visible={Boolean(pickerOpenFor)}
-              animationType="slide"
-              transparent
-              onRequestClose={() => setPickerOpenFor(null)}
+              onClose={() => setPickerOpenFor(null)}
+              title={`Map "${pickerOpenFor}" to...`}
+              scrollable={false}
             >
-              <View style={styles.modalOverlay}>
-                <View
-                  style={[
-                    styles.modalSheet,
-                    { backgroundColor: theme.surface },
-                  ]}
-                >
-                  <Text
-                    style={[styles.modalTitle, { color: theme.textPrimary }]}
-                  >
-                    Map "{pickerOpenFor}" to...
-                  </Text>
-                  <FlatList
-                    data={candidatesFor(pickerOpenFor)}
-                    keyExtractor={(c) => c.id}
-                    renderItem={({ item }) => (
-                      <Pressable
-                        onPress={() =>
-                          pickerOpenFor &&
-                          setMemberMapping(pickerOpenFor, item.id)
-                        }
-                        style={styles.candidateRow}
-                      >
-                        <Text style={{ color: theme.textPrimary }}>
-                          {item.name}
-                        </Text>
-                      </Pressable>
-                    )}
-                    ListEmptyComponent={
-                      <Text style={{ color: theme.textMuted, padding: 12 }}>
-                        No candidates left - everyone available is already
-                        mapped to a different CSV member.
-                      </Text>
+              <FlatList
+                data={candidatesFor(pickerOpenFor)}
+                keyExtractor={(c) => c.id}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() =>
+                      pickerOpenFor && setMemberMapping(pickerOpenFor, item.id)
                     }
-                  />
-                </View>
-              </View>
-            </Modal>
+                    style={styles.candidateRow}
+                  >
+                    <Text style={{ color: theme.textPrimary }}>
+                      {item.name}
+                    </Text>
+                  </Pressable>
+                )}
+                ListEmptyComponent={
+                  <Text style={{ color: theme.textMuted, padding: 12 }}>
+                    No candidates left - everyone available is already mapped to
+                    a different CSV member.
+                  </Text>
+                }
+              />
+            </AppModal>
           </View>
         )}
 
@@ -741,18 +726,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resultWrap: { alignItems: "center", paddingTop: 40 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: "60%",
-  },
-  modalTitle: { fontSize: 16, fontWeight: "800", marginBottom: 12 },
   candidateRow: {
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,

@@ -7,7 +7,6 @@ import {
   RefreshControl,
   Pressable,
   TextInput,
-  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -22,6 +21,7 @@ import { useGroupsQuery } from "@/hooks/useGroupsQuery";
 import { DashboardSummary, FriendBalanceResponse } from "@/types/api";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppModal } from "@/components/AppModal";
 import {
   MainStackParamList,
   DashboardStackParamList,
@@ -306,76 +306,60 @@ export function DashboardScreen() {
         </Pressable>
       </View>
 
-      <Modal
+      <AppModal
         visible={addModalOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setAddModalOpen(false)}
+        onClose={() => setAddModalOpen(false)}
+        title="Add an expense"
+        scrollable={false}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                Add an expense
-              </Text>
-              <Pressable
-                onPress={() => setAddModalOpen(false)}
-                accessibilityLabel="Close"
-                accessibilityRole="button"
-              >
-                <X size={22} color={theme.textMuted} />
-              </Pressable>
-            </View>
-            <Text
-              style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}
+        <Text
+          style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}
+        >
+          Pick a group
+        </Text>
+        <FlatList
+          data={groupsQuery.data ?? []}
+          keyExtractor={(g) => g.id}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => {
+                setAddModalOpen(false);
+                navigation.navigate("CreateExpense", { groupId: item.id });
+              }}
+              style={styles.modalRow}
             >
-              Pick a group
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: theme.primaryContainer },
+                ]}
+              >
+                <Users size={16} color={theme.primary} />
+              </View>
+              <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
+                {item.name}
+              </Text>
+            </Pressable>
+          )}
+          ListEmptyComponent={
+            <Text style={{ color: theme.textMuted, paddingVertical: 8 }}>
+              No groups yet.
             </Text>
-            <FlatList
-              data={groupsQuery.data ?? []}
-              keyExtractor={(g) => g.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => {
-                    setAddModalOpen(false);
-                    navigation.navigate("CreateExpense", { groupId: item.id });
-                  }}
-                  style={styles.modalRow}
-                >
-                  <View
-                    style={[
-                      styles.avatar,
-                      { backgroundColor: theme.primaryContainer },
-                    ]}
-                  >
-                    <Users size={16} color={theme.primary} />
-                  </View>
-                  <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
-                    {item.name}
-                  </Text>
-                </Pressable>
-              )}
-              ListEmptyComponent={
-                <Text style={{ color: theme.textMuted, paddingVertical: 8 }}>
-                  No groups yet.
-                </Text>
-              }
-              ListFooterComponent={
-                <Text
-                  style={{
-                    color: theme.textMuted,
-                    fontSize: 12,
-                    marginTop: 16,
-                  }}
-                >
-                  To split with just one friend, open their profile and tap "Add
-                  expense" instead.
-                </Text>
-              }
-            />
-          </View>
-        </View>
-      </Modal>
+          }
+          ListFooterComponent={
+            <Text
+              style={{
+                color: theme.textMuted,
+                fontSize: 12,
+                marginTop: 16,
+              }}
+            >
+              To split with just one friend, open their profile and tap "Add
+              expense" instead.
+            </Text>
+          }
+        />
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -473,24 +457,6 @@ const styles = StyleSheet.create({
   },
   addExpenseButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: "70%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  modalTitle: { fontSize: 18, fontWeight: "800" },
   modalRow: {
     flexDirection: "row",
     alignItems: "center",

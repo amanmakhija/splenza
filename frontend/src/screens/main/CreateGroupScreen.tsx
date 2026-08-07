@@ -14,12 +14,12 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useForm, Controller } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as ImagePicker from "expo-image-picker";
 import { Camera, ChevronLeft, Plus, X } from "lucide-react-native";
 
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { uploadImage } from "@/lib/uploadImage";
+import { pickSquareImage } from "@/hooks/useImagePicker";
 import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { Group } from "@/types/api";
 import { TextField } from "@/components/TextField";
@@ -101,20 +101,8 @@ export function CreateGroupScreen() {
   });
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    const uri = await pickSquareImage();
+    if (uri) setImage(uri);
   };
 
   const toggleFriend = (id: string) => {

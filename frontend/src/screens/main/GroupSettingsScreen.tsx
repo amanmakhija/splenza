@@ -6,7 +6,6 @@ import {
   Pressable,
   Alert,
   ScrollView,
-  Modal,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,7 +23,6 @@ import {
   Trash2,
   FileText,
   Table,
-  X,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -32,6 +30,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useGroupExport } from "@/hooks/useGroupExport";
 import { GroupBalanceResponse } from "@/types/api";
+import { AppModal } from "@/components/AppModal";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "GroupSettings">;
@@ -349,87 +348,52 @@ export function GroupSettingsScreen() {
         </View>
       </ScrollView>
 
-      {/* Export format picker - matches the bottom-sheet modal style used
-          elsewhere in the app (e.g. the invite/remove-member sheets). */}
-      <Modal
+      <AppModal
         visible={exportModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setExportModalOpen(false)}
+        onClose={() => setExportModalOpen(false)}
+        title="Export expenses"
+        scrollable={false}
       >
         <Pressable
-          style={styles.exportOverlay}
-          onPress={() => setExportModalOpen(false)}
+          onPress={() => {
+            setExportModalOpen(false);
+            handleExportCsv();
+          }}
+          style={[styles.exportOption, { borderColor: theme.border }]}
         >
-          <Pressable
-            style={[styles.exportSheet, { backgroundColor: theme.surface }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.exportHeader}>
-              <Text style={[styles.exportTitle, { color: theme.textPrimary }]}>
-                Export expenses
-              </Text>
-              <Pressable
-                onPress={() => setExportModalOpen(false)}
-                accessibilityLabel="Close"
-                accessibilityRole="button"
-              >
-                <X size={22} color={theme.textMuted} />
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={() => {
-                setExportModalOpen(false);
-                handleExportCsv();
-              }}
-              style={[styles.exportOption, { borderColor: theme.border }]}
+          <Table size={20} color={theme.primary} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.exportOptionTitle, { color: theme.textPrimary }]}
             >
-              <Table size={20} color={theme.primary} />
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.exportOptionTitle,
-                    { color: theme.textPrimary },
-                  ]}
-                >
-                  Export as CSV
-                </Text>
-                <Text
-                  style={[styles.exportOptionSub, { color: theme.textMuted }]}
-                >
-                  Open in a spreadsheet app
-                </Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                setExportModalOpen(false);
-                handleExportPdf();
-              }}
-              style={[styles.exportOption, { borderColor: theme.border }]}
-            >
-              <FileText size={20} color={theme.primary} />
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.exportOptionTitle,
-                    { color: theme.textPrimary },
-                  ]}
-                >
-                  Export as PDF
-                </Text>
-                <Text
-                  style={[styles.exportOptionSub, { color: theme.textMuted }]}
-                >
-                  A shareable, printable summary
-                </Text>
-              </View>
-            </Pressable>
-          </Pressable>
+              Export as CSV
+            </Text>
+            <Text style={[styles.exportOptionSub, { color: theme.textMuted }]}>
+              Open in a spreadsheet app
+            </Text>
+          </View>
         </Pressable>
-      </Modal>
+
+        <Pressable
+          onPress={() => {
+            setExportModalOpen(false);
+            handleExportPdf();
+          }}
+          style={[styles.exportOption, { borderColor: theme.border }]}
+        >
+          <FileText size={20} color={theme.primary} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.exportOptionTitle, { color: theme.textPrimary }]}
+            >
+              Export as PDF
+            </Text>
+            <Text style={[styles.exportOptionSub, { color: theme.textMuted }]}>
+              A shareable, printable summary
+            </Text>
+          </View>
+        </Pressable>
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -496,24 +460,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  exportOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  exportSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 32,
-  },
-  exportHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  exportTitle: { fontSize: 18, fontWeight: "800" },
   exportOption: {
     flexDirection: "row",
     alignItems: "center",

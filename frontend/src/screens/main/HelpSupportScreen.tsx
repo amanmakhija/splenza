@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   Linking,
-  Modal,
   TextInput,
   Platform,
 } from "react-native";
@@ -28,6 +27,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useNavigation } from "@react-navigation/native";
 import { MainStackParamList } from "@/navigation/types";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { AppModal } from "@/components/AppModal";
 
 const DELETE_CONFIRM_WORD = "DELETE";
 const SUPPORT_EMAIL = "help@splenza.in";
@@ -263,127 +263,118 @@ export function HelpSupportScreen() {
         </Pressable>
       </ScrollView>
 
-      <Modal
+      <AppModal
         visible={deleteModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closeDeleteModal}
+        onClose={closeDeleteModal}
+        scrollable={false}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <View
-                style={[
-                  styles.warningIconWrap,
-                  { backgroundColor: `${theme.danger}1A` },
-                ]}
-              >
-                <AlertTriangle size={22} color={theme.danger} />
-              </View>
-              <Pressable
-                onPress={closeDeleteModal}
-                accessibilityLabel="Close"
-                accessibilityRole="button"
-                disabled={deleting}
-              >
-                <X size={22} color={theme.textMuted} />
-              </Pressable>
-            </View>
-
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-              Delete your account?
-            </Text>
-
-            <Text style={[styles.modalBody, { color: theme.textSecondary }]}>
-              This permanently deletes your account, expenses, and group
-              memberships. This cannot be undone.
-            </Text>
-
-            <View
-              style={[
-                styles.emailWarningBox,
-                {
-                  backgroundColor: `${theme.danger}0D`,
-                  borderColor: `${theme.danger}33`,
-                },
-              ]}
-            >
-              <Text style={[styles.emailWarningText, { color: theme.danger }]}>
-                You will not be able to create a new Splenza account with{" "}
-                {user?.email ? (
-                  <Text style={{ fontWeight: "800" }}>{user.email}</Text>
-                ) : (
-                  "this email"
-                )}{" "}
-                again in the future.
-              </Text>
-            </View>
-
-            <Text style={[styles.confirmLabel, { color: theme.textSecondary }]}>
-              Type <Text style={{ fontWeight: "800" }}>DELETE</Text> to confirm
-            </Text>
-            <TextInput
-              value={confirmText}
-              onChangeText={(t) => {
-                setConfirmText(t);
-                if (deleteError) setDeleteError(null);
-              }}
-              placeholder="DELETE"
-              placeholderTextColor={theme.textMuted}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              editable={!deleting}
-              style={[
-                styles.confirmInput,
-                {
-                  color: theme.textPrimary,
-                  borderColor: deleteError ? theme.danger : theme.border,
-                  backgroundColor: theme.background,
-                },
-              ]}
-            />
-
-            {deleteError ? (
-              <Text style={[styles.errorText, { color: theme.danger }]}>
-                {deleteError}
-              </Text>
-            ) : null}
-
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={closeDeleteModal}
-                disabled={deleting}
-                style={[styles.cancelButton, { borderColor: theme.border }]}
-              >
-                <Text
-                  style={[
-                    styles.cancelButtonText,
-                    { color: theme.textPrimary },
-                  ]}
-                >
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleConfirmDelete}
-                disabled={deleting || confirmText.trim().length === 0}
-                style={[
-                  styles.confirmDeleteButton,
-                  {
-                    backgroundColor: theme.danger,
-                    opacity:
-                      deleting || confirmText.trim().length === 0 ? 0.5 : 1,
-                  },
-                ]}
-              >
-                <Text style={styles.confirmDeleteButtonText}>
-                  {deleting ? "Deleting..." : "Delete permanently"}
-                </Text>
-              </Pressable>
-            </View>
+        <View style={styles.modalHeader}>
+          <View
+            style={[
+              styles.warningIconWrap,
+              { backgroundColor: `${theme.danger}1A` },
+            ]}
+          >
+            <AlertTriangle size={22} color={theme.danger} />
           </View>
+          <Pressable
+            onPress={closeDeleteModal}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+            disabled={deleting}
+          >
+            <X size={22} color={theme.textMuted} />
+          </Pressable>
         </View>
-      </Modal>
+
+        <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+          Delete your account?
+        </Text>
+
+        <Text style={[styles.modalBody, { color: theme.textSecondary }]}>
+          This permanently deletes your account, expenses, and group
+          memberships. This cannot be undone.
+        </Text>
+
+        <View
+          style={[
+            styles.emailWarningBox,
+            {
+              backgroundColor: `${theme.danger}0D`,
+              borderColor: `${theme.danger}33`,
+            },
+          ]}
+        >
+          <Text style={[styles.emailWarningText, { color: theme.danger }]}>
+            You will not be able to create a new Splenza account with{" "}
+            {user?.email ? (
+              <Text style={{ fontWeight: "800" }}>{user.email}</Text>
+            ) : (
+              "this email"
+            )}{" "}
+            again in the future.
+          </Text>
+        </View>
+
+        <Text style={[styles.confirmLabel, { color: theme.textSecondary }]}>
+          Type <Text style={{ fontWeight: "800" }}>DELETE</Text> to confirm
+        </Text>
+        <TextInput
+          value={confirmText}
+          onChangeText={(t) => {
+            setConfirmText(t);
+            if (deleteError) setDeleteError(null);
+          }}
+          placeholder="DELETE"
+          placeholderTextColor={theme.textMuted}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          editable={!deleting}
+          style={[
+            styles.confirmInput,
+            {
+              color: theme.textPrimary,
+              borderColor: deleteError ? theme.danger : theme.border,
+              backgroundColor: theme.background,
+            },
+          ]}
+        />
+
+        {deleteError ? (
+          <Text style={[styles.errorText, { color: theme.danger }]}>
+            {deleteError}
+          </Text>
+        ) : null}
+
+        <View style={styles.modalActions}>
+          <Pressable
+            onPress={closeDeleteModal}
+            disabled={deleting}
+            style={[styles.cancelButton, { borderColor: theme.border }]}
+          >
+            <Text
+              style={[styles.cancelButtonText, { color: theme.textPrimary }]}
+            >
+              Cancel
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={handleConfirmDelete}
+            disabled={deleting || confirmText.trim().length === 0}
+            style={[
+              styles.confirmDeleteButton,
+              {
+                backgroundColor: theme.danger,
+                opacity: deleting || confirmText.trim().length === 0 ? 0.5 : 1,
+              },
+            ]}
+          >
+            <Text style={styles.confirmDeleteButtonText}>
+              {deleting ? "Deleting..." : "Delete permanently"}
+            </Text>
+          </Pressable>
+        </View>
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -451,13 +442,6 @@ const styles = StyleSheet.create({
   },
   deleteText: { fontWeight: "700", fontSize: 15 },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalSheet: { borderRadius: 20, padding: 22 },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
