@@ -1,11 +1,15 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.splenza.app",
       "sha256_cert_fingerprints": [
-        "F6:17:1F:6E:60:F5:15:6B:06:68:85:63:6F:9E:33:2F:21:9E:74:DA:87:5F:22:3E:63:19:0A:5D:7C:D4:4D:F2"
+        "F6:17:1F:6E:60:F5:15:6B:06:68:85:63:6F:9E:33:2F:21:9E:74:DA:87:5F:22:3E:63:19:0A:5D:7C:D4:4D:F2",
+        "66:C8:0B:50:A2:73:AE:A8:A7:C8:F8:07:AC:4D:C0:EA:5D:B3:A4:24:0A:CC:72:29:BF:CC:21:7F:67:97:08:5F"
       ]
     }
   }
