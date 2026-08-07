@@ -8,7 +8,6 @@ import {
   RefreshControl,
   TextInput,
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   NativeSyntheticEvent,
@@ -36,6 +35,7 @@ import {
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
+import { alert } from "@/components/AppAlert";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useGroupExport } from "@/hooks/useGroupExport";
 import {
@@ -852,7 +852,7 @@ export function GroupDetailScreen() {
                   <Pressable
                     onPress={() => {
                       if (isPending) {
-                        Alert.alert(
+                        alert(
                           "Still syncing",
                           "This expense hasn't finished syncing yet. It'll be viewable and editable once it's back online.",
                         );

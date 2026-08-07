@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,6 +23,7 @@ import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { Group } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type FormValues = {
@@ -85,7 +85,7 @@ export function CreateGroupScreen() {
         try {
           await uploadImage(`/api/v1/groups/${group.id}/photo`, image);
         } catch (err) {
-          Alert.alert(
+          alert(
             "Group created",
             `The group was created, but the photo couldn't be uploaded: ${getApiErrorMessage(err)}. You can try again from the group's settings.`,
           );

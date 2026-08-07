@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   Image,
   ActivityIndicator,
 } from "react-native";
@@ -16,6 +15,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
+import { alert } from "@/components/AppAlert";
 import { normalizePhoneNumber } from "@/lib/phoneFormat";
 import { pickSquareImage } from "@/hooks/useImagePicker";
 import { uploadImage } from "@/lib/uploadImage";
@@ -60,7 +60,7 @@ export function PersonalInformationScreen() {
         phoneNumber: phoneNumber ? normalizePhoneNumber(phoneNumber) : null,
       });
       queryClient.invalidateQueries({ queryKey: ["me"] });
-      Alert.alert("Saved", "Your personal information has been updated.");
+      alert("Saved", "Your personal information has been updated.");
     },
   });
 
@@ -76,7 +76,7 @@ export function PersonalInformationScreen() {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     onError: (err) => {
-      Alert.alert("Couldn't update photo", getApiErrorMessage(err));
+      alert("Couldn't update photo", getApiErrorMessage(err));
     },
   });
 

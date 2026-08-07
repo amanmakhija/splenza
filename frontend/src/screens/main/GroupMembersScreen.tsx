@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,6 +12,7 @@ import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { GroupMember } from "@/types/api";
 import { AppModal } from "@/components/AppModal";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "GroupMembers">;
@@ -51,7 +45,7 @@ export function GroupMembersScreen() {
       setActionTarget(null);
     },
     onError: (err) => {
-      Alert.alert("Couldn't remove member", getApiErrorMessage(err));
+      alert("Couldn't remove member", getApiErrorMessage(err));
     },
   });
 
@@ -59,29 +53,24 @@ export function GroupMembersScreen() {
     mutationFn: (userId: string) =>
       apiClient.post(`/api/v1/groups/${groupId}/members/${userId}`),
     onSuccess: () => invalidateGroup(),
-    onError: (err) =>
-      Alert.alert("Couldn't add member", getApiErrorMessage(err)),
+    onError: (err) => alert("Couldn't add member", getApiErrorMessage(err)),
   });
 
   const confirmRemove = () => {
     if (!actionTarget) return;
     const member = actionTarget;
-    Alert.alert(
-      "Remove member?",
-      `${member.name} will be removed from this group.`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => setActionTarget(null),
-        },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => removeMemberMutation.mutate(member.userId),
-        },
-      ],
-    );
+    alert("Remove member?", `${member.name} will be removed from this group.`, [
+      {
+        text: "Cancel",
+        style: "cancel",
+        onPress: () => setActionTarget(null),
+      },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => removeMemberMutation.mutate(member.userId),
+      },
+    ]);
   };
 
   const memberIds = new Set(groupQuery.data?.members.map((m) => m.userId));

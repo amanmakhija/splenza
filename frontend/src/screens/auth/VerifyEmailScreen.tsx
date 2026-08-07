@@ -7,7 +7,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -17,6 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/Button";
+import { alert } from "@/components/AppAlert";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { AuthStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/store/authStore";
@@ -64,7 +64,7 @@ export function VerifyEmailScreen({ route, navigation }: Props) {
 
     onSuccess: () => {
       setSeconds(30);
-      Alert.alert(
+      alert(
         "Verification Email Sent",
         "We've sent you a new verification code.",
       );
