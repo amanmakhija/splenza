@@ -1,6 +1,7 @@
 package com.splitwise.app.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.splitwise.app.dto.common.PhotoUploadResponse;
 import com.splitwise.app.dto.user.UserLookupRequest;
 import com.splitwise.app.dto.user.UserLookupResponse;
 import com.splitwise.app.dto.user.UserProfileResponse;
@@ -12,9 +13,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -81,6 +84,27 @@ public class UserController {
         UserProfileResponse response = userService.updateProfile(userId, body);
 
         log.info("Profile updated for user {}.", userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Upload profile photo",
+            description = "Uploads a new photo for the current user and saves it as their "
+            + "profilePictureUrl in the same request. Replaces any existing photo. "
+            + "Accepts multipart/form-data with a single 'file' field (JPEG/PNG/WEBP/HEIC, up to 10MB).")
+    @ApiResponse(responseCode = "200", description = "Photo uploaded and saved")
+    @ApiResponse(responseCode = "400", description = "Missing file, wrong file type, or file too large")
+    @PostMapping(value = "/me/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PhotoUploadResponse> uploadMyPhoto(
+            @RequestPart("file") MultipartFile file) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Profile photo upload requested by user {}.", userId);
+
+        PhotoUploadResponse response = userService.uploadProfilePhoto(userId, file);
+
+        log.info("Profile photo uploaded for user {}.", userId);
 
         return ResponseEntity.ok(response);
     }

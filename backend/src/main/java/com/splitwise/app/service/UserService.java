@@ -1,6 +1,7 @@
 package com.splitwise.app.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.splitwise.app.dto.common.PhotoUploadResponse;
 import com.splitwise.app.dto.user.UserLookupRequest;
 import com.splitwise.app.dto.user.UserLookupResponse;
 import com.splitwise.app.dto.user.UserProfileResponse;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +32,7 @@ import java.util.regex.Pattern;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PhotoUploadService photoUploadService;
 
     // Same shape as the old @Pattern, but applied per-entry in the service
     // layer instead of at the DTO/batch level - see lookupUsers() below for
@@ -220,6 +223,26 @@ public class UserService {
         log.info("Profile updated for user {}.", userId);
 
         return toProfileResponse(user);
+    }
+
+    /**
+     * Uploads a new profile photo and persists its URL onto the user in the
+     * same request - the client does not make a separate PATCH call. Any
+     * previous photo is best-effort deleted from storage.
+     */
+    @Transactional
+    public PhotoUploadResponse uploadProfilePhoto(UUID userId, MultipartFile file) {
+        User user = userRepository.findByIdAndDeletedFalse(userId)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+
+        String url = photoUploadService.uploadAndReplace(file, "users/" + userId, user.getProfilePictureUrl());
+
+        user.setProfilePictureUrl(url);
+        userRepository.save(user);
+
+        log.info("Profile photo updated for user {}.", userId);
+
+        return PhotoUploadResponse.builder().url(url).build();
     }
 
     private UserProfileResponse toProfileResponse(User user) {

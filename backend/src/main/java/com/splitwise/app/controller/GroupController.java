@@ -1,6 +1,8 @@
 package com.splitwise.app.controller;
 
+import com.splitwise.app.dto.common.PhotoUploadResponse;
 import com.splitwise.app.dto.group.CreateGroupRequest;
+import com.splitwise.app.dto.group.DeletedGroupResponse;
 import com.splitwise.app.dto.group.GroupResponse;
 import com.splitwise.app.dto.group.UpdateGroupRequest;
 import com.splitwise.app.service.GroupService;
@@ -13,8 +15,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -95,8 +99,8 @@ public class GroupController {
             description = "Restores a previously soft-deleted group along with all its data. Only the original creator may restore.")
     @ApiResponse(responseCode = "204", description = "Group restored successfully")
     @ApiResponse(responseCode = "403", description = "Not the group creator")
-    @ApiResponse(responseCode = "404", description = "Group not found")
-    @ApiResponse(responseCode = "409", description = "Group is not deleted")
+    @ApiResponse(responseCode = "404", description = "Group not found, or not currently deleted")
+    @ApiResponse(responseCode = "410", description = "Retention window has expired - no longer restorable")
     @PostMapping("/{groupId}/restore")
     public ResponseEntity<Void> restore(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
@@ -110,6 +114,45 @@ public class GroupController {
         log.info("Group {} restored by user {}.", groupId, userId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "List recently-deleted groups",
+            description = "Returns groups the current user created and then soft-deleted, "
+            + "still within the restore window.")
+    @ApiResponse(responseCode = "200", description = "Deleted groups returned")
+    @GetMapping("/deleted")
+    public ResponseEntity<List<DeletedGroupResponse>> listDeleted() {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("List deleted groups requested by user {}.", userId);
+
+        List<DeletedGroupResponse> response = groupService.listDeletedGroups(userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Upload group photo",
+            description = "Uploads a new photo for the group and saves it as its imageUrl in the "
+            + "same request. Any member may do this. Accepts multipart/form-data with a single "
+            + "'file' field (JPEG/PNG/WEBP/HEIC, up to 10MB).")
+    @ApiResponse(responseCode = "200", description = "Photo uploaded and saved")
+    @ApiResponse(responseCode = "400", description = "Missing file, wrong file type, or file too large")
+    @ApiResponse(responseCode = "404", description = "Group not found, or caller is not a member")
+    @PostMapping(value = "/{groupId}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PhotoUploadResponse> uploadPhoto(
+            @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
+            @RequestPart("file") MultipartFile file) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Group {} photo upload requested by user {}.", groupId, userId);
+
+        PhotoUploadResponse response = groupService.uploadGroupPhoto(userId, groupId, file);
+
+        log.info("Group {} photo uploaded by user {}.", groupId, userId);
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Archive/Unarchive group", description = "Archives or unarchives a group for current user.")

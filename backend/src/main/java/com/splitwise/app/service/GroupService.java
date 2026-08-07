@@ -1,6 +1,7 @@
 package com.splitwise.app.service;
 
 import com.splitwise.app.dto.balance.BalanceEntry;
+import com.splitwise.app.dto.common.PhotoUploadResponse;
 import com.splitwise.app.dto.group.*;
 import com.splitwise.app.entity.ActivityLog;
 import com.splitwise.app.entity.Group;
@@ -18,12 +19,15 @@ import com.splitwise.app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +49,16 @@ public class GroupService {
     private final ExpenseRepository expenseRepository;
     private final ExpenseParticipantRepository expenseParticipantRepository;
     private final SettlementRepository settlementRepository;
+    private final PhotoUploadService photoUploadService;
+
+    /**
+     * How long a soft-deleted group stays recoverable via restore() before it's
+     * treated as permanently gone (410). Matches the mobile app's "Recently
+     * Deleted... 30 days" copy by default; configurable since this is a product
+     * decision, not something that should require a code change to adjust.
+     */
+    @Value("${app.group.deleted-retention-days:30}")
+    private int deletedRetentionDays;
 
     @Transactional
     public GroupResponse create(UUID creatorId, CreateGroupRequest request) {
@@ -159,8 +173,16 @@ public class GroupService {
     /**
      * Restores a previously soft-deleted group and all its related data.
      *
-     * Authorization: only the original creator may restore. Error if the group
-     * was never deleted (or doesn't exist / isn't accessible).
+     * Authorization: only the original creator may restore. If the group was
+     * never deleted, this returns 404 rather than a 409/conflict - the
+     * endpoint's contract is "there is a deleted group with this id and I can
+     * restore it", and a group that's currently active simply doesn't match
+     * that description. (This is a judgment call, not something the original
+     * spec pinned down explicitly - flagged here and in PROGRESS.md.)
+     *
+     * If the group WAS deleted by this creator but the retention window has
+     * since expired, this returns 410 Gone - "recoverable for 30 days" implies
+     * it should not be restorable forever.
      */
     @Transactional
     public void restore(UUID actingUserId, UUID groupId) {
@@ -168,15 +190,22 @@ public class GroupService {
                 .orElseThrow(() -> ApiException.notFound("Group not found"));
 
         if (!group.isDeleted()) {
-            // Group is active - nothing to restore.
-            throw new ApiException("This group is not deleted and cannot be restored",
-                    HttpStatus.CONFLICT);
+            // Group is active - nothing to restore. Treated as "no such
+            // deleted group" rather than a conflict.
+            throw ApiException.notFound("This group is not currently deleted");
         }
 
         // For a deleted group, check creator directly on the entity - we
         // can't use groupMemberRepository (membership rows are soft-deleted
         // too), and the creator is always embedded on the Group entity.
         assertIsCreator(group, actingUserId);
+
+        Instant retentionCutoff = Instant.now().minus(deletedRetentionDays, ChronoUnit.DAYS);
+        if (group.getDeletedAt().isBefore(retentionCutoff)) {
+            throw ApiException.gone(
+                    "This group was deleted more than " + deletedRetentionDays
+                    + " days ago and can no longer be restored.");
+        }
 
         // Restore in reverse dependency order.
         List<UUID> expenseIds = expenseRepository.findAllIdsByGroupId(groupId);
@@ -191,6 +220,52 @@ public class GroupService {
         groupRepository.save(group);
 
         log.info("Group {} restored by creator {}.", groupId, actingUserId);
+    }
+
+    /**
+     * Lists the current user's own soft-deleted groups still within the
+     * retention window ("Recently Deleted"). Only groups this user created are
+     * returned - matching that only the creator could delete/restore them; a
+     * former member who wasn't the creator has no visibility here. Groups past
+     * the retention window are excluded (they're no longer restorable, so
+     * surfacing them would be misleading).
+     */
+    @Transactional(readOnly = true)
+    public List<DeletedGroupResponse> listDeletedGroups(UUID userId) {
+        Instant retentionCutoff = Instant.now().minus(deletedRetentionDays, ChronoUnit.DAYS);
+
+        return groupRepository.findDeletedGroupsCreatedBy(userId).stream()
+                .filter(g -> g.getDeletedAt().isAfter(retentionCutoff))
+                .map(g -> DeletedGroupResponse.builder()
+                .id(g.getId())
+                .name(g.getName())
+                .deletedAt(g.getDeletedAt())
+                .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Uploads a new group photo and saves it as the group's imageUrl in the
+     * same request. Any member may do this (mirrors update(), which is also not
+     * creator-restricted) - only deleting a group is creator-only. Non-members
+     * get 404, same as the rest of this class, to avoid leaking whether a group
+     * id exists.
+     */
+    @Transactional
+    public PhotoUploadResponse uploadGroupPhoto(UUID actingUserId, UUID groupId, MultipartFile file) {
+        Group group = getActiveGroupOrThrow(groupId);
+        if (!groupMemberRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, actingUserId)) {
+            throw ApiException.notFound("Group not found");
+        }
+
+        String url = photoUploadService.uploadAndReplace(file, "groups/" + groupId, group.getImageUrl());
+
+        group.setImageUrl(url);
+        groupRepository.save(group);
+
+        log.info("Group {} photo updated by user {}.", groupId, actingUserId);
+
+        return PhotoUploadResponse.builder().url(url).build();
     }
 
     @Transactional

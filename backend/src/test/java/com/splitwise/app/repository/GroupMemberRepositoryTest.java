@@ -234,7 +234,6 @@ class GroupMemberRepositoryTest extends BaseRepositoryTest {
         Group group = Group.builder()
                 .name(name)
                 .createdBy(owner)
-                .deleted(false)
                 .archived(false)
                 .build();
 

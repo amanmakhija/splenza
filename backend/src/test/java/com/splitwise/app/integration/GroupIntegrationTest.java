@@ -529,8 +529,8 @@ class GroupIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @DisplayName("restoring an active (non-deleted) group → 409")
-        void restoringActiveGroupIs409() throws Exception {
+        @DisplayName("restoring an active (non-deleted) group → 404")
+        void restoringActiveGroupIs404() throws Exception {
 
             User creator = createVerifiedUser("creator@test.com", "Password123");
             UUID groupId = createGroup(creator, "Goa Trip");
@@ -539,7 +539,35 @@ class GroupIntegrationTest extends BaseIntegrationTest {
                     post("/api/v1/groups/" + groupId + "/restore")
                             .header("Authorization", bearerTokenFor(creator))
             )
-                    .andExpect(status().isConflict());
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("recently-deleted groups list shows what was deleted, restore removes it from the list")
+        void deletedGroupsListReflectsDeleteAndRestore() throws Exception {
+
+            User creator = createVerifiedUser("creator@test.com", "Password123");
+            UUID groupId = createGroup(creator, "Goa Trip");
+
+            mockMvc.perform(delete("/api/v1/groups/" + groupId)
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get("/api/v1/groups/deleted")
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].id").value(groupId.toString()))
+                    .andExpect(jsonPath("$[0].name").value("Goa Trip"))
+                    .andExpect(jsonPath("$[0].deletedAt").exists());
+
+            mockMvc.perform(post("/api/v1/groups/" + groupId + "/restore")
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get("/api/v1/groups/deleted")
+                    .header("Authorization", bearerTokenFor(creator)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isEmpty());
         }
 
         @Test

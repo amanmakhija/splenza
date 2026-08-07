@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -50,6 +51,8 @@ class GroupServiceTest {
     private ExpenseParticipantRepository expenseParticipantRepository;
     @Mock
     private SettlementRepository settlementRepository;
+    @Mock
+    private PhotoUploadService photoUploadService;
 
     @InjectMocks
     private GroupService groupService;
@@ -60,6 +63,8 @@ class GroupServiceTest {
 
     @BeforeEach
     void setup() {
+
+        ReflectionTestUtils.setField(groupService, "deletedRetentionDays", 30);
 
         creatorId = UUID.randomUUID();
 
@@ -75,7 +80,6 @@ class GroupServiceTest {
                 .description("Goa Trip")
                 .createdBy(creator)
                 .createdAt(Instant.now())
-                .deleted(false)
                 .archived(false)
                 .build();
     }
@@ -446,16 +450,46 @@ class GroupServiceTest {
     }
 
     @Test
-    void restore_groupNotDeleted_shouldThrow409() {
+    void restore_groupNotDeleted_shouldThrow404() {
 
-        // group.deleted is false (default from setUp)
+        // group.deletedAt is null (default from setUp)
         when(groupRepository.findById(group.getId()))
                 .thenReturn(Optional.of(group));
 
         ApiException ex = assertThrows(ApiException.class,
                 () -> groupService.restore(creatorId, group.getId()));
 
-        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, ex.getStatus());
+    }
+
+    @Test
+    void restore_pastRetentionWindow_shouldThrow410() {
+
+        group.setDeletedAt(Instant.now().minus(31, java.time.temporal.ChronoUnit.DAYS));
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> groupService.restore(creatorId, group.getId()));
+
+        assertEquals(org.springframework.http.HttpStatus.GONE, ex.getStatus());
+        assertTrue(group.isDeleted());
+    }
+
+    @Test
+    void restore_withinRetentionWindow_shouldSucceed() {
+
+        group.setDeletedAt(Instant.now().minus(29, java.time.temporal.ChronoUnit.DAYS));
+
+        when(groupRepository.findById(group.getId()))
+                .thenReturn(Optional.of(group));
+        when(expenseRepository.findAllIdsByGroupId(group.getId()))
+                .thenReturn(Collections.emptyList());
+
+        groupService.restore(creatorId, group.getId());
+
+        assertFalse(group.isDeleted());
     }
 
     @Test
@@ -466,6 +500,35 @@ class GroupServiceTest {
 
         assertThrows(ApiException.class,
                 () -> groupService.restore(creatorId, group.getId()));
+    }
+
+    @Test
+    void listDeletedGroups_returnsOnlyGroupsCreatedByUserWithinRetention() {
+
+        group.setDeletedAt(Instant.now().minus(5, java.time.temporal.ChronoUnit.DAYS));
+
+        when(groupRepository.findDeletedGroupsCreatedBy(creatorId))
+                .thenReturn(List.of(group));
+
+        List<DeletedGroupResponse> result = groupService.listDeletedGroups(creatorId);
+
+        assertEquals(1, result.size());
+        assertEquals(group.getId(), result.get(0).getId());
+        assertEquals(group.getName(), result.get(0).getName());
+        assertEquals(group.getDeletedAt(), result.get(0).getDeletedAt());
+    }
+
+    @Test
+    void listDeletedGroups_excludesGroupsPastRetentionWindow() {
+
+        group.setDeletedAt(Instant.now().minus(45, java.time.temporal.ChronoUnit.DAYS));
+
+        when(groupRepository.findDeletedGroupsCreatedBy(creatorId))
+                .thenReturn(List.of(group));
+
+        List<DeletedGroupResponse> result = groupService.listDeletedGroups(creatorId);
+
+        assertTrue(result.isEmpty());
     }
 
     @Test

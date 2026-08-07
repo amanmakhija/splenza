@@ -46,10 +46,6 @@ aws:
     bucket: ${AWS_S3_BUCKET}
     region: ${AWS_REGION}
 
-google:
-  oauth:
-    client-id: ${GOOGLE_OAUTH_CLIENT_ID}
-
 app:
   frontend-url: ${FRONTEND_URL}
   mail:
@@ -58,6 +54,23 @@ app:
     allowed-origins:
       - https://getsplenza.in
       - https://www.getsplenza.in
+  storage:
+    provider: ${STORAGE_PROVIDER:s3}
+    max-file-size-bytes: 10485760
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+      region: ${AWS_REGION}
+      endpoint: ${AWS_S3_ENDPOINT:}
+      public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
+      path-style-access: ${AWS_S3_PATH_STYLE_ACCESS:false}
+      access-key-id: ${AWS_S3_ACCESS_KEY_ID:}
+      secret-access-key: ${AWS_S3_SECRET_ACCESS_KEY:}
+  group:
+    deleted-retention-days: ${GROUP_DELETED_RETENTION_DAYS:30}
+
+google:
+  oauth:
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID}
 
 firebase:
   enabled: ${FIREBASE_ENABLED:false}

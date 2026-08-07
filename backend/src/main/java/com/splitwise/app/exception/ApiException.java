@@ -68,6 +68,13 @@ public class ApiException extends RuntimeException {
         );
     }
 
+    public static ApiException gone(String message) {
+        return new ApiException(
+                message,
+                HttpStatus.GONE
+        );
+    }
+
     public static ApiException emailNotVerified() {
         return new ApiException(
                 "Please verify your email.",

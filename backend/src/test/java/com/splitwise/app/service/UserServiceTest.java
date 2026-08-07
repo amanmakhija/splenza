@@ -27,13 +27,16 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PhotoUploadService photoUploadService;
+
     private UserService userService;
 
     private UUID requesterId;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository);
+        userService = new UserService(userRepository, photoUploadService);
         requesterId = UUID.randomUUID();
     }
 

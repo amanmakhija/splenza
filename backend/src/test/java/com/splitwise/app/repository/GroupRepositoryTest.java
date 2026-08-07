@@ -114,6 +114,31 @@ class GroupRepositoryTest extends BaseRepositoryTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("should return deleted groups created by user, most recent first")
+    void shouldReturnDeletedGroupsCreatedByUser() {
+        User owner = persistUser("owner@test.com");
+
+        Group older = persistGroup("Old Trip", owner, false);
+        older.setDeletedAt(Instant.now().minus(10, java.time.temporal.ChronoUnit.DAYS));
+        entityManager.persist(older);
+
+        Group newer = persistGroup("Recent Trip", owner, false);
+        newer.setDeletedAt(Instant.now().minus(1, java.time.temporal.ChronoUnit.DAYS));
+        entityManager.persist(newer);
+
+        persistGroup("Still Active", owner, false);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Group> result = groupRepository.findDeletedGroupsCreatedBy(owner.getId());
+
+        assertThat(result)
+                .extracting(Group::getName)
+                .containsExactly("Recent Trip", "Old Trip");
+    }
+
     private User persistUser(String email) {
         User user = User.builder()
                 .name(email)
@@ -134,7 +159,7 @@ class GroupRepositoryTest extends BaseRepositoryTest {
         Group group = Group.builder()
                 .name(name)
                 .createdBy(owner)
-                .deleted(deleted)
+                .deletedAt(deleted ? Instant.now() : null)
                 .archived(false)
                 .build();
 
