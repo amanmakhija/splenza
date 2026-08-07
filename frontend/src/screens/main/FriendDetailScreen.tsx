@@ -25,6 +25,7 @@ import { useAuthStore } from "@/store/authStore";
 import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { usePaginatedMergedTimeline } from "@/hooks/usePaginatedMergedTimeline";
+import { ScreenHeader } from "@/components/ScreenHeader";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<FriendsStackParamList, "FriendDetail">,
@@ -113,8 +114,9 @@ export function FriendDetailScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
+      <ScreenHeader title={friendName} />
       <View
         style={[
           styles.balanceCard,

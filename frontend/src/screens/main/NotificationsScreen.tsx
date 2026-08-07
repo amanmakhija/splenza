@@ -21,6 +21,7 @@ import { NotificationDto, PageResponse } from "@/types/api";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { handleNotificationNavigation } from "@/services/notificationNavigation";
 import { asString } from "@/services/notificationService";
+import { ScreenHeader } from "@/components/ScreenHeader";
 
 const PAGE_SIZE = 20;
 
@@ -124,17 +125,12 @@ export function NotificationsScreen() {
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
-          Notifications
-        </Text>
-
-        <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
-          Stay updated with your expenses and groups
-        </Text>
-      </View>
+      <ScreenHeader
+        title="Notifications"
+        subtitle="Stay updated with your expenses and groups"
+      />
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.id}
