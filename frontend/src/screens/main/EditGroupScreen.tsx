@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   Image,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +21,7 @@ import { uploadImage } from "@/lib/uploadImage";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "EditGroup">;
@@ -91,7 +91,7 @@ export function EditGroupScreen() {
       invalidateGroup();
     },
     onError: (err) => {
-      Alert.alert("Couldn't update photo", getApiErrorMessage(err));
+      alert("Couldn't update photo", getApiErrorMessage(err));
     },
   });
 

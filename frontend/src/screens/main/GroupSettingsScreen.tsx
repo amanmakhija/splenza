@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
   ScrollView,
   Image,
 } from "react-native";
@@ -31,6 +30,7 @@ import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useGroupExport } from "@/hooks/useGroupExport";
 import { GroupBalanceResponse } from "@/types/api";
 import { AppModal } from "@/components/AppModal";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "GroupSettings">;
@@ -114,7 +114,7 @@ export function GroupSettingsScreen() {
       goBackToGroupsList();
     },
     onError: (err) => {
-      Alert.alert("Couldn't leave group", getApiErrorMessage(err));
+      alert("Couldn't leave group", getApiErrorMessage(err));
     },
   });
 
@@ -134,7 +134,7 @@ export function GroupSettingsScreen() {
       goBackToGroupsList();
     },
     onError: (err) => {
-      Alert.alert("Couldn't delete group", getApiErrorMessage(err));
+      alert("Couldn't delete group", getApiErrorMessage(err));
     },
   });
 
@@ -160,7 +160,7 @@ export function GroupSettingsScreen() {
   };
 
   const confirmLeave = () => {
-    Alert.alert(
+    alert(
       "Leave group?",
       "You'll need to be re-invited to rejoin. Make sure you're settled up first.",
       [
@@ -175,7 +175,7 @@ export function GroupSettingsScreen() {
   };
 
   const confirmDelete = () => {
-    Alert.alert(
+    alert(
       "Delete this group?",
       "This moves the group to Recently Deleted, where it can be restored for the next 30 days before it's gone for good.",
       [

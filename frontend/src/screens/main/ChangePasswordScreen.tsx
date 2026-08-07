@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  Pressable,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
@@ -14,6 +7,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
+import { alert } from "@/components/AppAlert";
 import { ChevronLeft } from "lucide-react-native";
 
 /**
@@ -36,7 +30,7 @@ export function ChangePasswordScreen() {
         newPassword,
       }),
     onSuccess: () => {
-      Alert.alert("Password changed", "Your password has been updated.", [
+      alert("Password changed", "Your password has been updated.", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     },
