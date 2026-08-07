@@ -7,7 +7,6 @@ import {
   TextInput,
   Pressable,
   Platform,
-  Modal,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,7 +19,6 @@ import {
   Trash2,
   Users,
   ChevronRight,
-  X,
   Delete,
   Tag,
   UtensilsCrossed,
@@ -44,6 +42,7 @@ import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
 import { SegmentedControl } from "@/components/SegmentedControl";
+import { AppModal } from "@/components/AppModal";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "CreateExpense">;
@@ -811,12 +810,13 @@ export function CreateExpenseScreen() {
   );
 }
 
-// Small shared bottom-sheet-style modal wrapper for the pickers above.
+// Small shared wrapper around AppModal for the pickers above - kept as its
+// own function (rather than inlining AppModal at each call site) so the
+// four pickers below don't have to repeat title/scrollable wiring.
 function BottomSheet({
   visible,
   onClose,
   title,
-  theme,
   scrollable,
   children,
 }: {
@@ -827,38 +827,15 @@ function BottomSheet({
   scrollable?: boolean;
   children: React.ReactNode;
 }) {
-  const Content = scrollable ? ScrollView : View;
   return (
-    <Modal
+    <AppModal
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title={title}
+      scrollable={scrollable}
     >
-      <View style={styles.sheetOverlay}>
-        <View style={[styles.sheetCard, { backgroundColor: theme.surface }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: theme.textPrimary }]}>
-              {title}
-            </Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel="Close"
-              accessibilityRole="button"
-            >
-              <X size={22} color={theme.textMuted} />
-            </Pressable>
-          </View>
-          <Content
-            contentContainerStyle={
-              scrollable ? { paddingBottom: 20 } : undefined
-            }
-          >
-            {children}
-          </Content>
-        </View>
-      </View>
-    </Modal>
+      {children}
+    </AppModal>
   );
 }
 
@@ -919,25 +896,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   keypadKeyText: { fontSize: 22, fontWeight: "600" },
-
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  sheetCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: "80%",
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  sheetTitle: { fontSize: 17, fontWeight: "800" },
 
   sectionLabel: { fontSize: 13, fontWeight: "700", marginBottom: 10 },
   categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
