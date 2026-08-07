@@ -162,6 +162,48 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Handle MissingServletRequestPartException")
+    void handleMissingServletRequestPart_shouldReturnBadRequest() {
+
+        org.springframework.web.multipart.support.MissingServletRequestPartException exception
+                = new org.springframework.web.multipart.support.MissingServletRequestPartException("file");
+
+        ResponseEntity<ErrorResponse> response
+                = handler.handleMissingServletRequestPart(exception, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+
+        ErrorResponse body = response.getBody();
+
+        assertNotNull(body);
+        assertEquals(400, body.getStatus());
+        assertEquals("Bad Request", body.getError());
+        assertEquals("No file was provided", body.getMessage());
+        assertEquals("/api/test", body.getPath());
+    }
+
+    @Test
+    @DisplayName("Handle MaxUploadSizeExceededException")
+    void handleMaxUploadSizeExceeded_shouldReturnBadRequest() {
+
+        org.springframework.web.multipart.MaxUploadSizeExceededException exception
+                = new org.springframework.web.multipart.MaxUploadSizeExceededException(10485760L);
+
+        ResponseEntity<ErrorResponse> response
+                = handler.handleMaxUploadSizeExceeded(exception, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+
+        ErrorResponse body = response.getBody();
+
+        assertNotNull(body);
+        assertEquals(400, body.getStatus());
+        assertEquals("Bad Request", body.getError());
+        assertEquals("The uploaded file exceeds the maximum allowed size", body.getMessage());
+        assertEquals("/api/test", body.getPath());
+    }
+
+    @Test
     @DisplayName("Handle generic exception")
     void handleGeneric_shouldReturnInternalServerError() {
 

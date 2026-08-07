@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -159,6 +160,30 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestPart(
+            MissingServletRequestPartException ex,
+            HttpServletRequest request
+    ) {
+
+        log.warn(
+                "Missing required multipart part '{}': {} {}",
+                ex.getRequestPartName(),
+                request.getMethod(),
+                request.getRequestURI()
+        );
+
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Bad Request")
+                .message("No file was provided")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
