@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -32,6 +31,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { Expense } from "@/types/api";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "ExpenseDetail">;
@@ -103,12 +103,12 @@ export function ExpenseDetailScreen() {
       navigation.goBack();
     },
     onError: (err) => {
-      Alert.alert("Couldn't delete expense", getApiErrorMessage(err));
+      alert("Couldn't delete expense", getApiErrorMessage(err));
     },
   });
 
   const confirmDelete = () => {
-    Alert.alert(
+    alert(
       "Delete expense?",
       "This will remove it for everyone in the split. This can't be undone.",
       [

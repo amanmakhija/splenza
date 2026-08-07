@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -14,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, RotateCcw, Archive } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "DeletedGroups">;
@@ -67,7 +61,7 @@ export function DeletedGroupsScreen() {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
     onError: (err) => {
-      Alert.alert("Couldn't restore group", getApiErrorMessage(err));
+      alert("Couldn't restore group", getApiErrorMessage(err));
     },
   });
 

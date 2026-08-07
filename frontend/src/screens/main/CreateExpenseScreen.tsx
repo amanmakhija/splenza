@@ -7,7 +7,6 @@ import {
   TextInput,
   Pressable,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -43,6 +42,7 @@ import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { AppModal } from "@/components/AppModal";
+import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "CreateExpense">;
@@ -310,7 +310,7 @@ export function CreateExpenseScreen() {
 
     if (!isConnected) {
       enqueueOffline(payload, { groupId, friendId });
-      Alert.alert(
+      alert(
         "Saved offline",
         "This expense will sync automatically once you're back online.",
       );
