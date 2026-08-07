@@ -6,19 +6,19 @@ import {
   FlatList,
   Pressable,
   Alert,
-  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, MoreVertical, X } from "lucide-react-native";
+import { ChevronLeft, MoreVertical } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { GroupMember } from "@/types/api";
+import { AppModal } from "@/components/AppModal";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "GroupMembers">;
@@ -176,100 +176,60 @@ export function GroupMembersScreen() {
       />
 
       {/* Per-member action menu (currently just "Remove from group") */}
-      <Modal
+      <AppModal
         visible={actionTarget !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActionTarget(null)}
+        onClose={() => setActionTarget(null)}
+        title={actionTarget?.name}
+        scrollable={false}
       >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setActionTarget(null)}
-        >
-          <View
-            style={[
-              styles.actionSheet,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.actionSheetTitle, { color: theme.textMuted }]}>
-              {actionTarget?.name}
-            </Text>
-            <Pressable onPress={confirmRemove} style={styles.actionItem}>
-              <Text style={{ color: theme.danger, fontWeight: "700" }}>
-                Remove from group
-              </Text>
-            </Pressable>
-          </View>
+        <Pressable onPress={confirmRemove} style={styles.actionItem}>
+          <Text style={{ color: theme.danger, fontWeight: "700" }}>
+            Remove from group
+          </Text>
         </Pressable>
-      </Modal>
+      </AppModal>
 
       {/* Invite modal - add friends who aren't already in the group */}
-      <Modal
+      <AppModal
         visible={inviteOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setInviteOpen(false)}
+        onClose={() => setInviteOpen(false)}
+        title="Invite friends"
+        scrollable={false}
       >
-        <View style={styles.inviteOverlay}>
-          <View
-            style={[styles.inviteSheet, { backgroundColor: theme.surface }]}
-          >
-            <View style={styles.inviteHeader}>
-              <Text style={[styles.inviteTitle, { color: theme.textPrimary }]}>
-                Invite friends
-              </Text>
+        <FlatList
+          data={invitableFriends}
+          keyExtractor={(f) => f.userId}
+          ItemSeparatorComponent={() => (
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          )}
+          renderItem={({ item }) => (
+            <View style={styles.inviteRow}>
+              <View style={styles.rowBody}>
+                <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+                  {item.email}
+                </Text>
+              </View>
               <Pressable
-                onPress={() => setInviteOpen(false)}
-                accessibilityLabel="Close"
-                accessibilityRole="button"
+                onPress={() => inviteMutation.mutate(item.userId)}
+                disabled={inviteMutation.isPending}
+                style={[styles.addButton, { backgroundColor: theme.primary }]}
               >
-                <X size={22} color={theme.textMuted} />
+                <Text style={styles.addButtonText}>Add</Text>
               </Pressable>
             </View>
-            <FlatList
-              data={invitableFriends}
-              keyExtractor={(f) => f.userId}
-              ItemSeparatorComponent={() => (
-                <View
-                  style={[styles.divider, { backgroundColor: theme.border }]}
-                />
-              )}
-              renderItem={({ item }) => (
-                <View style={styles.inviteRow}>
-                  <View style={styles.rowBody}>
-                    <Text
-                      style={{ color: theme.textPrimary, fontWeight: "600" }}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                      {item.email}
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={() => inviteMutation.mutate(item.userId)}
-                    disabled={inviteMutation.isPending}
-                    style={[
-                      styles.addButton,
-                      { backgroundColor: theme.primary },
-                    ]}
-                  >
-                    <Text style={styles.addButtonText}>Add</Text>
-                  </Pressable>
-                </View>
-              )}
-              ListEmptyComponent={
-                <Text style={{ color: theme.textMuted, padding: 16 }}>
-                  {friendsQuery.isLoading
-                    ? "Loading friends..."
-                    : "Everyone you're friends with is already in this group."}
-                </Text>
-              }
-            />
-          </View>
-        </View>
-      </Modal>
+          )}
+          ListEmptyComponent={
+            <Text style={{ color: theme.textMuted, padding: 16 }}>
+              {friendsQuery.isLoading
+                ? "Loading friends..."
+                : "Everyone you're friends with is already in this group."}
+            </Text>
+          }
+        />
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -310,44 +270,8 @@ const styles = StyleSheet.create({
   },
   adminBadgeText: { fontSize: 11, fontWeight: "800" },
 
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  actionSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    paddingBottom: 32,
-  },
-  actionSheetTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 12,
-    textTransform: "uppercase",
-  },
   actionItem: { paddingVertical: 12 },
 
-  inviteOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  inviteSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: "70%",
-  },
-  inviteHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  inviteTitle: { fontSize: 18, fontWeight: "800" },
   inviteRow: {
     flexDirection: "row",
     alignItems: "center",
