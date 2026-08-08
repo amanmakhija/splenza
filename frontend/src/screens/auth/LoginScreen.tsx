@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -16,27 +16,39 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { getApiErrorMessage, getApiErrorCode } from "@/lib/apiClient";
+import { normalizePhoneNumber } from "@/lib/phoneFormat";
 import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { AuthStackParamList } from "@/navigation/types";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { storage, StorageKeys } from "@/lib/storage";
 
 type FormValues = { email: string; password: string };
+type PhoneFormValues = { phoneNumber: string };
 type Nav = NativeStackNavigationProp<AuthStackParamList, "Login">;
 
 export function LoginScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
   const login = useAuthStore((s) => s.login);
+  const startPhoneLogin = useAuthStore((s) => s.startPhoneLogin);
+
+  const [method, setMethod] = useState<"email" | "phone">("email");
 
   const {
     control,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({ defaultValues: { email: "", password: "" } });
+
+  const {
+    control: phoneControl,
+    handleSubmit: handlePhoneSubmit,
+    formState: { errors: phoneErrors },
+  } = useForm<PhoneFormValues>({ defaultValues: { phoneNumber: "" } });
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => login(values),
@@ -60,7 +72,24 @@ export function LoginScreen() {
     },
   });
 
+  const phoneMutation = useMutation({
+    mutationFn: async (values: PhoneFormValues) => {
+      const phoneNumber = normalizePhoneNumber(values.phoneNumber);
+      await startPhoneLogin(phoneNumber);
+      return phoneNumber;
+    },
+
+    onSuccess: (phoneNumber) => {
+      navigation.navigate("VerifyPhone", {
+        phoneNumber,
+        purpose: "LOGIN",
+      });
+    },
+  });
+
   const onSubmit = (values: FormValues) => mutation.mutate(values);
+  const onPhoneSubmit = (values: PhoneFormValues) =>
+    phoneMutation.mutate(values);
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
@@ -87,74 +116,126 @@ export function LoginScreen() {
             </Text>
           </View>
 
-          <Controller
-            control={control}
-            name="email"
-            rules={{
-              required: "Email is required",
-              pattern: {
-                value: /^\S+@\S+\.\S+$/,
-                message: "Enter a valid email",
-              },
-            }}
-            render={({ field: { onChange, value } }) => (
-              <TextField
-                label="Email"
-                value={value}
-                onChangeText={onChange}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholder="you@example.com"
-                error={errors.email?.message}
+          <View style={{ marginBottom: 20 }}>
+            <SegmentedControl
+              options={[
+                { label: "Email", value: "email" },
+                { label: "Phone", value: "phone" },
+              ]}
+              value={method}
+              onChange={setMethod}
+            />
+          </View>
+
+          {method === "email" ? (
+            <>
+              <Controller
+                control={control}
+                name="email"
+                rules={{
+                  required: "Email is required",
+                  pattern: {
+                    value: /^\S+@\S+\.\S+$/,
+                    message: "Enter a valid email",
+                  },
+                }}
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    label="Email"
+                    value={value}
+                    onChangeText={onChange}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder="you@example.com"
+                    error={errors.email?.message}
+                  />
+                )}
               />
-            )}
-          />
 
-          <Controller
-            control={control}
-            name="password"
-            rules={{ required: "Password is required" }}
-            render={({ field: { onChange, value } }) => (
-              <TextField
-                label="Password"
-                value={value}
-                onChangeText={onChange}
-                secureTextEntry
-                placeholder="••••••••"
-                error={errors.password?.message}
+              <Controller
+                control={control}
+                name="password"
+                rules={{ required: "Password is required" }}
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    label="Password"
+                    value={value}
+                    onChangeText={onChange}
+                    secureTextEntry
+                    placeholder="••••••••"
+                    error={errors.password?.message}
+                  />
+                )}
               />
-            )}
-          />
 
-          {mutation.isError ? (
-            <Text style={[styles.formError, { color: theme.danger }]}>
-              {getApiErrorMessage(mutation.error)}
-            </Text>
-          ) : null}
+              {mutation.isError ? (
+                <Text style={[styles.formError, { color: theme.danger }]}>
+                  {getApiErrorMessage(mutation.error)}
+                </Text>
+              ) : null}
 
-          <Pressable
-            onPress={() => navigation.navigate("ForgotPassword")}
-            style={{
-              alignSelf: "flex-end",
-              marginTop: -6,
-              marginBottom: 18,
-            }}
-          >
-            <Text
-              style={{
-                color: theme.primary,
-                fontWeight: "600",
-              }}
-            >
-              Forgot Password?
-            </Text>
-          </Pressable>
+              <Pressable
+                onPress={() => navigation.navigate("ForgotPassword")}
+                style={{
+                  alignSelf: "flex-end",
+                  marginTop: -6,
+                  marginBottom: 18,
+                }}
+              >
+                <Text
+                  style={{
+                    color: theme.primary,
+                    fontWeight: "600",
+                  }}
+                >
+                  Forgot Password?
+                </Text>
+              </Pressable>
 
-          <Button
-            title="Log In"
-            onPress={handleSubmit(onSubmit)}
-            loading={mutation.isPending}
-          />
+              <Button
+                title="Log In"
+                onPress={handleSubmit(onSubmit)}
+                loading={mutation.isPending}
+              />
+            </>
+          ) : (
+            <>
+              <Controller
+                control={phoneControl}
+                name="phoneNumber"
+                rules={{
+                  required: "Phone number is required",
+                  pattern: {
+                    value: /^\+?[1-9]\d{7,14}$/,
+                    message: "Use international format, e.g. +919876543210",
+                  },
+                }}
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    label="Phone number"
+                    value={value}
+                    onChangeText={onChange}
+                    keyboardType="phone-pad"
+                    placeholder="+919876543210"
+                    error={phoneErrors.phoneNumber?.message}
+                  />
+                )}
+              />
+
+              {phoneMutation.isError ? (
+                <Text style={[styles.formError, { color: theme.danger }]}>
+                  {getApiErrorMessage(phoneMutation.error)}
+                </Text>
+              ) : null}
+
+              <Button
+                title="Send Code"
+                onPress={handlePhoneSubmit(onPhoneSubmit)}
+                loading={phoneMutation.isPending}
+                style={{ marginTop: 4 }}
+              />
+            </>
+          )}
 
           <View style={styles.dividerRow}>
             <View

@@ -5,14 +5,15 @@ export interface AuthResponse {
   refreshToken: string;
   userId: string;
   name: string;
-  email: string;
+  email: string | null;
+  phoneNumber: string | null;
   profilePictureUrl: string | null;
+  hasPassword: boolean;
 }
 
 export interface SignupPayload {
   name: string;
   email: string;
-  phoneNumber?: string;
   password: string;
 }
 
@@ -24,11 +25,18 @@ export interface LoginPayload {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string | null;
   phoneNumber?: string | null;
   profilePictureUrl?: string | null;
   /** UPI VPA (e.g. "name@bank") the user has set for receiving payments. */
   upiId?: string | null;
+  /**
+   * Whether the account has a password set at all. False for a user who
+   * signed up via phone+OTP and hasn't verified an email (or verified an
+   * email but hasn't set a password yet) - phone numbers never have a
+   * password of their own.
+   */
+  hasPassword?: boolean;
 }
 
 export type SplitType = "EQUAL" | "EXACT" | "PERCENTAGE" | "SHARES";
@@ -254,4 +262,49 @@ export interface GroupBalanceSummary {
 export interface SignupResponse {
   email: string;
   message: string;
+}
+
+// --- Multi-identifier auth (email / phone-OTP / OAuth) ---------------------
+// Mirrors the backend/auth prompt: a user can have a verified EMAIL and/or
+// PHONE identifier, plus OAuth links. Phone identifiers are OTP-only - there
+// is never a password tied to a phone number directly.
+
+export type IdentifierType = "EMAIL" | "PHONE";
+
+export interface UserIdentifier {
+  id: string;
+  type: IdentifierType;
+  value: string;
+  verified: boolean;
+  isPrimary: boolean;
+}
+
+export interface PhoneOtpStartPayload {
+  phoneNumber: string;
+}
+
+export interface PhoneSignupVerifyPayload {
+  phoneNumber: string;
+  otp: string;
+  name: string;
+}
+
+export interface PhoneLoginVerifyPayload {
+  phoneNumber: string;
+  otp: string;
+}
+
+export interface AddIdentifierStartPayload {
+  type: IdentifierType;
+  value: string;
+}
+
+export interface AddIdentifierVerifyPayload {
+  type: IdentifierType;
+  value: string;
+  otp: string;
+}
+
+export interface SetPasswordPayload {
+  password: string;
 }
