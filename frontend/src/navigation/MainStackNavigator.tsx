@@ -15,6 +15,10 @@ import { PersonalInformationScreen } from "@/screens/main/PersonalInformationScr
 import { PaymentMethodsScreen } from "@/screens/main/PaymentMethodsScreen";
 import { HelpSupportScreen } from "@/screens/main/HelpSupportScreen";
 import { ChangePasswordScreen } from "@/screens/main/ChangePasswordScreen";
+import { AccountSecurityScreen } from "@/screens/main/AccountSecurityScreen";
+import { AddIdentifierScreen } from "@/screens/main/AddIdentifierScreen";
+import { VerifyIdentifierScreen } from "@/screens/main/VerifyIdentifierScreen";
+import { SetPasswordScreen } from "@/screens/main/SetPasswordScreen";
 import { DeletedGroupsScreen } from "@/screens/main/DeletedGroupsScreen";
 import { GroupMembersScreen } from "@/screens/main/GroupMembersScreen";
 import { NotificationSettingsScreen } from "@/screens/main/NotificationSettingsScreen";
@@ -41,6 +45,13 @@ export function MainStackNavigator() {
       <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="AccountSecurity" component={AccountSecurityScreen} />
+      <Stack.Screen name="AddIdentifier" component={AddIdentifierScreen} />
+      <Stack.Screen
+        name="VerifyIdentifier"
+        component={VerifyIdentifierScreen}
+      />
+      <Stack.Screen name="SetPassword" component={SetPasswordScreen} />
       <Stack.Screen name="DeletedGroups" component={DeletedGroupsScreen} />
       <Stack.Screen
         name="NotificationSettings"

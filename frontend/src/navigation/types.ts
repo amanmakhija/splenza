@@ -11,8 +11,16 @@ export type AuthStackParamList = {
   VerifyEmail: {
     email: string;
   };
+  VerifyPhone: {
+    phoneNumber: string;
+    purpose: "SIGNUP" | "LOGIN";
+    /** Only used (and required) when purpose is "SIGNUP". */
+    name?: string;
+  };
   VerificationSuccess: {
     authResponse: AuthResponse;
+    /** Defaults to "Email Verified" if omitted, for backward compatibility. */
+    title?: string;
   };
   ResetPassword: {
     token: string;
@@ -81,6 +89,15 @@ export type MainStackParamList = {
   PaymentMethods: undefined;
   HelpSupport: undefined;
   ChangePassword: undefined;
+  AccountSecurity: undefined;
+  AddIdentifier: {
+    type: "EMAIL" | "PHONE";
+  };
+  VerifyIdentifier: {
+    type: "EMAIL" | "PHONE";
+    value: string;
+  };
+  SetPassword: undefined;
 };
 
 export type RootStackParamList = {

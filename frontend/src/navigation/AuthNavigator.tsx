@@ -6,6 +6,7 @@ import { SignupScreen } from "@/screens/auth/SignupScreen";
 import { ForgotPasswordScreen } from "@/screens/auth/ForgotPasswordScreen";
 import { EmailSentScreen } from "@/screens/auth/EmailSentScreen";
 import { VerifyEmailScreen } from "@/screens/auth/VerifyEmailScreen";
+import { VerifyPhoneScreen } from "@/screens/auth/VerifyPhoneScreen";
 import { ResetPasswordScreen } from "@/screens/auth/ResetPasswordScreen";
 import { PasswordResetSuccessScreen } from "@/screens/auth/PasswordResetSuccessScreen";
 import { VerificationSuccessScreen } from "@/screens/auth/VerificationSuccessScreen";
@@ -31,6 +32,7 @@ export function AuthNavigator({ pendingEmail }: AuthNavigatorProps) {
         component={VerifyEmailScreen}
         initialParams={pendingEmail ? { email: pendingEmail } : undefined}
       />
+      <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="EmailSent" component={EmailSentScreen} />
       <Stack.Screen

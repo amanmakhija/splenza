@@ -7,6 +7,8 @@ import {
   SignupPayload,
   SignupResponse,
   User,
+  UserIdentifier,
+  IdentifierType,
 } from "@/types/api";
 import {
   registerDevice,
@@ -27,6 +29,29 @@ interface AuthState {
   changePendingEmail: (oldEmail: string, newEmail: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   updateUser: (partial: Partial<User>) => void;
+
+  // --- Phone signup/login (OTP-only, no password) ---------------------
+  startPhoneSignup: (phoneNumber: string) => Promise<void>;
+  verifyPhoneSignup: (
+    phoneNumber: string,
+    otp: string,
+    name: string,
+  ) => Promise<AuthResponse>;
+  startPhoneLogin: (phoneNumber: string) => Promise<void>;
+  verifyPhoneLogin: (phoneNumber: string, otp: string) => Promise<AuthResponse>;
+
+  // --- Adding & verifying a second identifier from Profile -------------
+  getIdentifiers: () => Promise<UserIdentifier[]>;
+  startAddIdentifier: (type: IdentifierType, value: string) => Promise<void>;
+  verifyAddIdentifier: (
+    type: IdentifierType,
+    value: string,
+    otp: string,
+  ) => Promise<void>;
+  removeIdentifier: (id: string) => Promise<void>;
+
+  // --- Set a password once a verified email exists ----------------------
+  setPassword: (password: string) => Promise<void>;
 }
 
 function persistSession(res: AuthResponse) {
@@ -36,7 +61,9 @@ function persistSession(res: AuthResponse) {
     id: res.userId,
     name: res.name,
     email: res.email,
+    phoneNumber: res.phoneNumber,
     profilePictureUrl: res.profilePictureUrl,
+    hasPassword: res.hasPassword,
   };
   storageHelpers.setObject(StorageKeys.USER, user);
   return user;
@@ -160,6 +187,84 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
 
     storage.set(StorageKeys.PENDING_EMAIL, newEmail);
+  },
+
+  startPhoneSignup: async (phoneNumber) => {
+    await apiClient.post("/api/v1/auth/signup/phone/start", { phoneNumber });
+  },
+
+  verifyPhoneSignup: async (phoneNumber, otp, name) => {
+    const { data } = await apiClient.post<AuthResponse>(
+      "/api/v1/auth/signup/phone/verify",
+      { phoneNumber, otp, name },
+    );
+    return data;
+  },
+
+  startPhoneLogin: async (phoneNumber) => {
+    await apiClient.post("/api/v1/auth/login/phone/start", { phoneNumber });
+  },
+
+  verifyPhoneLogin: async (phoneNumber, otp) => {
+    const { data } = await apiClient.post<AuthResponse>(
+      "/api/v1/auth/login/phone/verify",
+      { phoneNumber, otp },
+    );
+    return data;
+  },
+
+  getIdentifiers: async () => {
+    const { data } = await apiClient.get<UserIdentifier[]>(
+      "/api/v1/auth/identifiers",
+    );
+    return data;
+  },
+
+  startAddIdentifier: async (type, value) => {
+    const path =
+      type === "EMAIL"
+        ? "/api/v1/auth/identifiers/email/start"
+        : "/api/v1/auth/identifiers/phone/start";
+    const body = type === "EMAIL" ? { email: value } : { phoneNumber: value };
+    await apiClient.post(path, body);
+  },
+
+  verifyAddIdentifier: async (type, value, otp) => {
+    const path =
+      type === "EMAIL"
+        ? "/api/v1/auth/identifiers/email/verify"
+        : "/api/v1/auth/identifiers/phone/verify";
+    const body =
+      type === "EMAIL" ? { email: value, otp } : { phoneNumber: value, otp };
+    await apiClient.post(path, body);
+
+    // Reflect the newly-verified identifier on the local user immediately,
+    // rather than waiting on a refetch, so the UI updates right away.
+    set((state) => {
+      if (!state.user) return state;
+      const updated: User =
+        type === "EMAIL"
+          ? { ...state.user, email: value }
+          : { ...state.user, phoneNumber: value };
+      storageHelpers.setObject(StorageKeys.USER, updated);
+      return { user: updated };
+    });
+  },
+
+  removeIdentifier: async (id) => {
+    await apiClient.delete(`/api/v1/auth/identifiers/${id}`);
+  },
+
+  setPassword: async (password) => {
+    await apiClient.post("/api/v1/auth/identifiers/set-password", {
+      password,
+    });
+    set((state) => {
+      if (!state.user) return state;
+      const updated: User = { ...state.user, hasPassword: true };
+      storageHelpers.setObject(StorageKeys.USER, updated);
+      return { user: updated };
+    });
   },
 
   updateUser: (partial) => {
