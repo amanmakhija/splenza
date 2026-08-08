@@ -16,9 +16,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { getApiErrorMessage, getApiErrorCode } from "@/lib/apiClient";
-import { normalizePhoneNumber } from "@/lib/phoneFormat";
 import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";
+import { PhoneNumberField } from "@/components/PhoneNumberField";
 import { Button } from "@/components/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SegmentedControl } from "@/components/SegmentedControl";
@@ -27,7 +27,6 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { storage, StorageKeys } from "@/lib/storage";
 
 type FormValues = { email: string; password: string };
-type PhoneFormValues = { phoneNumber: string };
 type Nav = NativeStackNavigationProp<AuthStackParamList, "Login">;
 
 export function LoginScreen() {
@@ -44,11 +43,8 @@ export function LoginScreen() {
     formState: { errors },
   } = useForm<FormValues>({ defaultValues: { email: "", password: "" } });
 
-  const {
-    control: phoneControl,
-    handleSubmit: handlePhoneSubmit,
-    formState: { errors: phoneErrors },
-  } = useForm<PhoneFormValues>({ defaultValues: { phoneNumber: "" } });
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneError, setPhoneError] = useState<string | undefined>();
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => login(values),
@@ -73,23 +69,30 @@ export function LoginScreen() {
   });
 
   const phoneMutation = useMutation({
-    mutationFn: async (values: PhoneFormValues) => {
-      const phoneNumber = normalizePhoneNumber(values.phoneNumber);
+    mutationFn: async () => {
       await startPhoneLogin(phoneNumber);
       return phoneNumber;
     },
 
-    onSuccess: (phoneNumber) => {
+    onSuccess: (number) => {
       navigation.navigate("VerifyPhone", {
-        phoneNumber,
+        phoneNumber: number,
         purpose: "LOGIN",
       });
     },
   });
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);
-  const onPhoneSubmit = (values: PhoneFormValues) =>
-    phoneMutation.mutate(values);
+
+  const onPhoneSubmit = () => {
+    if (phoneNumber.length !== 13) {
+      // "+91" + 10 digits
+      setPhoneError("Enter a valid 10-digit phone number");
+      return;
+    }
+    setPhoneError(undefined);
+    phoneMutation.mutate();
+  };
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
@@ -200,26 +203,13 @@ export function LoginScreen() {
             </>
           ) : (
             <>
-              <Controller
-                control={phoneControl}
-                name="phoneNumber"
-                rules={{
-                  required: "Phone number is required",
-                  pattern: {
-                    value: /^\+?[1-9]\d{7,14}$/,
-                    message: "Use international format, e.g. +919876543210",
-                  },
+              <PhoneNumberField
+                value={phoneNumber}
+                onChangeText={(v) => {
+                  setPhoneNumber(v);
+                  if (phoneError) setPhoneError(undefined);
                 }}
-                render={({ field: { onChange, value } }) => (
-                  <TextField
-                    label="Phone number"
-                    value={value}
-                    onChangeText={onChange}
-                    keyboardType="phone-pad"
-                    placeholder="+919876543210"
-                    error={phoneErrors.phoneNumber?.message}
-                  />
-                )}
+                error={phoneError}
               />
 
               {phoneMutation.isError ? (
@@ -230,7 +220,7 @@ export function LoginScreen() {
 
               <Button
                 title="Send Code"
-                onPress={handlePhoneSubmit(onPhoneSubmit)}
+                onPress={onPhoneSubmit}
                 loading={phoneMutation.isPending}
                 style={{ marginTop: 4 }}
               />

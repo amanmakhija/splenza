@@ -28,11 +28,11 @@ import { useNavigation } from "@react-navigation/native";
 import { MainStackParamList } from "@/navigation/types";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { AppModal } from "@/components/AppModal";
+import { openAppStoreListing } from "@/lib/appStore";
 
 const DELETE_CONFIRM_WORD = "DELETE";
 const SUPPORT_EMAIL = "help@splenza.in";
 const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
-const ANDROID_PACKAGE = "com.splenza.app";
 
 const FAQS: { question: string; answer: string }[] = [
   {
@@ -119,16 +119,7 @@ export function HelpSupportScreen() {
   };
 
   const handleRateApp = () => {
-    const url =
-      Platform.OS === "android"
-        ? `market://details?id=${ANDROID_PACKAGE}`
-        : // Placeholder until the app has a real App Store listing/ID.
-          "https://apps.apple.com/app/splenza";
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(
-        `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`,
-      );
-    });
+    openAppStoreListing();
   };
 
   return (
