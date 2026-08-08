@@ -11,6 +11,7 @@ on:
       - "docker-compose.prod.yml"
       - ".github/workflows/backend.yml"
       - ".dockerignore"
+      - "frontend/app.json"
 
 jobs:
   # ------------------------------------------------------------------
@@ -101,20 +102,43 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Reads expo.version straight out of the mobile app's app.json so
+      # there's a single source of truth for "what's the latest version" -
+      # nothing to remember to bump manually on the backend side anymore.
+      # jq ships preinstalled on ubuntu-latest runners.
+      - name: Extract app version from app.json
+        id: app-version
+        run: |
+          VERSION=$(jq -r '.expo.version' frontend/app.json)
+          if [ -z "$VERSION" ] || [ "$VERSION" == "null" ]; then
+            echo "::error::Could not read .expo.version from frontend/app.json"
+            exit 1
+          fi
+          echo "Extracted app version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_VERSION: ${{ steps.app-version.outputs.version }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           timeout: 30s
           command_timeout: 10m
-
+          envs: APP_VERSION
           script: |
             cd ~/splenza
 
             git fetch origin
             git reset --hard origin/main
+
+            # .env already has an APP_LATEST_VERSION line - just swap its
+            # value in place. Picked up by the backend container via
+            # env_file: .env in docker-compose.prod.yml on the next
+            # `up -d` below, no code change needed.
+            sed -i "s/^APP_LATEST_VERSION=.*/APP_LATEST_VERSION=${APP_VERSION}/" .env
 
             docker compose -f docker-compose.prod.yml pull
 

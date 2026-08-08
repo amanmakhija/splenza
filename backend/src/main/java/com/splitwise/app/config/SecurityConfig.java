@@ -41,6 +41,7 @@ public class SecurityConfig {
         "/swagger-ui/**",
         "/v3/api-docs/**",
         "/api/v1/waitlist/**",
+        "/api/v1/app-config",
         "/actuator/health"
     };
 
@@ -59,8 +60,8 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/api/v1/auth/logout",
                         "/api/v1/auth/change-password",
-                        "/api/v1/auth/set-password",
-                        "/api/v1/auth/account"
+                        "/api/v1/auth/account",
+                        "/api/v1/auth/identifiers/**"
                 ).authenticated()
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()
