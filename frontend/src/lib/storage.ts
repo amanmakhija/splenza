@@ -7,6 +7,7 @@ export const StorageKeys = {
   USER: "auth.user",
   THEME_MODE: "settings.themeMode", // "light" | "dark" | "system"
   PENDING_EMAIL: "pending_email",
+  SKIPPED_UPDATE_VERSION: "settings.skippedUpdateVersion",
 } as const;
 
 const SECURE_KEYS = new Set<string>([

@@ -25,6 +25,7 @@ export function VerifyPhoneScreen({ route, navigation }: Props) {
   const verifyPhoneLogin = useAuthStore((s) => s.verifyPhoneLogin);
   const startPhoneSignup = useAuthStore((s) => s.startPhoneSignup);
   const startPhoneLogin = useAuthStore((s) => s.startPhoneLogin);
+  const completeLogin = useAuthStore((s) => s.completeLogin);
 
   const [otp, setOtp] = useState<string[]>(EMPTY_OTP);
   const [seconds, setSeconds] = useState(30);
@@ -42,10 +43,18 @@ export function VerifyPhoneScreen({ route, navigation }: Props) {
         : verifyPhoneLogin(phoneNumber, otp.join("")),
 
     onSuccess: (authResponse) => {
-      navigation.replace("VerificationSuccess", {
-        authResponse,
-        title: "You're all set",
-      });
+      if (purpose === "SIGNUP") {
+        // New account - show the celebratory "you're all set" screen, which
+        // completes the login itself after a short delay.
+        navigation.replace("VerificationSuccess", {
+          authResponse,
+          title: "You're all set",
+        });
+      } else {
+        // Returning user logging in - no need for a success screen, just
+        // drop them straight into the app.
+        completeLogin(authResponse);
+      }
     },
 
     onError: () => {

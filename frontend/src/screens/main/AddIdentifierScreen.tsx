@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useForm, Controller } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { useAppTheme } from "@/theme/ThemeContext";
@@ -11,14 +10,13 @@ import { useAuthStore } from "@/store/authStore";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { normalizePhoneNumber } from "@/lib/phoneFormat";
 import { TextField } from "@/components/TextField";
+import { PhoneNumberField } from "@/components/PhoneNumberField";
 import { Button } from "@/components/Button";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList, "AddIdentifier">;
 type Route = RouteProp<MainStackParamList, "AddIdentifier">;
-
-type FormValues = { value: string };
 
 export function AddIdentifierScreen() {
   const { theme } = useAppTheme();
@@ -29,25 +27,43 @@ export function AddIdentifierScreen() {
 
   const isEmail = type === "EMAIL";
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({ defaultValues: { value: "" } });
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | undefined>();
 
   const mutation = useMutation({
-    mutationFn: async (values: FormValues) => {
-      const value = isEmail
-        ? values.value.trim().toLowerCase()
-        : normalizePhoneNumber(values.value);
-      await startAddIdentifier(type, value);
-      return value;
+    mutationFn: async () => {
+      const normalized = isEmail
+        ? value.trim().toLowerCase()
+        : normalizePhoneNumber(value);
+      await startAddIdentifier(type, normalized);
+      return normalized;
     },
 
-    onSuccess: (value) => {
-      navigation.navigate("VerifyIdentifier", { type, value });
+    onSuccess: (normalized) => {
+      navigation.navigate("VerifyIdentifier", { type, value: normalized });
     },
   });
+
+  const onSubmit = () => {
+    if (isEmail) {
+      const normalized = value.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(normalized)) {
+        setError("Enter a valid email");
+        return;
+      }
+      setError(undefined);
+      mutation.mutate();
+      return;
+    }
+
+    if (value.length !== 13) {
+      // "+91" + 10 digits
+      setError("Enter a valid 10-digit phone number");
+      return;
+    }
+    setError(undefined);
+    mutation.mutate();
+  };
 
   return (
     <SafeAreaView
@@ -63,38 +79,29 @@ export function AddIdentifierScreen() {
             : "We'll text a code to verify this number."}
         </Text>
 
-        <Controller
-          control={control}
-          name="value"
-          rules={
-            isEmail
-              ? {
-                  required: "Email is required",
-                  pattern: {
-                    value: /^\S+@\S+\.\S+$/,
-                    message: "Enter a valid email",
-                  },
-                }
-              : {
-                  required: "Phone number is required",
-                  pattern: {
-                    value: /^\+?[1-9]\d{7,14}$/,
-                    message: "Use international format, e.g. +919876543210",
-                  },
-                }
-          }
-          render={({ field: { onChange, value } }) => (
-            <TextField
-              label={isEmail ? "Email" : "Phone number"}
-              value={value}
-              onChangeText={onChange}
-              autoCapitalize="none"
-              keyboardType={isEmail ? "email-address" : "phone-pad"}
-              placeholder={isEmail ? "you@example.com" : "+919876543210"}
-              error={errors.value?.message}
-            />
-          )}
-        />
+        {isEmail ? (
+          <TextField
+            label="Email"
+            value={value}
+            onChangeText={(v) => {
+              setValue(v);
+              if (error) setError(undefined);
+            }}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholder="you@example.com"
+            error={error}
+          />
+        ) : (
+          <PhoneNumberField
+            value={value}
+            onChangeText={(v) => {
+              setValue(v);
+              if (error) setError(undefined);
+            }}
+            error={error}
+          />
+        )}
 
         {mutation.isError ? (
           <Text style={[styles.formError, { color: theme.danger }]}>
@@ -104,7 +111,7 @@ export function AddIdentifierScreen() {
 
         <Button
           title="Send Code"
-          onPress={handleSubmit((v) => mutation.mutate(v))}
+          onPress={onSubmit}
           loading={mutation.isPending}
           style={{ marginTop: 8 }}
         />
