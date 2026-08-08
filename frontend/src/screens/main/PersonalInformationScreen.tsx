@@ -16,7 +16,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { alert } from "@/components/AppAlert";
-import { normalizePhoneNumber } from "@/lib/phoneFormat";
 import { pickSquareImage } from "@/hooks/useImagePicker";
 import { uploadImage } from "@/lib/uploadImage";
 import { useAuthStore } from "@/store/authStore";
@@ -35,16 +34,12 @@ export function PersonalInformationScreen() {
   const profileQuery = useMyProfileQuery();
 
   const [name, setName] = useState(profileQuery.data?.name ?? "");
-  const [phoneNumber, setPhoneNumber] = useState(
-    profileQuery.data?.phoneNumber ?? "",
-  );
 
   // Fill the form once the real profile loads (initialData only has
-  // name/email from login - phoneNumber arrives after the actual fetch).
+  // name/email from login).
   useEffect(() => {
     if (profileQuery.data) {
       setName(profileQuery.data.name);
-      setPhoneNumber(profileQuery.data.phoneNumber ?? "");
     }
   }, [profileQuery.data]);
 
@@ -52,13 +47,9 @@ export function PersonalInformationScreen() {
     mutationFn: () =>
       apiClient.patch("/api/v1/users/me", {
         name: name.trim(),
-        phoneNumber: phoneNumber ? normalizePhoneNumber(phoneNumber) : null,
       }),
     onSuccess: () => {
-      updateUser({
-        name: name.trim(),
-        phoneNumber: phoneNumber ? normalizePhoneNumber(phoneNumber) : null,
-      });
+      updateUser({ name: name.trim() });
       queryClient.invalidateQueries({ queryKey: ["me"] });
       alert("Saved", "Your personal information has been updated.");
     },
@@ -80,10 +71,7 @@ export function PersonalInformationScreen() {
     },
   });
 
-  const hasChanges =
-    name.trim() !== (profileQuery.data?.name ?? "") ||
-    normalizePhoneNumber(phoneNumber) !==
-      normalizePhoneNumber(profileQuery.data?.phoneNumber ?? "");
+  const hasChanges = name.trim() !== (profileQuery.data?.name ?? "");
 
   return (
     <SafeAreaView
@@ -156,21 +144,33 @@ export function PersonalInformationScreen() {
             ]}
           >
             <Text style={{ color: theme.textMuted }}>
-              {profileQuery.data?.email}
+              {profileQuery.data?.email ?? "Not added"}
             </Text>
           </View>
-          <Text style={[styles.hint, { color: theme.textMuted }]}>
-            Contact support to change the email on your account.
-          </Text>
         </View>
 
-        <TextField
-          label="Phone number"
-          value={phoneNumber}
-          onChangeText={(v) => setPhoneNumber(normalizePhoneNumber(v))}
-          placeholder="+919876543210"
-          keyboardType="phone-pad"
-        />
+        <View style={styles.readOnlyField}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>
+            Phone number
+          </Text>
+          <View
+            style={[
+              styles.readOnlyBox,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text style={{ color: theme.textMuted }}>
+              {profileQuery.data?.phoneNumber ?? "Not added"}
+            </Text>
+          </View>
+        </View>
+
+        <Text
+          style={[styles.hint, { color: theme.textMuted, marginBottom: 4 }]}
+        >
+          Manage and verify your email and phone number from Account & Security
+          below.
+        </Text>
 
         {saveMutation.isError ? (
           <Text style={[styles.errorText, { color: theme.danger }]}>
@@ -187,14 +187,14 @@ export function PersonalInformationScreen() {
         />
 
         <Pressable
-          onPress={() => navigation.navigate("ChangePassword")}
+          onPress={() => navigation.navigate("AccountSecurity")}
           style={[
             styles.linkRow,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
           <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
-            Change Password
+            Account & Security
           </Text>
           <ChevronRight size={18} color={theme.textMuted} />
         </Pressable>

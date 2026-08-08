@@ -12,7 +12,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "VerificationSuccess">;
 
 export function VerificationSuccessScreen({ navigation, route }: Props) {
   const { theme } = useAppTheme();
-  const { authResponse } = route.params;
+  const { authResponse, title } = route.params;
   const completeLogin = useAuthStore((s) => s.completeLogin);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function VerificationSuccessScreen({ navigation, route }: Props) {
           },
         ]}
       >
-        Email Verified
+        {title ?? "Email Verified"}
       </Animated.Text>
 
       <Animated.Text
