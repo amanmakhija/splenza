@@ -32,7 +32,6 @@ import com.splitwise.app.dto.auth.GoogleLoginRequest;
 import com.splitwise.app.dto.auth.RefreshTokenRequest;
 import com.splitwise.app.dto.auth.ResendVerificationRequest;
 import com.splitwise.app.dto.auth.ResetPasswordRequest;
-import com.splitwise.app.dto.auth.SetPasswordRequest;
 import com.splitwise.app.dto.auth.VerifyEmailRequest;
 
 import org.springframework.context.annotation.ComponentScan;
@@ -770,68 +769,6 @@ class AuthControllerTest {
                             .value("Current password is incorrect"));
 
             verify(authService).changePassword(any(), any());
-        }
-    }
-
-    @Nested
-    @DisplayName("Set Password")
-    class SetPasswordTests {
-
-        @Test
-        @DisplayName("Should set password successfully")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldSetPasswordSuccessfully() throws Exception {
-
-            SetPasswordRequest request = new SetPasswordRequest();
-            request.setPassword("Password123");
-
-            mockMvc.perform(post("/api/v1/auth/set-password")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isNoContent());
-
-            verify(authService).setPassword(
-                    eq(UUID.fromString("3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")),
-                    any(SetPasswordRequest.class));
-        }
-
-        @Test
-        @DisplayName("Should return 400 when password is blank")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnBadRequestWhenPasswordIsBlank() throws Exception {
-
-            SetPasswordRequest request = new SetPasswordRequest();
-            request.setPassword("");
-
-            mockMvc.perform(post("/api/v1/auth/set-password")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.fieldErrors.password").exists());
-
-            verify(authService, never()).setPassword(any(), any());
-        }
-
-        @Test
-        @DisplayName("Should return conflict when password already exists")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnConflictWhenPasswordAlreadyExists() throws Exception {
-
-            SetPasswordRequest request = new SetPasswordRequest();
-            request.setPassword("Password123");
-
-            doThrow(ApiException.conflict("Password already exists"))
-                    .when(authService)
-                    .setPassword(any(), any());
-
-            mockMvc.perform(post("/api/v1/auth/set-password")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.message")
-                            .value("Password already exists"));
-
-            verify(authService).setPassword(any(), any());
         }
     }
 }

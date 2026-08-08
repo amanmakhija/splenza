@@ -13,6 +13,9 @@ import com.splitwise.app.repository.PendingSignupRepository;
 import com.splitwise.app.repository.RefreshTokenRepository;
 import com.splitwise.app.repository.SettlementRepository;
 import com.splitwise.app.repository.UserRepository;
+import com.splitwise.app.repository.UserIdentifierRepository;
+import com.splitwise.app.repository.UserOAuthLinkRepository;
+import com.splitwise.app.repository.OtpChallengeRepository;
 import com.splitwise.app.security.JwtService;
 
 import jakarta.mail.BodyPart;
@@ -118,6 +121,15 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected SettlementRepository settlementRepository;
 
+    @Autowired
+    protected UserIdentifierRepository userIdentifierRepository;
+
+    @Autowired
+    protected UserOAuthLinkRepository userOAuthLinkRepository;
+
+    @Autowired
+    protected OtpChallengeRepository otpChallengeRepository;
+
     @BeforeEach
     void setup() {
 
@@ -130,6 +142,9 @@ public abstract class BaseIntegrationTest {
         refreshTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         pendingSignupRepository.deleteAll();
+        otpChallengeRepository.deleteAll();
+        userOAuthLinkRepository.deleteAll();
+        userIdentifierRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -179,6 +194,19 @@ public abstract class BaseIntegrationTest {
         return null;
     }
 
+    protected String getLastSmsOtp() {
+
+        String message = integrationTestConfig.getLastSmsMessage();
+
+        assertThat(message).isNotNull();
+
+        Matcher matcher = Pattern.compile("\\b\\d{6}\\b").matcher(message);
+
+        assertThat(matcher.find()).isTrue();
+
+        return matcher.group();
+    }
+
     protected User createVerifiedUser(String email, String rawPassword) {
         return createVerifiedUser(email, rawPassword, "Aman");
     }
@@ -192,7 +220,25 @@ public abstract class BaseIntegrationTest {
                 .provider(AuthProvider.LOCAL)
                 .build();
 
-        return userRepository.save(user);
+        user = userRepository.save(user);
+
+        // Keep user_identifiers consistent with the denormalized users.email
+        // column for any test relying on identifier-based logic (e.g. the
+        // verified-EMAIL-required guard on set-password, or identifier
+        // listing/deletion) - this helper predates the multi-identifier auth
+        // work and only wrote to `users` directly, which would otherwise
+        // leave newly-created test users with zero verified identifiers.
+        userIdentifierRepository.save(
+                com.splitwise.app.entity.UserIdentifier.builder()
+                        .user(user)
+                        .type(com.splitwise.app.enums.IdentifierType.EMAIL)
+                        .value(email)
+                        .verified(true)
+                        .primary(true)
+                        .verifiedAt(java.time.Instant.now())
+                        .build());
+
+        return user;
     }
 
     /**

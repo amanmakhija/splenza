@@ -27,7 +27,12 @@ public class User {
     @Column(nullable = false, length = 120)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 180)
+    /**
+     * Denormalized "primary contact" cache for convenience/display only. NOT
+     * the source of truth for verification/login - see UserIdentifier. Nullable
+     * because phone-only accounts have no email at all.
+     */
+    @Column(unique = true, length = 180)
     private String email;
 
     @Column(name = "password_hash")

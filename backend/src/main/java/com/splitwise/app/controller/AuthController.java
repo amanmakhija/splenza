@@ -16,9 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Slf4j
 @RestController
@@ -218,22 +218,185 @@ public class AuthController {
                 request.getNewEmail());
     }
 
-    @Operation(summary = "Set password", description = "Sets initial password for OAuth users or new accounts.")
-    @ApiResponse(responseCode = "204", description = "Password set successfully")
-    @PostMapping("/set-password")
+    @Operation(summary = "Start phone signup", description = "Sends an OTP to begin creating a new account via phone number.")
+    @ApiResponse(responseCode = "202", description = "OTP sent if applicable")
+    @PostMapping("/signup/phone/start")
+    public ResponseEntity<Void> signupPhoneStart(
+            @Valid @RequestBody PhoneOtpStartRequest request,
+            HttpServletRequest httpRequest) {
+
+        log.debug("Phone signup OTP requested.");
+
+        authService.startPhoneSignup(request, getClientIp(httpRequest));
+
+        return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "Verify phone signup", description = "Completes phone signup by verifying the OTP - signup and login in one step.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Account created and logged in"),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired code"),
+        @ApiResponse(responseCode = "409", description = "Phone number already registered")
+    })
+    @PostMapping("/signup/phone/verify")
+    public ResponseEntity<AuthResponse> signupPhoneVerify(@Valid @RequestBody PhoneSignupVerifyRequest request) {
+
+        log.debug("Phone signup verification received.");
+
+        AuthResponse response = authService.verifyPhoneSignup(request);
+
+        log.info("New user '{}' registered and logged in via phone.", response.getUserId());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Start phone login", description = "Sends an OTP to log in via an already-registered phone number.")
+    @ApiResponse(responseCode = "202", description = "OTP sent if applicable - identical response whether or not the number is registered")
+    @PostMapping("/login/phone/start")
+    public ResponseEntity<Void> loginPhoneStart(
+            @Valid @RequestBody PhoneOtpStartRequest request,
+            HttpServletRequest httpRequest) {
+
+        log.debug("Phone login OTP requested.");
+
+        authService.startPhoneLogin(request, getClientIp(httpRequest));
+
+        return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "Verify phone login", description = "Completes phone login by verifying the OTP.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login successful"),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired code")
+    })
+    @PostMapping("/login/phone/verify")
+    public ResponseEntity<AuthResponse> loginPhoneVerify(@Valid @RequestBody PhoneLoginVerifyRequest request) {
+
+        log.debug("Phone login verification received.");
+
+        AuthResponse response = authService.verifyPhoneLogin(request);
+
+        log.info("User '{}' logged in via phone.", response.getUserId());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Start adding an email", description = "Sends a verification code to add an email identifier to the current account.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "Code sent"),
+        @ApiResponse(responseCode = "409", description = "Email already associated with an account")
+    })
+    @PostMapping("/identifiers/email/start")
+    public ResponseEntity<Void> addIdentifierEmailStart(
+            @Valid @RequestBody AddIdentifierEmailStartRequest request,
+            HttpServletRequest httpRequest) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        authService.startAddIdentifierEmail(userId, request, getClientIp(httpRequest));
+
+        return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "Verify adding an email", description = "Marks a pending email identifier as verified. Does not set a password - see /identifiers/set-password.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Email verified"),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired code"),
+        @ApiResponse(responseCode = "409", description = "Email already associated with an account")
+    })
+    @PostMapping("/identifiers/email/verify")
+    public ResponseEntity<IdentifierResponse> addIdentifierEmailVerify(
+            @Valid @RequestBody AddIdentifierEmailVerifyRequest request) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        IdentifierResponse response = authService.verifyAddIdentifierEmail(userId, request);
+
+        log.info("Email identifier verified by user '{}'.", userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Start adding a phone number", description = "Sends an OTP to add a phone identifier to the current account.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "OTP sent"),
+        @ApiResponse(responseCode = "409", description = "Phone number already associated with an account")
+    })
+    @PostMapping("/identifiers/phone/start")
+    public ResponseEntity<Void> addIdentifierPhoneStart(
+            @Valid @RequestBody AddIdentifierPhoneStartRequest request,
+            HttpServletRequest httpRequest) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        authService.startAddIdentifierPhone(userId, request, getClientIp(httpRequest));
+
+        return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "Verify adding a phone number", description = "Marks a pending phone identifier as verified.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Phone verified"),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired code"),
+        @ApiResponse(responseCode = "409", description = "Phone number already associated with an account")
+    })
+    @PostMapping("/identifiers/phone/verify")
+    public ResponseEntity<IdentifierResponse> addIdentifierPhoneVerify(
+            @Valid @RequestBody AddIdentifierPhoneVerifyRequest request) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        IdentifierResponse response = authService.verifyAddIdentifierPhone(userId, request);
+
+        log.info("Phone identifier verified by user '{}'.", userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Set password via identifier flow",
+            description = "Sets a password for the current user - only allowed once they have at least one verified EMAIL identifier. "
+            + "For a user who signed up via phone and later added+verified an email, this turns on email+password login.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Password set"),
+        @ApiResponse(responseCode = "400", description = "No verified email identifier yet, or password doesn't meet requirements")
+    })
+    @PostMapping("/identifiers/set-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void setPassword(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody SetPasswordRequest request
-    ) {
+    public void setPasswordForIdentifier(@Valid @RequestBody SetPasswordRequest request) {
 
-        UUID userId = UUID.fromString(userDetails.getUsername());
+        UUID userId = SecurityUtils.getCurrentUserId();
 
-        log.debug("Set password requested by user '{}'.", userId);
+        authService.setPasswordForIdentifier(userId, request);
 
-        authService.setPassword(userId, request);
+        log.info("Password set via identifier flow for user '{}'.", userId);
+    }
 
-        log.info("Password set successfully for user '{}'.", userId);
+    @Operation(summary = "List my identifiers", description = "Returns the authenticated user's contact identifiers and their verification status.")
+    @ApiResponse(responseCode = "200", description = "Identifiers returned")
+    @GetMapping("/identifiers")
+    public ResponseEntity<java.util.List<IdentifierResponse>> listIdentifiers() {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        return ResponseEntity.ok(authService.listIdentifiers(userId));
+    }
+
+    @Operation(summary = "Remove an identifier", description = "Removes a contact identifier from the authenticated user's account. Blocked if it's the user's last verified identifier.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Identifier removed"),
+        @ApiResponse(responseCode = "400", description = "Cannot remove the last verified identifier"),
+        @ApiResponse(responseCode = "404", description = "Identifier not found")
+    })
+    @DeleteMapping("/identifiers/{identifierId}")
+    public ResponseEntity<Void> deleteIdentifier(@PathVariable UUID identifierId) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        authService.deleteIdentifier(userId, identifierId);
+
+        log.info("Identifier {} removed by user '{}'.", identifierId, userId);
+
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Delete account", description = "Soft-deletes the authenticated user's account and revokes all sessions.")
@@ -255,5 +418,16 @@ public class AuthController {
         authService.deleteAccount(userId, request);
 
         log.info("Account soft-deleted for user '{}'.", userId);
+    }
+
+    /**
+     * Mirrors RateLimitFilter's client-IP resolution for consistency.
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

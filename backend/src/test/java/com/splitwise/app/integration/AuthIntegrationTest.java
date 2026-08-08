@@ -705,14 +705,17 @@ class AuthIntegrationTest extends BaseIntegrationTest {
     }
 
     // --------------------------------------------------------
-    // Set password (Google-only user adding a password)
+    // Set password via the identifier flow (only allowed once the user
+    // has a verified EMAIL identifier - replaces the old standalone
+    // /auth/set-password endpoint, which has been removed since nothing
+    // called it besides these tests).
     // --------------------------------------------------------
     @Nested
-    @DisplayName("Set password")
+    @DisplayName("Set password via identifier flow")
     class SetPasswordTests {
 
         @Test
-        @DisplayName("should let a Google-only user set a password")
+        @DisplayName("should let a Google-only user set a password (they already have a verified email via Google)")
         void shouldSetPasswordForGoogleOnlyUser() throws Exception {
 
             User googleUser = userRepository.save(User.builder()
@@ -722,8 +725,18 @@ class AuthIntegrationTest extends BaseIntegrationTest {
                     .provider(AuthProvider.GOOGLE)
                     .build());
 
+            userIdentifierRepository.save(
+                    com.splitwise.app.entity.UserIdentifier.builder()
+                            .user(googleUser)
+                            .type(com.splitwise.app.enums.IdentifierType.EMAIL)
+                            .value("google.aman@test.com")
+                            .verified(true)
+                            .primary(true)
+                            .verifiedAt(java.time.Instant.now())
+                            .build());
+
             mockMvc.perform(
-                    post("/api/v1/auth/set-password")
+                    post("/api/v1/auth/identifiers/set-password")
                             .header("Authorization", bearerTokenFor(googleUser))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(
@@ -744,17 +757,31 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @DisplayName("should reject setting a password if one already exists")
-        void shouldRejectSetPasswordIfAlreadyExists() throws Exception {
+        @DisplayName("should reject setting a password without a verified email identifier")
+        void shouldRejectSetPasswordWithoutVerifiedEmail() throws Exception {
 
-            User user = createVerifiedUser(TestDataFactory.DEFAULT_EMAIL, TestDataFactory.DEFAULT_PASSWORD);
+            User phoneOnlyUser = userRepository.save(User.builder()
+                    .name("Aman")
+                    .phoneNumber("+919876500001")
+                    .provider(AuthProvider.LOCAL)
+                    .build());
+
+            userIdentifierRepository.save(
+                    com.splitwise.app.entity.UserIdentifier.builder()
+                            .user(phoneOnlyUser)
+                            .type(com.splitwise.app.enums.IdentifierType.PHONE)
+                            .value("+919876500001")
+                            .verified(true)
+                            .primary(true)
+                            .verifiedAt(java.time.Instant.now())
+                            .build());
 
             mockMvc.perform(
-                    post("/api/v1/auth/set-password")
-                            .header("Authorization", bearerTokenFor(user))
+                    post("/api/v1/auth/identifiers/set-password")
+                            .header("Authorization", bearerTokenFor(phoneOnlyUser))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(
-                                    TestDataFactory.setPasswordRequest("AnotherPassword123")))
+                                    TestDataFactory.setPasswordRequest("NewPassword123")))
             )
                     .andExpect(status().isBadRequest());
         }
@@ -764,7 +791,7 @@ class AuthIntegrationTest extends BaseIntegrationTest {
         void shouldRejectSetPasswordWithoutAuth() throws Exception {
 
             mockMvc.perform(
-                    post("/api/v1/auth/set-password")
+                    post("/api/v1/auth/identifiers/set-password")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(
                                     TestDataFactory.setPasswordRequest("NewPassword123")))
