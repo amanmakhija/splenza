@@ -17,9 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { getApiErrorMessage } from "@/lib/apiClient";
-import { normalizePhoneNumber } from "@/lib/phoneFormat";
 import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";
+import { PhoneNumberField } from "@/components/PhoneNumberField";
 import { Button } from "@/components/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SegmentedControl } from "@/components/SegmentedControl";
@@ -30,11 +30,6 @@ type FormValues = {
   name: string;
   email: string;
   password: string;
-};
-
-type PhoneFormValues = {
-  name: string;
-  phoneNumber: string;
 };
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, "Signup">;
@@ -55,13 +50,12 @@ export function SignupScreen() {
     defaultValues: { name: "", email: "", password: "" },
   });
 
-  const {
-    control: phoneControl,
-    handleSubmit: handlePhoneSubmit,
-    formState: { errors: phoneErrors },
-  } = useForm<PhoneFormValues>({
-    defaultValues: { name: "", phoneNumber: "" },
-  });
+  const [phoneName, setPhoneName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNameError, setPhoneNameError] = useState<string | undefined>();
+  const [phoneNumberError, setPhoneNumberError] = useState<
+    string | undefined
+  >();
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -79,15 +73,14 @@ export function SignupScreen() {
   });
 
   const phoneMutation = useMutation({
-    mutationFn: async (values: PhoneFormValues) => {
-      const phoneNumber = normalizePhoneNumber(values.phoneNumber);
+    mutationFn: async () => {
       await startPhoneSignup(phoneNumber);
-      return { phoneNumber, name: values.name };
+      return { phoneNumber, name: phoneName };
     },
 
-    onSuccess: ({ phoneNumber, name }) => {
+    onSuccess: ({ phoneNumber: number, name }) => {
       navigation.navigate("VerifyPhone", {
-        phoneNumber,
+        phoneNumber: number,
         purpose: "SIGNUP",
         name,
       });
@@ -95,8 +88,26 @@ export function SignupScreen() {
   });
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);
-  const onPhoneSubmit = (values: PhoneFormValues) =>
-    phoneMutation.mutate(values);
+
+  const onPhoneSubmit = () => {
+    let ok = true;
+    if (phoneName.trim().length < 2) {
+      setPhoneNameError("Name is too short");
+      ok = false;
+    } else {
+      setPhoneNameError(undefined);
+    }
+
+    if (phoneNumber.length !== 13) {
+      // "+91" + 10 digits
+      setPhoneNumberError("Enter a valid 10-digit phone number");
+      ok = false;
+    } else {
+      setPhoneNumberError(undefined);
+    }
+
+    if (ok) phoneMutation.mutate();
+  };
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
@@ -214,44 +225,24 @@ export function SignupScreen() {
             </>
           ) : (
             <>
-              <Controller
-                control={phoneControl}
-                name="name"
-                rules={{
-                  required: "Name is required",
-                  minLength: { value: 2, message: "Name is too short" },
+              <TextField
+                label="Full name"
+                value={phoneName}
+                onChangeText={(v) => {
+                  setPhoneName(v);
+                  if (phoneNameError) setPhoneNameError(undefined);
                 }}
-                render={({ field: { onChange, value } }) => (
-                  <TextField
-                    label="Full name"
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder="Alex Johnson"
-                    error={phoneErrors.name?.message}
-                  />
-                )}
+                placeholder="Alex Johnson"
+                error={phoneNameError}
               />
 
-              <Controller
-                control={phoneControl}
-                name="phoneNumber"
-                rules={{
-                  required: "Phone number is required",
-                  pattern: {
-                    value: /^\+?[1-9]\d{7,14}$/,
-                    message: "Use international format, e.g. +919876543210",
-                  },
+              <PhoneNumberField
+                value={phoneNumber}
+                onChangeText={(v) => {
+                  setPhoneNumber(v);
+                  if (phoneNumberError) setPhoneNumberError(undefined);
                 }}
-                render={({ field: { onChange, value } }) => (
-                  <TextField
-                    label="Phone number"
-                    value={value}
-                    onChangeText={onChange}
-                    keyboardType="phone-pad"
-                    placeholder="+919876543210"
-                    error={phoneErrors.phoneNumber?.message}
-                  />
-                )}
+                error={phoneNumberError}
               />
 
               <Text style={[styles.otpHint, { color: theme.textMuted }]}>
@@ -267,7 +258,7 @@ export function SignupScreen() {
 
               <Button
                 title="Send Code"
-                onPress={handlePhoneSubmit(onPhoneSubmit)}
+                onPress={onPhoneSubmit}
                 loading={phoneMutation.isPending}
               />
             </>

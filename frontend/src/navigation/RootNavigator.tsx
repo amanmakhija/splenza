@@ -12,6 +12,7 @@ import { AuthNavigator } from "./AuthNavigator";
 import { MainStackNavigator } from "./MainStackNavigator";
 import { Logo } from "@/components/Logo";
 import { AlertHost } from "@/components/AppAlert";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { storage, StorageKeys } from "@/lib/storage";
 import {
   asString,
@@ -113,6 +114,7 @@ export function RootNavigator() {
         )}
       </Stack.Navigator>
       <AlertHost />
+      <UpdatePrompt />
     </NavigationContainer>
   );
 }
