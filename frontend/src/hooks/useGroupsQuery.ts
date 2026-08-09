@@ -1,8 +1,6 @@
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/apiClient";
 import { Group } from "@/types/api";
-import { getCachedGroupsList, cacheGroupsList } from "@/lib/offlineGroupCache";
 
 async function fetchGroups({
   signal,
@@ -14,29 +12,16 @@ async function fetchGroups({
 }
 
 /**
- * Fetches the full groups list the normal way, but seeds `initialData` from
- * the local offline cache so the Groups tab (and anywhere else that needs
- * "all my groups") has something to show immediately - including on a cold
- * app start with no connectivity yet. Every successful fetch re-caches the
- * latest list for next time.
+ * Fetches the full groups list. On a cold app start this resolves instantly
+ * from the persisted SQLite query cache (see queryPersister.ts) before the
+ * network request even completes, so the Groups tab has something to show
+ * immediately - including with no connectivity yet - as long as it's been
+ * loaded at least once before while online.
  */
 export function useGroupsQuery(options?: { enabled?: boolean }) {
-  const query = useQuery({
+  return useQuery({
     queryKey: ["groups"],
     queryFn: ({ signal }) => fetchGroups({ signal }),
     enabled: options?.enabled,
-    initialData: () => getCachedGroupsList(),
-    // Cached data has no fetch timestamp we trust, so mark it stale right
-    // away - this makes the cache a fallback for offline use, not a
-    // permanent substitute for a fresh list once back online.
-    initialDataUpdatedAt: 0,
   });
-
-  useEffect(() => {
-    if (query.data) {
-      cacheGroupsList(query.data);
-    }
-  }, [query.data]);
-
-  return query;
 }
