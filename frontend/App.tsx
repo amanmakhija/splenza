@@ -2,11 +2,10 @@ import React, { useEffect, useState } from "react";
 import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { queryClient, ONE_MONTH } from "@/lib/queryClient";
+import { sqliteQueryPersister } from "@/lib/queryPersister";
 import { hydrateStorage } from "@/lib/storage";
-import { hydrateGroupCache } from "@/lib/offlineGroupCache";
-import { hydrateFriendsCache } from "@/lib/offlineFriendsCache";
 import { ThemeProvider, useAppTheme } from "@/theme/ThemeContext";
 import { CircularRevealProvider } from "@/components/CircularRevealProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -49,11 +48,7 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
-        await Promise.all([
-          hydrateStorage(),
-          hydrateGroupCache(),
-          hydrateFriendsCache(),
-        ]);
+        await hydrateStorage();
       } finally {
         setIsReady(true);
         await SplashScreen.hideAsync();
@@ -69,7 +64,13 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{
+              persister: sqliteQueryPersister,
+              maxAge: ONE_MONTH,
+            }}
+          >
             <ThemeProvider>
               <CircularRevealProvider>
                 <ThemedStatusBar />
@@ -78,7 +79,7 @@ export default function App() {
                 <RootNavigator />
               </CircularRevealProvider>
             </ThemeProvider>
-          </QueryClientProvider>
+          </PersistQueryClientProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

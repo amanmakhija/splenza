@@ -3,7 +3,7 @@
     "name": "Splenza",
     "slug": "splenza",
     "scheme": "splenza",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -12,11 +12,15 @@
       "resizeMode": "contain",
       "backgroundColor": "#FAFAF8"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.splenza.app",
-      "associatedDomains": ["applinks:splenza.in"]
+      "associatedDomains": [
+        "applinks:splenza.in"
+      ]
     },
     "android": {
       "package": "com.splenza.app",
@@ -35,7 +39,10 @@
               "pathPrefix": "/reset-password"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "googleServicesFile": "./google-services.json",
@@ -74,7 +81,8 @@
         {
           "photosPermission": "Allow Splenza to access your photos so you can set a group photo."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "extra": {
       "apiBaseUrl": "https://api.splenza.in",
@@ -85,7 +93,10 @@
       }
     },
     "sdkVersion": "54.0.0",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "androidStatusBar": {
       "backgroundColor": "#FAFAF8"
     }

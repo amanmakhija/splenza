@@ -1,11 +1,6 @@
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/apiClient";
 import { Friend } from "@/types/api";
-import {
-  getCachedFriendsList,
-  cacheFriendsList,
-} from "@/lib/offlineFriendsCache";
 
 async function fetchFriends({
   signal,
@@ -19,29 +14,18 @@ async function fetchFriends({
 }
 
 /**
- * Fetches the friends list the normal way, but seeds `initialData` from the
- * local offline cache so the Friends tab (and anywhere else that needs "all
- * my friends", like inviting to a group or picking who to split with) has
- * something to show immediately - including on a cold app start with no
- * connectivity yet. Every successful fetch re-caches the latest list.
+ * Fetches the friends list. On a cold app start this resolves instantly
+ * from the persisted SQLite query cache (see queryPersister.ts) before the
+ * network request even completes, so the Friends tab (and anywhere else
+ * that needs "all my friends", like inviting to a group or picking who to
+ * split with) has something to show immediately - including with no
+ * connectivity yet - as long as it's been loaded at least once before
+ * while online.
  */
 export function useFriendsQuery(options?: { enabled?: boolean }) {
-  const query = useQuery({
+  return useQuery({
     queryKey: ["friends"],
     queryFn: ({ signal }) => fetchFriends({ signal }),
     enabled: options?.enabled,
-    initialData: () => getCachedFriendsList(),
-    // Cached data has no fetch timestamp we trust, so mark it stale right
-    // away - this makes the cache a fallback for offline use, not a
-    // permanent substitute for a fresh list once back online.
-    initialDataUpdatedAt: 0,
   });
-
-  useEffect(() => {
-    if (query.data) {
-      cacheFriendsList(query.data);
-    }
-  }, [query.data]);
-
-  return query;
 }

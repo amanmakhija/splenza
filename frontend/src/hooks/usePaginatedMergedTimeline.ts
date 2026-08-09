@@ -11,10 +11,30 @@ interface UsePaginatedMergedTimelineParams<A, B, TItem> {
   enabled?: boolean;
 }
 
+/** Everything this hook needs to render, in one shape - and, crucially, the
+ * actual shape that lives in the React Query cache (and therefore the one
+ * that gets persisted to SQLite and restored on a cold app start). Nothing
+ * about this feed lives in plain useState anymore. */
+interface TimelineData<A, B> {
+  itemsA: A[];
+  itemsB: B[];
+  hasMoreA: boolean;
+  hasMoreB: boolean;
+  pageA: number;
+  pageB: number;
+}
+
 /**
  * Infinite-scrolls a single chronological feed built from two separately-paginated REST
  * endpoints (here: expenses and settlements). Advances both sources together, one page each
  * per "load more" call, then re-merges and re-sorts everything fetched so far.
+ *
+ * The merged data lives entirely in the React Query cache under
+ * ["merged-timeline", queryKeyPrefix] (both the first page, from useQuery, and every
+ * subsequent page, written in via queryClient.setQueryData in loadMore) rather than in
+ * local component state. That's what makes this feed show up immediately - with real
+ * expense/settlement data, not a loading spinner - on a cold app start with no
+ * connectivity yet, via the SQLite-backed query persister in queryPersister.ts.
  *
  * Known simplification: because the two sources aren't paginated by a single shared cursor,
  * there's a theoretical edge case where the very newest unfetched item from whichever source
@@ -32,32 +52,39 @@ export function usePaginatedMergedTimeline<A, B, TItem>({
   enabled = true,
 }: UsePaginatedMergedTimelineParams<A, B, TItem>) {
   const queryClient = useQueryClient();
-  const [pageA, setPageA] = useState(0);
-  const [pageB, setPageB] = useState(0);
-  const [itemsA, setItemsA] = useState<A[]>([]);
-  const [itemsB, setItemsB] = useState<B[]>([]);
-  const [hasMoreA, setHasMoreA] = useState(true);
-  const [hasMoreB, setHasMoreB] = useState(true);
+  const queryKey = useMemo(
+    () => ["merged-timeline", queryKeyPrefix],
+    [queryKeyPrefix],
+  );
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
 
-  const initialQuery = useQuery({
-    queryKey: ["merged-timeline", queryKeyPrefix],
+  const initialQuery = useQuery<TimelineData<A, B>>({
+    queryKey,
     queryFn: async ({ signal }) => {
       const [resA, resB] = await Promise.all([
         fetchA(0, signal),
         fetchB(0, signal),
       ]);
-      setItemsA(resA.content);
-      setItemsB(resB.content);
-      setHasMoreA(!resA.last);
-      setHasMoreB(!resB.last);
-      setPageA(0);
-      setPageB(0);
-      return true;
+      return {
+        itemsA: resA.content,
+        itemsB: resB.content,
+        hasMoreA: !resA.last,
+        hasMoreB: !resB.last,
+        pageA: 0,
+        pageB: 0,
+      };
     },
     enabled,
   });
+
+  const data = initialQuery.data;
+  const itemsA = data?.itemsA ?? [];
+  const itemsB = data?.itemsB ?? [];
+  const hasMoreA = data?.hasMoreA ?? true;
+  const hasMoreB = data?.hasMoreB ?? true;
+  const pageA = data?.pageA ?? 0;
+  const pageB = data?.pageB ?? 0;
 
   const loadMore = useCallback(async () => {
     if (isFetchingMore || (!hasMoreA && !hasMoreB)) return;
@@ -75,28 +102,48 @@ export function usePaginatedMergedTimeline<A, B, TItem>({
         hasMoreB ? fetchB(nextB, controller.signal) : Promise.resolve(null),
       ]);
 
-      if (resA) {
-        setItemsA((prev) => [...prev, ...resA.content]);
-        setHasMoreA(!resA.last);
-        setPageA(nextA);
-      }
-      if (resB) {
-        setItemsB((prev) => [...prev, ...resB.content]);
-        setHasMoreB(!resB.last);
-        setPageB(nextB);
-      }
+      // If this call got superseded by a newer loadMore while awaiting,
+      // don't let its (stale) results overwrite what the newer call wrote.
+      if (controllerRef.current !== controller) return;
+
+      queryClient.setQueryData<TimelineData<A, B>>(queryKey, (prev) => {
+        const base: TimelineData<A, B> = prev ?? {
+          itemsA: [],
+          itemsB: [],
+          hasMoreA: true,
+          hasMoreB: true,
+          pageA: 0,
+          pageB: 0,
+        };
+        return {
+          itemsA: resA ? [...base.itemsA, ...resA.content] : base.itemsA,
+          itemsB: resB ? [...base.itemsB, ...resB.content] : base.itemsB,
+          hasMoreA: resA ? !resA.last : base.hasMoreA,
+          hasMoreB: resB ? !resB.last : base.hasMoreB,
+          pageA: resA ? nextA : base.pageA,
+          pageB: resB ? nextB : base.pageB,
+        };
+      });
     } catch (err) {
       if (!(err instanceof Error && err.name === "CanceledError")) throw err;
     } finally {
       setIsFetchingMore(false);
     }
-  }, [isFetchingMore, hasMoreA, hasMoreB, pageA, pageB, fetchA, fetchB]);
+  }, [
+    isFetchingMore,
+    hasMoreA,
+    hasMoreB,
+    pageA,
+    pageB,
+    fetchA,
+    fetchB,
+    queryClient,
+    queryKey,
+  ]);
 
   const refresh = useCallback(async () => {
-    await queryClient.resetQueries({
-      queryKey: ["merged-timeline", queryKeyPrefix],
-    });
-  }, [queryClient, queryKeyPrefix]);
+    await queryClient.resetQueries({ queryKey });
+  }, [queryClient, queryKey]);
 
   const items: TItem[] = useMemo(() => {
     const merged = [
