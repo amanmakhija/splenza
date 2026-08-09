@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Privacy Policy — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>03/08/2026</strong>
+        Last updated: <strong>09/08/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -50,14 +50,19 @@ export default function PrivacyPolicyPage() {
             <td style={styles.td}>
               Account login, verification, password reset, notifications
             </td>
-            <td style={styles.td}>Yes</td>
+            <td style={styles.td}>
+              Yes, if signing up with email; otherwise optional
+            </td>
           </tr>
           <tr>
             <td style={styles.td}>Phone number</td>
             <td style={styles.td}>
-              Optional — lets friends find you by phone number
+              Account login and verification (if you sign up or log in with your
+              phone number), and lets friends find you by phone number
             </td>
-            <td style={styles.td}>No</td>
+            <td style={styles.td}>
+              Yes, if signing up with a phone number; otherwise optional
+            </td>
           </tr>
           <tr>
             <td style={styles.td}>Password</td>
@@ -65,7 +70,10 @@ export default function PrivacyPolicyPage() {
               Account authentication (stored as a one-way bcrypt hash — we never
               store or can view your plain-text password)
             </td>
-            <td style={styles.td}>Yes (unless signing in with Google)</td>
+            <td style={styles.td}>
+              Only if you sign up with email, or later choose to add a password
+              to a phone-based account
+            </td>
           </tr>
           <tr>
             <td style={styles.td}>Profile picture</td>
@@ -84,6 +92,24 @@ export default function PrivacyPolicyPage() {
           </tr>
         </tbody>
       </table>
+
+      <p style={styles.p}>
+        <strong>Verifying your email or phone number.</strong> When you sign up,
+        log in, or add a new email address or phone number to your account, we
+        send a one-time verification code — by email or SMS, depending on which
+        you&apos;re verifying — to confirm you own it. To deliver SMS
+        verification codes, your phone number is shared with{" "}
+        <strong>2Factor</strong>, our SMS delivery provider, solely for that
+        purpose — see section 4 below for more on this and our other third-party
+        services.
+      </p>
+      <p style={styles.p}>
+        You can sign up and log in using an email address, a phone number, or
+        Google Sign-In. You can also add and verify a second one later from your
+        account settings — for example, verifying an email address after signing
+        up with your phone number — and, once you have a verified email on file,
+        choose to set a password so you can log in that way too.
+      </p>
 
       <p style={styles.p}>
         <strong>1.2 Information from your contacts (optional)</strong>
@@ -195,6 +221,10 @@ export default function PrivacyPolicyPage() {
           tokens)
         </li>
         <li style={styles.li}>
+          Verify an email address or phone number you sign up, log in, or add to
+          your account with, via a one-time code
+        </li>
+        <li style={styles.li}>
           Let you split expenses, create groups, add friends, and settle
           balances with other users
         </li>
@@ -204,8 +234,8 @@ export default function PrivacyPolicyPage() {
         </li>
         <li style={styles.li}>
           Send you transactional push notifications (friend requests, expense
-          activity, settlements) and account-related emails (OTP verification,
-          password reset)
+          activity, settlements) and account-related emails or SMS (OTP
+          verification, password reset)
         </li>
         <li style={styles.li}>
           Maintain an activity log within groups you belong to, visible to other
@@ -213,7 +243,8 @@ export default function PrivacyPolicyPage() {
         </li>
         <li style={styles.li}>
           Enforce fair use of the service (e.g. rate-limiting abusive request
-          patterns)
+          patterns, including limiting how often verification codes can be
+          requested)
         </li>
         <li style={styles.li}>Diagnose and fix technical problems</li>
       </ul>
@@ -275,6 +306,14 @@ export default function PrivacyPolicyPage() {
               Device/app diagnostic data, not your personal expense data
             </td>
           </tr>
+          <tr>
+            <td style={styles.td}>2Factor</td>
+            <td style={styles.td}>Delivering SMS verification codes</td>
+            <td style={styles.td}>
+              Phone number (only when you sign up, log in, or add a phone number
+              with an SMS-verified code)
+            </td>
+          </tr>
         </tbody>
       </table>
       <p style={styles.p}>
@@ -289,6 +328,11 @@ export default function PrivacyPolicyPage() {
         <li style={styles.li}>
           Passwords are stored using one-way bcrypt hashing — we cannot recover
           or view your original password.
+        </li>
+        <li style={styles.li}>
+          Verification codes (for email or phone) are stored as a one-way hash,
+          expire a short time after being sent, and can only be attempted a
+          limited number of times before you must request a new one.
         </li>
         <li style={styles.li}>
           All communication between the app and our servers is encrypted in
@@ -337,6 +381,11 @@ export default function PrivacyPolicyPage() {
         <li style={styles.li}>
           Withdraw consent for optional data (e.g. phone number) at any time by
           removing it from your profile
+        </li>
+        <li style={styles.li}>
+          Add and verify an additional email address or phone number on your
+          account, or remove one — as long as at least one verified way to log
+          in always remains on the account
         </li>
         <li style={styles.li}>
           Revoke contacts permission at any time via your device settings, which
