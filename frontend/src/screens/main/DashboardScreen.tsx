@@ -22,6 +22,7 @@ import { DashboardSummary, FriendBalanceResponse } from "@/types/api";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppModal } from "@/components/AppModal";
+import { Avatar } from "@/components/Avatar";
 import {
   MainStackParamList,
   DashboardStackParamList,
@@ -217,22 +218,11 @@ export function DashboardScreen() {
                   }
                   style={styles.friendRow}
                 >
-                  <View
-                    style={[
-                      styles.avatar,
-                      { backgroundColor: theme.primaryContainer },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color: theme.primary,
-                        fontWeight: "700",
-                        fontSize: 15,
-                      }}
-                    >
-                      {item.friendName.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
+                  <Avatar
+                    name={item.friendName}
+                    backgroundColor={theme.primaryContainer}
+                    imageUrl={item.friendProfilePictureUrl}
+                  />
                   <View style={styles.friendTextWrap}>
                     <Text
                       style={[styles.friendName, { color: theme.textPrimary }]}

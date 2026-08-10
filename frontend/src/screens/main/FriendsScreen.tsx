@@ -16,6 +16,7 @@ import { CompositeNavigationProp } from "@react-navigation/native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { useFriendsQuery } from "@/hooks/useFriendsQuery";
+import { Avatar } from "@/components/Avatar";
 import { FriendRequestDto } from "@/types/api";
 import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 
@@ -125,6 +126,7 @@ export function FriendsScreen() {
                 navigation.navigate("FriendDetail", {
                   friendId: item.userId,
                   friendName: item.name,
+                  friendPhotoUrl: item.profilePictureUrl,
                 })
               }
               style={[
@@ -132,13 +134,11 @@ export function FriendsScreen() {
                 { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              <View
-                style={[styles.avatar, { backgroundColor: theme.background }]}
-              >
-                <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
-                  {item.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <Avatar
+                name={item.name}
+                imageUrl={item.profilePictureUrl}
+                backgroundColor={theme.background}
+              />
               <View style={styles.rowBody}>
                 <Text style={[styles.name, { color: theme.textPrimary }]}>
                   {item.name}
@@ -176,13 +176,11 @@ export function FriendsScreen() {
                 { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              <View
-                style={[styles.avatar, { backgroundColor: theme.background }]}
-              >
-                <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
-                  {item.senderName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <Avatar
+                name={item.senderName}
+                backgroundColor={theme.background}
+                imageUrl={item.senderProfilePictureUrl}
+              />
               <View style={styles.rowBody}>
                 <Text style={[styles.name, { color: theme.textPrimary }]}>
                   {item.senderName}
@@ -253,13 +251,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 10,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   rowBody: { flex: 1 },
   name: { fontSize: 15, fontWeight: "600" },

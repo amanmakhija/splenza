@@ -12,15 +12,11 @@
       "resizeMode": "contain",
       "backgroundColor": "#FAFAF8"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.splenza.app",
-      "associatedDomains": [
-        "applinks:splenza.in"
-      ]
+      "associatedDomains": ["applinks:splenza.in"]
     },
     "android": {
       "package": "com.splenza.app",
@@ -39,16 +35,14 @@
               "pathPrefix": "/reset-password"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS"
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -93,12 +87,15 @@
       }
     },
     "sdkVersion": "54.0.0",
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "platforms": ["ios", "android"],
     "androidStatusBar": {
       "backgroundColor": "#FAFAF8"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8ef9b94d-d61c-4317-ad8d-a2e7ebbc8293"
     }
   }
 }

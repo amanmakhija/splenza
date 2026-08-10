@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Text, StyleSheet, Pressable } from "react-native";
+import { Text, Image, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -83,6 +83,9 @@ export function InAppNotificationToast() {
       handleNotificationNavigation({
         targetType: asString(data.targetType),
         referenceId: asString(data.referenceId),
+        url: asString(data.url),
+        screenName: asString(data.screenName),
+        screenParams: asString(data.screenParams),
       });
     }
   };
@@ -130,7 +133,14 @@ export function InAppNotificationToast() {
               { backgroundColor: theme.primaryContainer },
             ]}
           >
-            <Bell size={18} color={theme.primary} />
+            {toast.data?.imageUrl ? (
+              <Image
+                source={{ uri: toast.data.imageUrl }}
+                style={styles.iconImage}
+              />
+            ) : (
+              <Bell size={18} color={theme.primary} />
+            )}
           </Animated.View>
           <Animated.View style={styles.textWrap}>
             <Text
@@ -180,7 +190,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  iconImage: { width: 36, height: 36 },
   textWrap: { flex: 1 },
   title: { fontSize: 14, fontWeight: "700" },
   body: { fontSize: 13, marginTop: 2, lineHeight: 18 },

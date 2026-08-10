@@ -138,6 +138,7 @@ export interface FriendRequestDto {
   senderEmail: string;
   status: "PENDING" | "ACCEPTED" | "REJECTED";
   createdAt: string;
+  senderProfilePictureUrl: string;
 }
 
 /**
@@ -176,6 +177,7 @@ export interface FriendBalanceResponse {
   friendId: string;
   friendName: string;
   netAmount: number;
+  friendProfilePictureUrl: string;
 }
 
 export interface DashboardSummary {

@@ -74,7 +74,7 @@ export function FriendDetailScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<Route>();
-  const { friendId, friendName } = params;
+  const { friendId, friendName, friendPhotoUrl } = params;
   const currentUser = useAuthStore((s) => s.user);
 
   const balanceQuery = useQuery({
@@ -144,7 +144,11 @@ export function FriendDetailScreen() {
         <View style={styles.actionsRow}>
           <Pressable
             onPress={() =>
-              navigation.navigate("CreateExpense", { friendId, friendName })
+              navigation.navigate("CreateExpense", {
+                friendId,
+                friendName,
+                friendPhotoUrl,
+              })
             }
             style={[styles.actionButton, { backgroundColor: theme.primary }]}
           >

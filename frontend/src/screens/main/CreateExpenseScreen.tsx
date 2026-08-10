@@ -41,6 +41,7 @@ import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
 import { SegmentedControl } from "@/components/SegmentedControl";
+import { Avatar } from "@/components/Avatar";
 import { AppModal } from "@/components/AppModal";
 import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
@@ -51,6 +52,7 @@ type Route = RouteProp<MainStackParamList, "CreateExpense">;
 interface Participant {
   userId: string;
   name: string;
+  profilePictureUrl?: string | null;
 }
 
 type ActiveSheet = "title" | "category" | "paidBy" | "split" | null;
@@ -105,7 +107,7 @@ export function CreateExpenseScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<Route>();
-  const { groupId, friendId, friendName, expenseId } = params;
+  const { groupId, friendId, friendName, friendPhotoUrl, expenseId } = params;
   const isEditMode = Boolean(expenseId);
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
@@ -132,16 +134,32 @@ export function CreateExpenseScreen() {
       return (groupQuery.data?.members ?? []).map((m) => ({
         userId: m.userId,
         name: m.name,
+        profilePictureUrl: m.profilePictureUrl,
       }));
     }
     if (friendId && currentUser) {
       return [
-        { userId: currentUser.id, name: `${currentUser.name} (you)` },
-        { userId: friendId, name: friendName ?? "Friend" },
+        {
+          userId: currentUser.id,
+          name: `${currentUser.name} (you)`,
+          profilePictureUrl: currentUser.profilePictureUrl,
+        },
+        {
+          userId: friendId,
+          name: friendName ?? "Friend",
+          profilePictureUrl: friendPhotoUrl,
+        },
       ];
     }
     return [];
-  }, [groupId, groupQuery.data, friendId, friendName, currentUser]);
+  }, [
+    groupId,
+    groupQuery.data,
+    friendId,
+    friendName,
+    friendPhotoUrl,
+    currentUser,
+  ]);
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(""); // raw digit string, formatted for display
@@ -345,8 +363,8 @@ export function CreateExpenseScreen() {
   const selectedCategory = categoriesQuery.data?.find(
     (c) => c.id === categoryId,
   );
-  const paidByName =
-    allParticipants.find((p) => p.userId === paidBy)?.name ?? "Choose";
+  const paidByParticipant = allParticipants.find((p) => p.userId === paidBy);
+  const paidByName = paidByParticipant?.name ?? "Choose";
   const groupOrPersonalLabel = groupQuery.data?.name
     ? groupQuery.data.name
     : friendName
@@ -505,18 +523,27 @@ export function CreateExpenseScreen() {
             <View
               style={[
                 styles.rowIconWrap,
-                { backgroundColor: theme.primaryContainer },
+                { backgroundColor: theme.primaryContainer, overflow: "hidden" },
               ]}
             >
-              <Text
-                style={{
-                  color: theme.primary,
-                  fontWeight: "700",
-                  fontSize: 11,
-                }}
-              >
-                {paidByName.charAt(0).toUpperCase()}
-              </Text>
+              {paidByParticipant ? (
+                <Avatar
+                  name={paidByParticipant.name}
+                  imageUrl={paidByParticipant.profilePictureUrl}
+                  size={28}
+                  backgroundColor={theme.primaryContainer}
+                />
+              ) : (
+                <Text
+                  style={{
+                    color: theme.primary,
+                    fontWeight: "700",
+                    fontSize: 11,
+                  }}
+                >
+                  ?
+                </Text>
+              )}
             </View>
             <View style={styles.rowTextWrap}>
               <Text style={[styles.rowSubLabel, { color: theme.textMuted }]}>

@@ -12,6 +12,7 @@ import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { GroupMember } from "@/types/api";
 import { AppModal } from "@/components/AppModal";
+import { Avatar } from "@/components/Avatar";
 import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
@@ -119,14 +120,13 @@ export function GroupMembersScreen() {
           return (
             <View style={styles.row}>
               <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
+                style={[styles.avatarBorder, { borderColor: theme.border }]}
               >
-                <Text style={{ color: theme.primary, fontWeight: "700" }}>
-                  {item.name.charAt(0).toUpperCase()}
-                </Text>
+                <Avatar
+                  name={item.name}
+                  imageUrl={item.profilePictureUrl}
+                  backgroundColor={theme.surface}
+                />
               </View>
               <View style={styles.rowBody}>
                 <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
@@ -242,13 +242,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarBorder: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
     marginRight: 12,
   },
   rowBody: { flex: 1 },
