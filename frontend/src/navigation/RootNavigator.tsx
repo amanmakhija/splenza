@@ -49,6 +49,9 @@ export function RootNavigator() {
         handleNotificationNavigation({
           targetType: asString(notification.data.targetType),
           referenceId: asString(notification.data.referenceId),
+          url: asString(notification.data.url),
+          screenName: asString(notification.data.screenName),
+          screenParams: asString(notification.data.screenParams),
         });
       }
     }

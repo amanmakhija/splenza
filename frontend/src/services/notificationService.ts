@@ -65,6 +65,9 @@ export function subscribeNotificationOpened() {
     handleNotificationNavigation({
       targetType: asString(message.data?.targetType),
       referenceId: asString(message.data?.referenceId),
+      url: asString(message.data?.url),
+      screenName: asString(message.data?.screenName),
+      screenParams: asString(message.data?.screenParams),
     });
   });
 }

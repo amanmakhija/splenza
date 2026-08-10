@@ -33,7 +33,11 @@ export type AuthStackParamList = {
 
 export type DashboardStackParamList = {
   DashboardHome: undefined;
-  FriendDetail: { friendId: string; friendName: string };
+  FriendDetail: {
+    friendId: string;
+    friendName: string;
+    friendPhotoUrl?: string | null;
+  };
 };
 
 export type GroupsStackParamList = {
@@ -43,7 +47,11 @@ export type GroupsStackParamList = {
 
 export type FriendsStackParamList = {
   FriendsHome: undefined;
-  FriendDetail: { friendId: string; friendName: string };
+  FriendDetail: {
+    friendId: string;
+    friendName: string;
+    friendPhotoUrl?: string | null;
+  };
 };
 
 export type MainTabParamList = {
@@ -71,6 +79,7 @@ export type MainStackParamList = {
     groupId?: string;
     friendId?: string;
     friendName?: string;
+    friendPhotoUrl?: string | null;
     expenseId?: string;
   };
   ExpenseDetail: {

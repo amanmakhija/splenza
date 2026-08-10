@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Mail,
   Phone,
@@ -21,7 +21,9 @@ import {
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { getApiErrorMessage } from "@/lib/apiClient";
+import { alert } from "@/components/AppAlert";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { IdentifierType } from "@/types/api";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
@@ -31,6 +33,7 @@ export function AccountSecurityScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuthStore();
   const getIdentifiers = useAuthStore((s) => s.getIdentifiers);
+  const startAddIdentifier = useAuthStore((s) => s.startAddIdentifier);
 
   const identifiersQuery = useQuery({
     queryKey: ["identifiers"],
@@ -42,6 +45,49 @@ export function AccountSecurityScreen() {
 
   const hasVerifiedEmail = Boolean(email?.verified);
   const hasPassword = Boolean(user?.hasPassword);
+
+  // Tracks which identifier type currently has a "send verification code"
+  // request in flight, so only that row shows a spinner.
+  const [sendingFor, setSendingFor] = useState<IdentifierType | null>(null);
+
+  const sendCodeMutation = useMutation({
+    mutationFn: async ({
+      type,
+      value,
+    }: {
+      type: IdentifierType;
+      value: string;
+    }) => {
+      setSendingFor(type);
+      await startAddIdentifier(type, value);
+      return { type, value };
+    },
+    onSuccess: ({ type, value }) => {
+      setSendingFor(null);
+      navigation.navigate("VerifyIdentifier", { type, value });
+    },
+    onError: (err) => {
+      setSendingFor(null);
+      alert("Couldn't send code", getApiErrorMessage(err));
+    },
+  });
+
+  // A row with no value yet goes to the "enter it" screen. A row that
+  // already has a value but isn't verified - most commonly someone who
+  // added a phone number back before phone verification existed - sends a
+  // fresh code straight to that existing value and jumps to entering it,
+  // skipping the "type it in" step since we already know the value.
+  const handlePress = (
+    type: IdentifierType,
+    existing: { value: string; verified: boolean } | undefined,
+  ) => {
+    if (!existing) {
+      navigation.navigate("AddIdentifier", { type });
+      return;
+    }
+    if (existing.verified) return;
+    sendCodeMutation.mutate({ type, value: existing.value });
+  };
 
   return (
     <SafeAreaView
@@ -71,11 +117,8 @@ export function AccountSecurityScreen() {
             label="Email"
             value={email?.value}
             verified={email?.verified}
-            onPress={() =>
-              email
-                ? undefined
-                : navigation.navigate("AddIdentifier", { type: "EMAIL" })
-            }
+            sending={sendingFor === "EMAIL"}
+            onPress={() => handlePress("EMAIL", email)}
           />
 
           <IdentifierRow
@@ -83,11 +126,8 @@ export function AccountSecurityScreen() {
             label="Phone"
             value={phone?.value}
             verified={phone?.verified}
-            onPress={() =>
-              phone
-                ? undefined
-                : navigation.navigate("AddIdentifier", { type: "PHONE" })
-            }
+            sending={sendingFor === "PHONE"}
+            onPress={() => handlePress("PHONE", phone)}
           />
 
           <Text
@@ -149,7 +189,8 @@ export function AccountSecurityScreen() {
 
           <Text style={[styles.footnote, { color: theme.textMuted }]}>
             You always need at least one verified way to log in, so you can't
-            remove your only verified email or phone number.
+            remove your only verified email or phone number. Tap an unverified
+            email or phone number to send yourself a code and verify it.
           </Text>
         </View>
       )}
@@ -162,20 +203,22 @@ function IdentifierRow({
   label,
   value,
   verified,
+  sending,
   onPress,
 }: {
   icon: React.ReactNode;
   label: string;
   value?: string;
   verified?: boolean;
-  onPress?: () => void;
+  sending?: boolean;
+  onPress: () => void;
 }) {
   const { theme } = useAppTheme();
 
   return (
     <Pressable
-      onPress={value ? undefined : onPress}
-      disabled={Boolean(value)}
+      onPress={onPress}
+      disabled={Boolean(value) && verified}
       style={[
         styles.row,
         { backgroundColor: theme.surface, borderColor: theme.border },
@@ -193,7 +236,9 @@ function IdentifierRow({
         </View>
       </View>
 
-      {value ? (
+      {sending ? (
+        <ActivityIndicator size="small" color={theme.primary} />
+      ) : value ? (
         verified ? (
           <View style={styles.verifiedBadge}>
             <ShieldCheck size={14} color={theme.success} />
@@ -204,11 +249,14 @@ function IdentifierRow({
             </Text>
           </View>
         ) : (
-          <Text
-            style={{ color: theme.danger, fontSize: 12, fontWeight: "700" }}
-          >
-            Unverified
-          </Text>
+          <View style={styles.verifiedBadge}>
+            <Text
+              style={{ color: theme.danger, fontSize: 12, fontWeight: "700" }}
+            >
+              Unverified
+            </Text>
+            <ChevronRight size={14} color={theme.danger} />
+          </View>
         )
       ) : (
         <ChevronRight size={18} color={theme.textMuted} />
