@@ -57,8 +57,7 @@ public class AdminBroadcastService {
                 request.getTitle(),
                 request.getImageUrl() != null,
                 request.getLinkType(),
-                devices.size()
-        );
+                devices.size());
 
         if (devices.isEmpty()) {
             return BroadcastNotificationResponse.builder()
@@ -98,8 +97,7 @@ public class AdminBroadcastService {
                 "Admin broadcast complete: totalDevices={}, sentCount={}, prunedCount={}.",
                 devices.size(),
                 sentCount,
-                prunedCount
-        );
+                prunedCount);
 
         return BroadcastNotificationResponse.builder()
                 .totalDevices(devices.size())
@@ -168,9 +166,13 @@ public class AdminBroadcastService {
     }
 
     /**
-     * Reuses the exact same dead-token cleanup DeviceTokenService already
-     * applies for transactional pushes, rather than a second implementation of
-     * the same rule.
+     * Reuses the exact same dead-token cleanup DeviceTokenService already applies
+     * for transactional pushes, rather than a second implementation of the same
+     * rule.
+     * Non-UNREGISTERED failures are logged (with FCM's error code) so send failures
+     * aren't silently swallowed - they're not pruned since the token itself may
+     * still
+     * be valid.
      */
     private int pruneInvalidTokens(List<String> batch, List<SendResponse> responses) {
         int pruned = 0;
@@ -187,6 +189,11 @@ public class AdminBroadcastService {
             if (ex != null && ex.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
                 deviceTokenService.unregister(batch.get(i));
                 pruned++;
+            } else {
+                log.warn(
+                        "Broadcast send failed for a device token. errorCode={}, message={}",
+                        ex != null ? ex.getMessagingErrorCode() : "unknown",
+                        ex != null ? ex.getMessage() : "no exception details");
             }
         }
 
