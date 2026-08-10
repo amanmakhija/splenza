@@ -1,6 +1,7 @@
 package com.splitwise.app.config;
 
 import com.splitwise.app.ratelimit.RateLimitFilter;
+import com.splitwise.app.security.AdminBroadcastFilter;
 import com.splitwise.app.security.JwtAuthenticationEntryPoint;
 import com.splitwise.app.security.JwtAuthenticationFilter;
 import com.splitwise.app.logging.RequestIdFilter;
@@ -35,6 +36,7 @@ public class SecurityConfig {
     private final RateLimitFilter rateLimitFilter;
     private final CorsProperties corsProperties;
     private final RequestIdFilter requestIdFilter;
+    private final AdminBroadcastFilter adminBroadcastFilter;
 
     private static final String[] PUBLIC_ENDPOINTS = {
         "/api/v1/auth/**",
@@ -42,7 +44,10 @@ public class SecurityConfig {
         "/v3/api-docs/**",
         "/api/v1/waitlist/**",
         "/api/v1/app-config",
-        "/actuator/health"
+        "/actuator/health",
+        // Not actually "public" - gated entirely by AdminBroadcastFilter's own
+        // secret check below, deliberately outside the JWT/user auth system.
+        "/api/v1/admin/notifications/broadcast"
     };
 
     @Bean
@@ -67,6 +72,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
                 )
                 .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(adminBroadcastFilter, RequestIdFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, RequestIdFilter.class)
                 .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 

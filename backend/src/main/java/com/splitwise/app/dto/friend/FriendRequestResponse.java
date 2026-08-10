@@ -26,6 +26,9 @@ public class FriendRequestResponse {
     @Schema(description = "Email address of the sender", example = "aman@example.com")
     private String senderEmail;
 
+    @Schema(description = "URL of the sender's profile picture, or null if not set")
+    private String senderProfilePictureUrl;
+
     @Schema(description = "Current status of the request", example = "PENDING",
             allowableValues = {"PENDING", "ACCEPTED", "REJECTED"})
     private String status;

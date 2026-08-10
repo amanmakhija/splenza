@@ -76,6 +76,11 @@ app:
     allowed-origins:
       - http://localhost:3000
 
+admin:
+  broadcast:
+    secret: ${ADMIN_BROADCAST_SECRET:}
+    rate-limit-per-hour: ${ADMIN_BROADCAST_RATE_LIMIT_PER_HOUR:5}
+
 google:
   oauth:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID}

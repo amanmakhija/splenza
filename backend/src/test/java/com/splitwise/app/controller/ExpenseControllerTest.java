@@ -9,6 +9,7 @@ import com.splitwise.app.entity.Expense;
 import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.exception.GlobalExceptionHandler;
 import com.splitwise.app.ratelimit.RateLimitFilter;
+import com.splitwise.app.security.AdminBroadcastFilter;
 import com.splitwise.app.security.AppUserDetailsService;
 import com.splitwise.app.security.JwtAuthenticationEntryPoint;
 import com.splitwise.app.security.JwtAuthenticationFilter;
@@ -48,727 +49,721 @@ import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-@WebMvcTest(
-        controllers = ExpenseController.class,
-        excludeFilters = {
-            @ComponentScan.Filter(
-                    type = FilterType.ASSIGNABLE_TYPE,
-                    classes = SecurityConfig.class),
-            @ComponentScan.Filter(
-                    type = FilterType.ASSIGNABLE_TYPE,
-                    classes = RateLimitFilter.class)
-        }
-)
+@WebMvcTest(controllers = ExpenseController.class, excludeFilters = {
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class),
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class),
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = AdminBroadcastFilter.class)
+})
 @AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
 class ExpenseControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @MockBean
-    private ExpenseService expenseService;
+        @MockBean
+        private ExpenseService expenseService;
 
-    @MockBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+        @MockBean
+        private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
-    private JwtService jwtService;
+        @MockBean
+        private JwtService jwtService;
 
-    @MockBean
-    private AppUserDetailsService appUserDetailsService;
+        @MockBean
+        private AppUserDetailsService appUserDetailsService;
 
-    @MockBean
-    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+        @MockBean
+        private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    private String asJson(Object object) throws Exception {
-        return objectMapper.writeValueAsString(object);
-    }
-
-    private CreateExpenseRequest createRequest() {
-
-        UUID paidBy = UUID.randomUUID();
-
-        ExpenseParticipantInput participant = new ExpenseParticipantInput();
-        participant.setUserId(paidBy);
-        participant.setAmount(BigDecimal.valueOf(500));
-
-        CreateExpenseRequest request = new CreateExpenseRequest();
-        request.setTitle("Dinner");
-        request.setAmount(BigDecimal.valueOf(500));
-        request.setCurrency("INR");
-        request.setExpenseDate(LocalDate.now());
-        request.setPaidBy(paidBy);
-        request.setSplitType(Expense.SplitType.EQUAL);
-        request.setParticipants(List.of(participant));
-
-        return request;
-    }
-
-    private ExpenseResponse expenseResponse() {
-
-        return ExpenseResponse.builder()
-                .id(UUID.randomUUID())
-                .title("Dinner")
-                .amount(BigDecimal.valueOf(500))
-                .currency("INR")
-                .splitType("EQUAL")
-                .build();
-    }
-
-    @Nested
-    @DisplayName("Create Expense")
-    class CreateExpenseTests {
-
-        @Test
-        @DisplayName("Should create expense successfully")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldCreateExpenseSuccessfully() throws Exception {
-
-            CreateExpenseRequest request = createRequest();
-            ExpenseResponse response = expenseResponse();
-
-            when(expenseService.create(any(), any(CreateExpenseRequest.class)))
-                    .thenReturn(response);
-
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.id").value(response.getId().toString()))
-                    .andExpect(jsonPath("$.title").value("Dinner"))
-                    .andExpect(jsonPath("$.amount").value(500))
-                    .andExpect(jsonPath("$.currency").value("INR"))
-                    .andExpect(jsonPath("$.splitType").value("EQUAL"));
-
-            verify(expenseService)
-                    .create(any(), eq(request));
+        private String asJson(Object object) throws Exception {
+                return objectMapper.writeValueAsString(object);
         }
 
-        @Test
-        @DisplayName("Should return bad request when request is invalid")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnBadRequestWhenRequestIsInvalid() throws Exception {
+        private CreateExpenseRequest createRequest() {
 
-            CreateExpenseRequest request = new CreateExpenseRequest();
+                UUID paidBy = UUID.randomUUID();
 
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isBadRequest());
+                ExpenseParticipantInput participant = new ExpenseParticipantInput();
+                participant.setUserId(paidBy);
+                participant.setAmount(BigDecimal.valueOf(500));
 
-            verifyNoInteractions(expenseService);
+                CreateExpenseRequest request = new CreateExpenseRequest();
+                request.setTitle("Dinner");
+                request.setAmount(BigDecimal.valueOf(500));
+                request.setCurrency("INR");
+                request.setExpenseDate(LocalDate.now());
+                request.setPaidBy(paidBy);
+                request.setSplitType(Expense.SplitType.EQUAL);
+                request.setParticipants(List.of(participant));
+
+                return request;
         }
 
-        @Test
-        @DisplayName("Should return bad request when title is blank")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnBadRequestWhenTitleIsBlank() throws Exception {
+        private ExpenseResponse expenseResponse() {
 
-            CreateExpenseRequest request = createRequest();
-            request.setTitle("");
-
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isBadRequest());
-
-            verifyNoInteractions(expenseService);
+                return ExpenseResponse.builder()
+                                .id(UUID.randomUUID())
+                                .title("Dinner")
+                                .amount(BigDecimal.valueOf(500))
+                                .currency("INR")
+                                .splitType("EQUAL")
+                                .build();
         }
 
-        @Test
-        @DisplayName("Should return bad request when amount is missing")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnBadRequestWhenAmountIsMissing() throws Exception {
+        @Nested
+        @DisplayName("Create Expense")
+        class CreateExpenseTests {
 
-            CreateExpenseRequest request = createRequest();
-            request.setAmount(null);
+                @Test
+                @DisplayName("Should create expense successfully")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldCreateExpenseSuccessfully() throws Exception {
 
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isBadRequest());
+                        CreateExpenseRequest request = createRequest();
+                        ExpenseResponse response = expenseResponse();
 
-            verifyNoInteractions(expenseService);
+                        when(expenseService.create(any(), any(CreateExpenseRequest.class)))
+                                        .thenReturn(response);
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isCreated())
+                                        .andExpect(jsonPath("$.id").value(response.getId().toString()))
+                                        .andExpect(jsonPath("$.title").value("Dinner"))
+                                        .andExpect(jsonPath("$.amount").value(500))
+                                        .andExpect(jsonPath("$.currency").value("INR"))
+                                        .andExpect(jsonPath("$.splitType").value("EQUAL"));
+
+                        verify(expenseService)
+                                        .create(any(), eq(request));
+                }
+
+                @Test
+                @DisplayName("Should return bad request when request is invalid")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnBadRequestWhenRequestIsInvalid() throws Exception {
+
+                        CreateExpenseRequest request = new CreateExpenseRequest();
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isBadRequest());
+
+                        verifyNoInteractions(expenseService);
+                }
+
+                @Test
+                @DisplayName("Should return bad request when title is blank")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnBadRequestWhenTitleIsBlank() throws Exception {
+
+                        CreateExpenseRequest request = createRequest();
+                        request.setTitle("");
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isBadRequest());
+
+                        verifyNoInteractions(expenseService);
+                }
+
+                @Test
+                @DisplayName("Should return bad request when amount is missing")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnBadRequestWhenAmountIsMissing() throws Exception {
+
+                        CreateExpenseRequest request = createRequest();
+                        request.setAmount(null);
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isBadRequest());
+
+                        verifyNoInteractions(expenseService);
+                }
+
+                @Test
+                @DisplayName("Should return bad request when participant list is empty")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnBadRequestWhenParticipantsAreEmpty() throws Exception {
+
+                        CreateExpenseRequest request = createRequest();
+                        request.setParticipants(List.of());
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isBadRequest());
+
+                        verifyNoInteractions(expenseService);
+                }
+
+                @Test
+                @DisplayName("Should return not found when group does not exist")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnNotFoundWhenGroupDoesNotExist() throws Exception {
+
+                        CreateExpenseRequest request = createRequest();
+
+                        when(expenseService.create(any(), any(CreateExpenseRequest.class)))
+                                        .thenThrow(ApiException.notFound("Group not found"));
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isNotFound());
+
+                        verify(expenseService)
+                                        .create(any(), eq(request));
+                }
+
+                @Test
+                @DisplayName("Should return forbidden when user is not allowed")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnForbiddenWhenUserHasNoAccess() throws Exception {
+
+                        CreateExpenseRequest request = createRequest();
+
+                        when(expenseService.create(any(), any(CreateExpenseRequest.class)))
+                                        .thenThrow(ApiException.forbidden("Not allowed"));
+
+                        mockMvc.perform(post("/api/v1/expenses")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isForbidden());
+
+                        verify(expenseService)
+                                        .create(any(), eq(request));
+                }
         }
 
-        @Test
-        @DisplayName("Should return bad request when participant list is empty")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnBadRequestWhenParticipantsAreEmpty() throws Exception {
+        @Nested
+        @DisplayName("Update Expense")
+        class UpdateExpenseTests {
 
-            CreateExpenseRequest request = createRequest();
-            request.setParticipants(List.of());
+                @Test
+                @DisplayName("Should update expense successfully")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldUpdateExpenseSuccessfully() throws Exception {
 
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isBadRequest());
+                        UUID expenseId = UUID.randomUUID();
 
-            verifyNoInteractions(expenseService);
+                        UpdateExpenseRequest request = updateRequest();
+                        ExpenseResponse response = expenseResponse();
+
+                        when(expenseService.update(any(), eq(expenseId), any()))
+                                        .thenReturn(response);
+
+                        mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.id").value(response.getId().toString()))
+                                        .andExpect(jsonPath("$.title").value("Dinner"))
+                                        .andExpect(jsonPath("$.amount").value(500));
+
+                        verify(expenseService)
+                                        .update(any(), eq(expenseId), eq(request));
+                }
+
+                @Test
+                @DisplayName("Should return bad request when update request is invalid")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnBadRequestWhenUpdateRequestIsInvalid() throws Exception {
+
+                        UUID expenseId = UUID.randomUUID();
+
+                        UpdateExpenseRequest request = new UpdateExpenseRequest();
+
+                        mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isBadRequest());
+
+                        verifyNoInteractions(expenseService);
+                }
+
+                @Test
+                @DisplayName("Should return not found when expense does not exist")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnNotFoundWhenExpenseDoesNotExist() throws Exception {
+
+                        UUID expenseId = UUID.randomUUID();
+
+                        UpdateExpenseRequest request = updateRequest();
+
+                        when(expenseService.update(any(), eq(expenseId), any()))
+                                        .thenThrow(ApiException.notFound("Expense not found"));
+
+                        mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isNotFound());
+
+                        verify(expenseService)
+                                        .update(any(), eq(expenseId), eq(request));
+                }
+
+                @Test
+                @DisplayName("Should return forbidden when user cannot update expense")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnForbiddenWhenUserCannotUpdateExpense() throws Exception {
+
+                        UUID expenseId = UUID.randomUUID();
+
+                        UpdateExpenseRequest request = updateRequest();
+
+                        when(expenseService.update(any(), eq(expenseId), any()))
+                                        .thenThrow(ApiException.forbidden("Not allowed"));
+
+                        mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(asJson(request)))
+                                        .andExpect(status().isForbidden());
+
+                        verify(expenseService)
+                                        .update(any(), eq(expenseId), eq(request));
+                }
         }
 
-        @Test
-        @DisplayName("Should return not found when group does not exist")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnNotFoundWhenGroupDoesNotExist() throws Exception {
+        @Nested
+        @DisplayName("Delete Expense")
+        class DeleteExpenseTests {
 
-            CreateExpenseRequest request = createRequest();
+                @Test
+                @DisplayName("Should delete expense successfully")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldDeleteExpenseSuccessfully() throws Exception {
 
-            when(expenseService.create(any(), any(CreateExpenseRequest.class)))
-                    .thenThrow(ApiException.notFound("Group not found"));
+                        UUID expenseId = UUID.randomUUID();
 
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isNotFound());
+                        mockMvc.perform(delete("/api/v1/expenses/{expenseId}", expenseId))
+                                        .andExpect(status().isNoContent());
 
-            verify(expenseService)
-                    .create(any(), eq(request));
+                        verify(expenseService)
+                                        .delete(any(), eq(expenseId));
+                }
+
+                @Test
+                @DisplayName("Should return not found when deleting unknown expense")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnNotFoundWhenDeletingUnknownExpense() throws Exception {
+
+                        UUID expenseId = UUID.randomUUID();
+
+                        doThrow(ApiException.notFound("Expense not found"))
+                                        .when(expenseService)
+                                        .delete(any(), eq(expenseId));
+
+                        mockMvc.perform(delete("/api/v1/expenses/{expenseId}", expenseId))
+                                        .andExpect(status().isNotFound());
+
+                        verify(expenseService)
+                                        .delete(any(), eq(expenseId));
+                }
+
+                @Test
+                @DisplayName("Should return forbidden when user cannot delete expense")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnForbiddenWhenUserCannotDeleteExpense() throws Exception {
+
+                        UUID expenseId = UUID.randomUUID();
+
+                        doThrow(ApiException.forbidden("Not allowed"))
+                                        .when(expenseService)
+                                        .delete(any(), eq(expenseId));
+
+                        mockMvc.perform(delete("/api/v1/expenses/{expenseId}", expenseId))
+                                        .andExpect(status().isForbidden());
+
+                        verify(expenseService)
+                                        .delete(any(), eq(expenseId));
+                }
+
         }
 
-        @Test
-        @DisplayName("Should return forbidden when user is not allowed")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnForbiddenWhenUserHasNoAccess() throws Exception {
+        @Nested
+        @DisplayName("Duplicate Expense")
+        class DuplicateExpenseTests {
 
-            CreateExpenseRequest request = createRequest();
+                @Test
+                @DisplayName("Should duplicate expense successfully")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldDuplicateExpenseSuccessfully() throws Exception {
 
-            when(expenseService.create(any(), any(CreateExpenseRequest.class)))
-                    .thenThrow(ApiException.forbidden("Not allowed"));
+                        UUID expenseId = UUID.randomUUID();
+                        ExpenseResponse response = expenseResponse();
 
-            mockMvc.perform(post("/api/v1/expenses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isForbidden());
+                        when(expenseService.duplicate(any(), eq(expenseId)))
+                                        .thenReturn(response);
 
-            verify(expenseService)
-                    .create(any(), eq(request));
-        }
-    }
+                        mockMvc.perform(post("/api/v1/expenses/{expenseId}/duplicate", expenseId))
+                                        .andExpect(status().isCreated())
+                                        .andExpect(jsonPath("$.id").value(response.getId().toString()))
+                                        .andExpect(jsonPath("$.title").value("Dinner"))
+                                        .andExpect(jsonPath("$.amount").value(500));
 
-    @Nested
-    @DisplayName("Update Expense")
-    class UpdateExpenseTests {
+                        verify(expenseService)
+                                        .duplicate(any(), eq(expenseId));
+                }
 
-        @Test
-        @DisplayName("Should update expense successfully")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldUpdateExpenseSuccessfully() throws Exception {
+                @Test
+                @DisplayName("Should return not found when expense does not exist")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnNotFoundWhenExpenseDoesNotExist() throws Exception {
 
-            UUID expenseId = UUID.randomUUID();
+                        UUID expenseId = UUID.randomUUID();
 
-            UpdateExpenseRequest request = updateRequest();
-            ExpenseResponse response = expenseResponse();
+                        when(expenseService.duplicate(any(), eq(expenseId)))
+                                        .thenThrow(ApiException.notFound("Expense not found"));
 
-            when(expenseService.update(any(), eq(expenseId), any()))
-                    .thenReturn(response);
+                        mockMvc.perform(post("/api/v1/expenses/{expenseId}/duplicate", expenseId))
+                                        .andExpect(status().isNotFound());
 
-            mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(response.getId().toString()))
-                    .andExpect(jsonPath("$.title").value("Dinner"))
-                    .andExpect(jsonPath("$.amount").value(500));
+                        verify(expenseService)
+                                        .duplicate(any(), eq(expenseId));
+                }
 
-            verify(expenseService)
-                    .update(any(), eq(expenseId), eq(request));
-        }
+                @Test
+                @DisplayName("Should return forbidden when user cannot duplicate expense")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnForbiddenWhenUserCannotDuplicateExpense() throws Exception {
 
-        @Test
-        @DisplayName("Should return bad request when update request is invalid")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnBadRequestWhenUpdateRequestIsInvalid() throws Exception {
+                        UUID expenseId = UUID.randomUUID();
 
-            UUID expenseId = UUID.randomUUID();
+                        when(expenseService.duplicate(any(), eq(expenseId)))
+                                        .thenThrow(ApiException.forbidden("Not allowed"));
 
-            UpdateExpenseRequest request = new UpdateExpenseRequest();
+                        mockMvc.perform(post("/api/v1/expenses/{expenseId}/duplicate", expenseId))
+                                        .andExpect(status().isForbidden());
 
-            mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isBadRequest());
-
-            verifyNoInteractions(expenseService);
+                        verify(expenseService)
+                                        .duplicate(any(), eq(expenseId));
+                }
         }
 
-        @Test
-        @DisplayName("Should return not found when expense does not exist")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnNotFoundWhenExpenseDoesNotExist() throws Exception {
+        @Nested
+        @DisplayName("Get Expense")
+        class GetExpenseTests {
 
-            UUID expenseId = UUID.randomUUID();
+                @Test
+                @DisplayName("Should return expense by id")
+                void shouldReturnExpenseById() throws Exception {
 
-            UpdateExpenseRequest request = updateRequest();
+                        UUID expenseId = UUID.randomUUID();
+                        ExpenseResponse response = expenseResponse();
 
-            when(expenseService.update(any(), eq(expenseId), any()))
-                    .thenThrow(ApiException.notFound("Expense not found"));
+                        when(expenseService.getById(expenseId))
+                                        .thenReturn(response);
 
-            mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isNotFound());
+                        mockMvc.perform(get("/api/v1/expenses/{expenseId}", expenseId))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.id").value(response.getId().toString()))
+                                        .andExpect(jsonPath("$.title").value("Dinner"))
+                                        .andExpect(jsonPath("$.currency").value("INR"));
 
-            verify(expenseService)
-                    .update(any(), eq(expenseId), eq(request));
+                        verify(expenseService)
+                                        .getById(expenseId);
+                }
+
+                @Test
+                @DisplayName("Should return not found when expense does not exist")
+                void shouldReturnNotFoundWhenExpenseDoesNotExist() throws Exception {
+
+                        UUID expenseId = UUID.randomUUID();
+
+                        when(expenseService.getById(expenseId))
+                                        .thenThrow(ApiException.notFound("Expense not found"));
+
+                        mockMvc.perform(get("/api/v1/expenses/{expenseId}", expenseId))
+                                        .andExpect(status().isNotFound());
+
+                        verify(expenseService)
+                                        .getById(expenseId);
+                }
         }
 
-        @Test
-        @DisplayName("Should return forbidden when user cannot update expense")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnForbiddenWhenUserCannotUpdateExpense() throws Exception {
+        @Nested
+        @DisplayName("Group Expenses")
+        class GroupExpenseTests {
 
-            UUID expenseId = UUID.randomUUID();
+                @Test
+                @DisplayName("Should return group expenses")
+                void shouldReturnGroupExpenses() throws Exception {
 
-            UpdateExpenseRequest request = updateRequest();
+                        UUID groupId = UUID.randomUUID();
 
-            when(expenseService.update(any(), eq(expenseId), any()))
-                    .thenThrow(ApiException.forbidden("Not allowed"));
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of(expenseResponse()))
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(1)
+                                        .totalPages(1)
+                                        .last(true)
+                                        .build();
 
-            mockMvc.perform(put("/api/v1/expenses/{expenseId}", expenseId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(asJson(request)))
-                    .andExpect(status().isForbidden());
+                        when(expenseService.listForGroupPaged(eq(groupId), any()))
+                                        .thenReturn(page);
 
-            verify(expenseService)
-                    .update(any(), eq(expenseId), eq(request));
-        }
-    }
+                        mockMvc.perform(get("/api/v1/expenses/group/{groupId}", groupId))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(1))
+                                        .andExpect(jsonPath("$.page").value(0))
+                                        .andExpect(jsonPath("$.size").value(20));
 
-    @Nested
-    @DisplayName("Delete Expense")
-    class DeleteExpenseTests {
+                        verify(expenseService)
+                                        .listForGroupPaged(eq(groupId), any());
+                }
 
-        @Test
-        @DisplayName("Should delete expense successfully")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldDeleteExpenseSuccessfully() throws Exception {
+                @Test
+                @DisplayName("Should return empty page when group has no expenses")
+                void shouldReturnEmptyGroupExpenses() throws Exception {
 
-            UUID expenseId = UUID.randomUUID();
+                        UUID groupId = UUID.randomUUID();
 
-            mockMvc.perform(delete("/api/v1/expenses/{expenseId}", expenseId))
-                    .andExpect(status().isNoContent());
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of())
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .last(true)
+                                        .build();
 
-            verify(expenseService)
-                    .delete(any(), eq(expenseId));
-        }
+                        when(expenseService.listForGroupPaged(eq(groupId), any()))
+                                        .thenReturn(page);
 
-        @Test
-        @DisplayName("Should return not found when deleting unknown expense")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnNotFoundWhenDeletingUnknownExpense() throws Exception {
+                        mockMvc.perform(get("/api/v1/expenses/group/{groupId}", groupId))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(0));
 
-            UUID expenseId = UUID.randomUUID();
-
-            doThrow(ApiException.notFound("Expense not found"))
-                    .when(expenseService)
-                    .delete(any(), eq(expenseId));
-
-            mockMvc.perform(delete("/api/v1/expenses/{expenseId}", expenseId))
-                    .andExpect(status().isNotFound());
-
-            verify(expenseService)
-                    .delete(any(), eq(expenseId));
-        }
-
-        @Test
-        @DisplayName("Should return forbidden when user cannot delete expense")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnForbiddenWhenUserCannotDeleteExpense() throws Exception {
-
-            UUID expenseId = UUID.randomUUID();
-
-            doThrow(ApiException.forbidden("Not allowed"))
-                    .when(expenseService)
-                    .delete(any(), eq(expenseId));
-
-            mockMvc.perform(delete("/api/v1/expenses/{expenseId}", expenseId))
-                    .andExpect(status().isForbidden());
-
-            verify(expenseService)
-                    .delete(any(), eq(expenseId));
+                        verify(expenseService)
+                                        .listForGroupPaged(eq(groupId), any());
+                }
         }
 
-    }
+        @Nested
+        @DisplayName("My Expenses")
+        class MyExpenseTests {
 
-    @Nested
-    @DisplayName("Duplicate Expense")
-    class DuplicateExpenseTests {
+                @Test
+                @DisplayName("Should return current user's expenses")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnMyExpenses() throws Exception {
 
-        @Test
-        @DisplayName("Should duplicate expense successfully")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldDuplicateExpenseSuccessfully() throws Exception {
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of(expenseResponse()))
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(1)
+                                        .totalPages(1)
+                                        .last(true)
+                                        .build();
 
-            UUID expenseId = UUID.randomUUID();
-            ExpenseResponse response = expenseResponse();
+                        when(expenseService.listForUserPaged(any(), any()))
+                                        .thenReturn(page);
 
-            when(expenseService.duplicate(any(), eq(expenseId)))
-                    .thenReturn(response);
+                        mockMvc.perform(get("/api/v1/expenses/me"))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(1))
+                                        .andExpect(jsonPath("$.page").value(0));
 
-            mockMvc.perform(post("/api/v1/expenses/{expenseId}/duplicate", expenseId))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.id").value(response.getId().toString()))
-                    .andExpect(jsonPath("$.title").value("Dinner"))
-                    .andExpect(jsonPath("$.amount").value(500));
+                        verify(expenseService)
+                                        .listForUserPaged(any(), any());
+                }
 
-            verify(expenseService)
-                    .duplicate(any(), eq(expenseId));
+                @Test
+                @DisplayName("Should return empty page when user has no expenses")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnEmptyMyExpenses() throws Exception {
+
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of())
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .last(true)
+                                        .build();
+
+                        when(expenseService.listForUserPaged(any(), any()))
+                                        .thenReturn(page);
+
+                        mockMvc.perform(get("/api/v1/expenses/me"))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(0));
+
+                        verify(expenseService)
+                                        .listForUserPaged(any(), any());
+                }
         }
 
-        @Test
-        @DisplayName("Should return not found when expense does not exist")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnNotFoundWhenExpenseDoesNotExist() throws Exception {
+        @Nested
+        @DisplayName("Friend Expenses")
+        class FriendExpenseTests {
 
-            UUID expenseId = UUID.randomUUID();
+                @Test
+                @DisplayName("Should return expenses with friend")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnFriendExpenses() throws Exception {
 
-            when(expenseService.duplicate(any(), eq(expenseId)))
-                    .thenThrow(ApiException.notFound("Expense not found"));
+                        UUID friendId = UUID.randomUUID();
 
-            mockMvc.perform(post("/api/v1/expenses/{expenseId}/duplicate", expenseId))
-                    .andExpect(status().isNotFound());
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of(expenseResponse()))
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(1)
+                                        .totalPages(1)
+                                        .last(true)
+                                        .build();
 
-            verify(expenseService)
-                    .duplicate(any(), eq(expenseId));
+                        when(expenseService.listDirectWithFriendPaged(any(), eq(friendId), any()))
+                                        .thenReturn(page);
+
+                        mockMvc.perform(get("/api/v1/expenses/friend/{friendId}", friendId))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(1));
+
+                        verify(expenseService)
+                                        .listDirectWithFriendPaged(any(), eq(friendId), any());
+                }
+
+                @Test
+                @DisplayName("Should return empty friend expenses")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnEmptyFriendExpenses() throws Exception {
+
+                        UUID friendId = UUID.randomUUID();
+
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of())
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .last(true)
+                                        .build();
+
+                        when(expenseService.listDirectWithFriendPaged(any(), eq(friendId), any()))
+                                        .thenReturn(page);
+
+                        mockMvc.perform(get("/api/v1/expenses/friend/{friendId}", friendId))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(0));
+
+                        verify(expenseService)
+                                        .listDirectWithFriendPaged(any(), eq(friendId), any());
+                }
         }
 
-        @Test
-        @DisplayName("Should return forbidden when user cannot duplicate expense")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnForbiddenWhenUserCannotDuplicateExpense() throws Exception {
+        @Nested
+        @DisplayName("Search Expenses")
+        class SearchExpenseTests {
 
-            UUID expenseId = UUID.randomUUID();
+                @Test
+                @DisplayName("Should search expenses")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldSearchExpenses() throws Exception {
 
-            when(expenseService.duplicate(any(), eq(expenseId)))
-                    .thenThrow(ApiException.forbidden("Not allowed"));
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of(expenseResponse()))
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(1)
+                                        .totalPages(1)
+                                        .last(true)
+                                        .build();
 
-            mockMvc.perform(post("/api/v1/expenses/{expenseId}/duplicate", expenseId))
-                    .andExpect(status().isForbidden());
+                        when(expenseService.searchPaged(any(), any(), any()))
+                                        .thenReturn(page);
 
-            verify(expenseService)
-                    .duplicate(any(), eq(expenseId));
-        }
-    }
+                        mockMvc.perform(get("/api/v1/expenses/search"))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(1));
 
-    @Nested
-    @DisplayName("Get Expense")
-    class GetExpenseTests {
+                        verify(expenseService)
+                                        .searchPaged(any(), any(), any());
+                }
 
-        @Test
-        @DisplayName("Should return expense by id")
-        void shouldReturnExpenseById() throws Exception {
+                @Test
+                @DisplayName("Should search expenses with filters")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldSearchExpensesWithFilters() throws Exception {
 
-            UUID expenseId = UUID.randomUUID();
-            ExpenseResponse response = expenseResponse();
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of(expenseResponse()))
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(1)
+                                        .totalPages(1)
+                                        .last(true)
+                                        .build();
 
-            when(expenseService.getById(expenseId))
-                    .thenReturn(response);
+                        when(expenseService.searchPaged(any(), any(), any()))
+                                        .thenReturn(page);
 
-            mockMvc.perform(get("/api/v1/expenses/{expenseId}", expenseId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(response.getId().toString()))
-                    .andExpect(jsonPath("$.title").value("Dinner"))
-                    .andExpect(jsonPath("$.currency").value("INR"));
+                        mockMvc.perform(get("/api/v1/expenses/search")
+                                        .param("query", "Dinner")
+                                        .param("sort", "LATEST"))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(1));
 
-            verify(expenseService)
-                    .getById(expenseId);
-        }
+                        verify(expenseService)
+                                        .searchPaged(any(), any(), any());
+                }
 
-        @Test
-        @DisplayName("Should return not found when expense does not exist")
-        void shouldReturnNotFoundWhenExpenseDoesNotExist() throws Exception {
+                @Test
+                @DisplayName("Should return empty search result")
+                @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
+                void shouldReturnEmptySearchResult() throws Exception {
 
-            UUID expenseId = UUID.randomUUID();
+                        PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
+                                        .content(List.of())
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .last(true)
+                                        .build();
 
-            when(expenseService.getById(expenseId))
-                    .thenThrow(ApiException.notFound("Expense not found"));
+                        when(expenseService.searchPaged(any(), any(), any()))
+                                        .thenReturn(page);
 
-            mockMvc.perform(get("/api/v1/expenses/{expenseId}", expenseId))
-                    .andExpect(status().isNotFound());
+                        mockMvc.perform(get("/api/v1/expenses/search"))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.content.length()").value(0));
 
-            verify(expenseService)
-                    .getById(expenseId);
-        }
-    }
-
-    @Nested
-    @DisplayName("Group Expenses")
-    class GroupExpenseTests {
-
-        @Test
-        @DisplayName("Should return group expenses")
-        void shouldReturnGroupExpenses() throws Exception {
-
-            UUID groupId = UUID.randomUUID();
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of(expenseResponse()))
-                    .page(0)
-                    .size(20)
-                    .totalElements(1)
-                    .totalPages(1)
-                    .last(true)
-                    .build();
-
-            when(expenseService.listForGroupPaged(eq(groupId), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/group/{groupId}", groupId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(1))
-                    .andExpect(jsonPath("$.page").value(0))
-                    .andExpect(jsonPath("$.size").value(20));
-
-            verify(expenseService)
-                    .listForGroupPaged(eq(groupId), any());
+                        verify(expenseService)
+                                        .searchPaged(any(), any(), any());
+                }
         }
 
-        @Test
-        @DisplayName("Should return empty page when group has no expenses")
-        void shouldReturnEmptyGroupExpenses() throws Exception {
+        private UpdateExpenseRequest updateRequest() {
+                UpdateExpenseRequest request = new UpdateExpenseRequest();
 
-            UUID groupId = UUID.randomUUID();
+                UUID paidBy = UUID.randomUUID();
 
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of())
-                    .page(0)
-                    .size(20)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .last(true)
-                    .build();
+                ExpenseParticipantInput participant = new ExpenseParticipantInput();
+                participant.setUserId(paidBy);
+                participant.setAmount(BigDecimal.valueOf(500));
 
-            when(expenseService.listForGroupPaged(eq(groupId), any()))
-                    .thenReturn(page);
+                request.setTitle("Dinner");
+                request.setAmount(BigDecimal.valueOf(500));
+                request.setCurrency("INR");
+                request.setExpenseDate(LocalDate.now());
+                request.setPaidBy(paidBy);
+                request.setSplitType(Expense.SplitType.EQUAL);
+                request.setParticipants(List.of(participant));
 
-            mockMvc.perform(get("/api/v1/expenses/group/{groupId}", groupId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(0));
-
-            verify(expenseService)
-                    .listForGroupPaged(eq(groupId), any());
+                return request;
         }
-    }
-
-    @Nested
-    @DisplayName("My Expenses")
-    class MyExpenseTests {
-
-        @Test
-        @DisplayName("Should return current user's expenses")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnMyExpenses() throws Exception {
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of(expenseResponse()))
-                    .page(0)
-                    .size(20)
-                    .totalElements(1)
-                    .totalPages(1)
-                    .last(true)
-                    .build();
-
-            when(expenseService.listForUserPaged(any(), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/me"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(1))
-                    .andExpect(jsonPath("$.page").value(0));
-
-            verify(expenseService)
-                    .listForUserPaged(any(), any());
-        }
-
-        @Test
-        @DisplayName("Should return empty page when user has no expenses")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnEmptyMyExpenses() throws Exception {
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of())
-                    .page(0)
-                    .size(20)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .last(true)
-                    .build();
-
-            when(expenseService.listForUserPaged(any(), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/me"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(0));
-
-            verify(expenseService)
-                    .listForUserPaged(any(), any());
-        }
-    }
-
-    @Nested
-    @DisplayName("Friend Expenses")
-    class FriendExpenseTests {
-
-        @Test
-        @DisplayName("Should return expenses with friend")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnFriendExpenses() throws Exception {
-
-            UUID friendId = UUID.randomUUID();
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of(expenseResponse()))
-                    .page(0)
-                    .size(20)
-                    .totalElements(1)
-                    .totalPages(1)
-                    .last(true)
-                    .build();
-
-            when(expenseService.listDirectWithFriendPaged(any(), eq(friendId), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/friend/{friendId}", friendId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(1));
-
-            verify(expenseService)
-                    .listDirectWithFriendPaged(any(), eq(friendId), any());
-        }
-
-        @Test
-        @DisplayName("Should return empty friend expenses")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnEmptyFriendExpenses() throws Exception {
-
-            UUID friendId = UUID.randomUUID();
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of())
-                    .page(0)
-                    .size(20)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .last(true)
-                    .build();
-
-            when(expenseService.listDirectWithFriendPaged(any(), eq(friendId), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/friend/{friendId}", friendId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(0));
-
-            verify(expenseService)
-                    .listDirectWithFriendPaged(any(), eq(friendId), any());
-        }
-    }
-
-    @Nested
-    @DisplayName("Search Expenses")
-    class SearchExpenseTests {
-
-        @Test
-        @DisplayName("Should search expenses")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldSearchExpenses() throws Exception {
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of(expenseResponse()))
-                    .page(0)
-                    .size(20)
-                    .totalElements(1)
-                    .totalPages(1)
-                    .last(true)
-                    .build();
-
-            when(expenseService.searchPaged(any(), any(), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/search"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(1));
-
-            verify(expenseService)
-                    .searchPaged(any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("Should search expenses with filters")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldSearchExpensesWithFilters() throws Exception {
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of(expenseResponse()))
-                    .page(0)
-                    .size(20)
-                    .totalElements(1)
-                    .totalPages(1)
-                    .last(true)
-                    .build();
-
-            when(expenseService.searchPaged(any(), any(), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/search")
-                    .param("query", "Dinner")
-                    .param("sort", "LATEST"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(1));
-
-            verify(expenseService)
-                    .searchPaged(any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("Should return empty search result")
-        @WithMockUser(username = "3d94e03f-cfea-4c35-b2b4-4bfa6c61caa1")
-        void shouldReturnEmptySearchResult() throws Exception {
-
-            PageResponse<ExpenseResponse> page = PageResponse.<ExpenseResponse>builder()
-                    .content(List.of())
-                    .page(0)
-                    .size(20)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .last(true)
-                    .build();
-
-            when(expenseService.searchPaged(any(), any(), any()))
-                    .thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/expenses/search"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(0));
-
-            verify(expenseService)
-                    .searchPaged(any(), any(), any());
-        }
-    }
-
-    private UpdateExpenseRequest updateRequest() {
-        UpdateExpenseRequest request = new UpdateExpenseRequest();
-
-        UUID paidBy = UUID.randomUUID();
-
-        ExpenseParticipantInput participant = new ExpenseParticipantInput();
-        participant.setUserId(paidBy);
-        participant.setAmount(BigDecimal.valueOf(500));
-
-        request.setTitle("Dinner");
-        request.setAmount(BigDecimal.valueOf(500));
-        request.setCurrency("INR");
-        request.setExpenseDate(LocalDate.now());
-        request.setPaidBy(paidBy);
-        request.setSplitType(Expense.SplitType.EQUAL);
-        request.setParticipants(List.of(participant));
-
-        return request;
-    }
 }

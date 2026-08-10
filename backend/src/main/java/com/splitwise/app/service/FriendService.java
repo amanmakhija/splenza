@@ -189,6 +189,7 @@ public class FriendService {
                 .senderId(fr.getSender().getId())
                 .senderName(fr.getSender().getName())
                 .senderEmail(fr.getSender().getEmail())
+                .senderProfilePictureUrl(fr.getSender().getProfilePictureUrl())
                 .status(fr.getStatus().name())
                 .createdAt(fr.getCreatedAt())
                 .build();

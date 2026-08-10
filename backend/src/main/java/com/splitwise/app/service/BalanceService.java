@@ -121,6 +121,7 @@ public class BalanceService {
         return FriendBalanceResponse.builder()
                 .friendId(friendId)
                 .friendName(friend.getName())
+                .friendProfilePictureUrl(friend.getProfilePictureUrl())
                 .netAmount(net.setScale(2, RoundingMode.HALF_UP))
                 .build();
     }

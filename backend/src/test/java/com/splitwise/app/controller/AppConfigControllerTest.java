@@ -3,6 +3,7 @@ package com.splitwise.app.controller;
 import com.splitwise.app.config.AppVersionProperties;
 import com.splitwise.app.exception.GlobalExceptionHandler;
 import com.splitwise.app.ratelimit.RateLimitFilter;
+import com.splitwise.app.security.AdminBroadcastFilter;
 import com.splitwise.app.security.JwtAuthenticationFilter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,14 +25,12 @@ import static org.hamcrest.Matchers.nullValue;
 
 import com.splitwise.app.config.SecurityConfig;
 
-@WebMvcTest(
-        controllers = AppConfigController.class,
-        excludeFilters = {
-            @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class),
-            @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class),
-            @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class)
-        }
-)
+@WebMvcTest(controllers = AppConfigController.class, excludeFilters = {
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = AdminBroadcastFilter.class)
+})
 @AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
 class AppConfigControllerTest {
