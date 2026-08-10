@@ -20,6 +20,9 @@ public class FriendBalanceResponse {
     @Schema(description = "Display name of the friend", example = "Priya")
     private String friendName;
 
+    @Schema(description = "URL of the friend's profile picture, or null if not set")
+    private String friendProfilePictureUrl;
+
     @Schema(description = "Net amount. Positive = friend owes you. Negative = you owe friend. Zero = settled up",
             example = "-15.00")
     private BigDecimal netAmount;
