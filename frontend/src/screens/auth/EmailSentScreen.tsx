@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MailCheck } from "lucide-react-native";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { Button } from "@/components/Button";
 import { AuthStackParamList } from "@/navigation/types";

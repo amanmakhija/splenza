@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CircleCheckBig } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -11,7 +11,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { Button } from "@/components/Button";
 import { useAppTheme } from "@/theme/ThemeContext";

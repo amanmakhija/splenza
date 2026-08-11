@@ -18,7 +18,6 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   useQuery,
-  useMutation,
   useQueryClient,
   UseQueryResult,
 } from "@tanstack/react-query";

@@ -13,7 +13,6 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ArrowLeft, Lock } from "lucide-react-native";
 import { Controller, useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";

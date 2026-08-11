@@ -14,10 +14,11 @@ export class InsufficientCreditsError extends Error {
 
 /**
  * Uploads a locally-picked receipt photo to the AI scanning endpoint and
- * returns the parsed expense fields. This consumes one credit server-side
- * (1 free-tier credit if available today, otherwise one purchased credit) -
- * the server is the source of truth for the balance, this call just reports
- * what's left afterwards via `creditsRemaining`.
+ * returns the parsed expense fields. This consumes one RECEIPT_SCAN credit
+ * server-side (1 free-tier credit if available today, otherwise one credit
+ * from the shared purchased wallet - see `AiFeatureKey` in `types/api.ts`)
+ * - the server is the source of truth for the balance, this call just
+ * reports what's left afterwards via `creditsRemaining`.
  *
  * Deliberately uses native `fetch` instead of the shared `apiClient` axios
  * instance for multipart bodies - see the detailed comment in

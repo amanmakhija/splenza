@@ -14,7 +14,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react-native";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";

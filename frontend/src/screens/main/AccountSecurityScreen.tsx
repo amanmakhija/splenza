@@ -17,7 +17,6 @@ import {
   ChevronRight,
   KeyRound,
 } from "lucide-react-native";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { getApiErrorMessage } from "@/lib/apiClient";

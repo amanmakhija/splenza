@@ -14,7 +14,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useForm, Controller } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, ChevronLeft, Plus, X } from "lucide-react-native";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { uploadImage } from "@/lib/uploadImage";
