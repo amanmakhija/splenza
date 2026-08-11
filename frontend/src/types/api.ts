@@ -82,25 +82,36 @@ export interface Category {
   icon: string | null;
 }
 
-// --- Receipt scan credits (paid AI feature) --------------------------------
+// --- AI feature credits (paid features: receipt scan, voice expense entry, etc) ---
 
 /**
- * Current state of the user's receipt-scan credit balance. `freeRemaining`
- * resets server-side once per day (see `freeResetAt`); `purchasedBalance`
- * never expires and is drawn down only after the free daily credits are
- * used up.
+ * Identifies a specific AI feature for credit-tracking purposes. Each
+ * feature has its own daily free allowance (so burning through free scans
+ * doesn't also use up free voice-entry credits, and vice versa), but all
+ * features draw from one shared *purchased* wallet once their own free
+ * allowance runs out - purchasing credits once unlocks every AI feature.
  */
-export interface ReceiptScanCredits {
+export type AiFeatureKey = "RECEIPT_SCAN" | "VOICE_EXPENSE";
+
+/**
+ * Current credit state for one AI feature. `purchasedBalance` is the same
+ * number regardless of which feature you ask about (it's a shared wallet)
+ * - it's included per-feature purely for convenience so the client doesn't
+ * need a second request to compute `totalAvailable`.
+ */
+export interface AiFeatureCredits {
+  featureKey: AiFeatureKey;
   freeRemaining: number;
   freeLimitPerDay: number;
-  purchasedBalance: number;
   /** ISO timestamp of when `freeRemaining` next resets to `freeLimitPerDay`. */
   freeResetAt: string;
+  /** Shared across all AI features - never expires, spent only once this feature's free allowance is used up. */
+  purchasedBalance: number;
   /** freeRemaining + purchasedBalance, for convenience. */
   totalAvailable: number;
 }
 
-/** A purchasable pack of receipt-scan credits. */
+/** A purchasable pack of AI credits (shared wallet, spendable on any AI feature). */
 export interface CreditPackage {
   id: string;
   credits: number;
@@ -108,6 +119,8 @@ export interface CreditPackage {
   currency: string;
   /** e.g. "Most popular" - purely cosmetic, may be null. */
   badge: string | null;
+  /** Google Play Billing product ID (managed in-app product) this package maps to. */
+  googlePlayProductId: string;
 }
 
 /**
@@ -126,7 +139,7 @@ export interface ReceiptScanResult {
   lineItems: { description: string; amount: number }[];
   /** Raw receipt image URL as stored by the backend, for reference/attachment. */
   receiptImageUrl: string | null;
-  /** Remaining credits (free + purchased) immediately after this scan. */
+  /** RECEIPT_SCAN feature's free-remaining + shared purchased balance, immediately after this scan. */
   creditsRemaining: number;
 }
 

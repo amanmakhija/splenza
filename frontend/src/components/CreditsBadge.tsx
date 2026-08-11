@@ -1,30 +1,32 @@
 import React from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { Pressable, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { Sparkles } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
-import { useReceiptCredits } from "@/hooks/useReceiptCredits";
+import { useAiCredits } from "@/hooks/useAiCredits";
+import { AiFeatureKey } from "@/types/api";
 
 /**
- * Small pill showing how many receipt-scan credits the user has left today
- * (free + purchased combined). Tapping it always opens the buy-credits
- * screen - even with credits to spare, it doubles as a discoverable
- * "top up" entry point, not just a low-balance warning.
+ * Small pill showing how many credits are left for one specific AI feature
+ * (its own free daily allowance + the shared purchased wallet, combined).
+ * Tapping it always opens the buy-credits screen - even with credits to
+ * spare, it doubles as a discoverable "top up" entry point, not just a
+ * low-balance warning.
  */
-export function CreditsBadge({ onPress }: { onPress: () => void }) {
+export function CreditsBadge({
+  featureKey,
+  onPress,
+}: {
+  featureKey: AiFeatureKey;
+  onPress: () => void;
+}) {
   const { theme } = useAppTheme();
-  const creditsQuery = useReceiptCredits();
+  const creditsQuery = useAiCredits(featureKey);
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Receipt scan credits, tap to buy more"
+      accessibilityLabel="AI credits, tap to buy more"
       style={[
         styles.wrap,
         { backgroundColor: theme.background, borderColor: theme.border },

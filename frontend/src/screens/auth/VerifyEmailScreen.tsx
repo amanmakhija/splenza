@@ -12,7 +12,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ArrowLeft } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { Button } from "@/components/Button";
 import { alert } from "@/components/AppAlert";

@@ -5,7 +5,6 @@ import { KeyboardAvoidingView } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ArrowLeft } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
-
 import { useAppTheme } from "@/theme/ThemeContext";
 import { Button } from "@/components/Button";
 import { OtpInput, EMPTY_OTP } from "@/components/OtpInput";

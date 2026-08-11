@@ -15,7 +15,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   Calendar,
-  Trash2,
   Users,
   ChevronRight,
   Delete,
@@ -38,10 +37,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useOfflineQueueStore } from "@/store/offlineQueueStore";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
-import {
-  useReceiptCredits,
-  useInvalidateReceiptCredits,
-} from "@/hooks/useReceiptCredits";
+import { useAiCredits, useInvalidateAiCredits } from "@/hooks/useAiCredits";
 import { pickReceiptImage } from "@/hooks/useImagePicker";
 import { scanReceipt, InsufficientCreditsError } from "@/lib/receiptScan";
 import { Category, Expense, SplitType } from "@/types/api";
@@ -187,8 +183,8 @@ export function CreateExpenseScreen() {
   const [titleDraft, setTitleDraft] = useState("");
   const [isScanning, setIsScanning] = useState(false);
 
-  const creditsQuery = useReceiptCredits();
-  const invalidateCredits = useInvalidateReceiptCredits();
+  const creditsQuery = useAiCredits("RECEIPT_SCAN");
+  const invalidateCredits = useInvalidateAiCredits();
 
   React.useEffect(() => {
     if (!isEditMode && allParticipants.length > 0 && selectedIds.length === 0) {
@@ -438,7 +434,7 @@ export function CreateExpenseScreen() {
     setIsScanning(true);
     try {
       const result = await scanReceipt(localUri);
-      invalidateCredits();
+      invalidateCredits("RECEIPT_SCAN");
 
       if (result.totalAmount != null) setAmount(String(result.totalAmount));
       if (result.merchantName) setTitle(result.merchantName);
@@ -580,7 +576,10 @@ export function CreateExpenseScreen() {
             </Text>
           </View>
         </Pressable>
-        <CreditsBadge onPress={() => navigation.navigate("BuyCredits")} />
+        <CreditsBadge
+          featureKey="RECEIPT_SCAN"
+          onPress={() => navigation.navigate("BuyCredits")}
+        />
       </View>
 
       <ScrollView
