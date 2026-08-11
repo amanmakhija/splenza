@@ -14,7 +14,6 @@ import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
 
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 
@@ -81,8 +80,6 @@ export function ChangeEmailScreen({ route, navigation }: Props) {
             <Pressable onPress={() => navigation.goBack()}>
               <ArrowLeft size={24} color={theme.textPrimary} />
             </Pressable>
-
-            <ThemeToggle />
           </View>
 
           <View style={styles.header}>

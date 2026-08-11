@@ -26,8 +26,6 @@ import { usePaginatedMergedTimeline } from "@/hooks/usePaginatedMergedTimeline";
 import {
   Plus,
   X,
-  Download,
-  FileText,
   Search,
   ChevronLeft,
   Info,
@@ -37,7 +35,6 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { alert } from "@/components/AppAlert";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
-import { useGroupExport } from "@/hooks/useGroupExport";
 import {
   ActivityLogEntry,
   BalanceEntry,
@@ -416,11 +413,6 @@ export function GroupDetailScreen() {
     );
   }, [pendingTimelineItems, timeline.items, searchQuery]);
 
-  const { exporting, handleExportCsv, handleExportPdf } = useGroupExport(
-    groupId,
-    groupQuery.data?.name,
-  );
-
   const activityLabel = (type: string) => {
     switch (type) {
       case "SETTLEMENT_MADE":
@@ -464,25 +456,45 @@ export function GroupDetailScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-          hitSlop={8}
+        <View style={styles.headerSide}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <ChevronLeft size={26} color={theme.textPrimary} />
+          </Pressable>
+        </View>
+        <Text
+          style={[styles.headerTitle, { color: theme.textPrimary }]}
+          numberOfLines={1}
         >
-          <ChevronLeft size={26} color={theme.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
           Group details
         </Text>
-        <Pressable
-          onPress={() => navigation.navigate("GroupSettings", { groupId })}
-          accessibilityLabel="Group settings"
-          accessibilityRole="button"
-          hitSlop={8}
-        >
-          <Info size={22} color={theme.textPrimary} />
-        </Pressable>
+        <View style={[styles.headerSide, styles.headerActions]}>
+          {tab === "expenses" ? (
+            <Pressable
+              onPress={() => setSearchOpen((prev) => !prev)}
+              accessibilityLabel="Search expenses"
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Search
+                size={21}
+                color={searchOpen ? theme.primary : theme.textPrimary}
+              />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => navigation.navigate("GroupSettings", { groupId })}
+            accessibilityLabel="Group settings"
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <Info size={22} color={theme.textPrimary} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Group summary card */}
@@ -673,95 +685,40 @@ export function GroupDetailScreen() {
         ))}
       </View>
 
-      {tab === "expenses" ? (
-        searchOpen ? (
-          <View style={styles.toolbar}>
-            <View
-              style={[
-                styles.expandedSearchBox,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-            >
-              <Search size={16} color={theme.textMuted} />
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search expenses..."
-                placeholderTextColor={theme.textMuted}
-                autoFocus
-                accessibilityLabel="Search expenses in this group"
-                style={[
-                  styles.expandedSearchInput,
-                  { color: theme.textPrimary },
-                ]}
-              />
-            </View>
-            <Pressable
-              onPress={() => {
-                setSearchOpen(false);
-                setSearchQuery("");
-              }}
-              accessibilityLabel="Close search"
-              accessibilityRole="button"
-              style={[
-                styles.toolbarButton,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-            >
-              <X size={16} color={theme.textSecondary} />
-            </Pressable>
+      {tab === "expenses" && searchOpen ? (
+        <View style={styles.toolbar}>
+          <View
+            style={[
+              styles.expandedSearchBox,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Search size={16} color={theme.textMuted} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search expenses..."
+              placeholderTextColor={theme.textMuted}
+              autoFocus
+              accessibilityLabel="Search expenses in this group"
+              style={[styles.expandedSearchInput, { color: theme.textPrimary }]}
+            />
           </View>
-        ) : (
-          <View style={styles.toolbar}>
-            <Pressable
-              onPress={() => setSearchOpen(true)}
-              accessibilityLabel="Search expenses"
-              accessibilityRole="button"
-              style={[
-                styles.toolbarButton,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-            >
-              <Search size={16} color={theme.textSecondary} />
-            </Pressable>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Pressable
-                onPress={handleExportCsv}
-                disabled={exporting !== null}
-                accessibilityLabel="Export as CSV"
-                accessibilityRole="button"
-                style={[
-                  styles.toolbarButton,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Download
-                  size={16}
-                  color={
-                    exporting === "csv" ? theme.textMuted : theme.textSecondary
-                  }
-                />
-              </Pressable>
-              <Pressable
-                onPress={handleExportPdf}
-                disabled={exporting !== null}
-                accessibilityLabel="Export as PDF"
-                accessibilityRole="button"
-                style={[
-                  styles.toolbarButton,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <FileText
-                  size={16}
-                  color={
-                    exporting === "pdf" ? theme.textMuted : theme.textSecondary
-                  }
-                />
-              </Pressable>
-            </View>
-          </View>
-        )
+          <Pressable
+            onPress={() => {
+              setSearchOpen(false);
+              setSearchQuery("");
+            }}
+            accessibilityLabel="Close search"
+            accessibilityRole="button"
+            style={[
+              styles.toolbarButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <X size={16} color={theme.textSecondary} />
+          </Pressable>
+        </View>
       ) : null}
 
       {tab === "expenses" ? (
@@ -1161,11 +1118,24 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  headerTitle: { fontSize: 16, fontWeight: "700" },
+  headerSide: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerActions: {
+    justifyContent: "flex-end",
+    gap: 16,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 
   summaryWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 16 },
   summaryTopRow: {
@@ -1244,7 +1214,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 34,
   },
-  expandedSearchInput: { flex: 1, fontSize: 14, height: "100%" },
+  expandedSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
+    textAlignVertical: "center",
+    includeFontPadding: false,
+  },
 
   body: { flex: 1, paddingHorizontal: 20, paddingVertical: 16 },
   unifiedCard: {

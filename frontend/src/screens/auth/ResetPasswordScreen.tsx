@@ -15,7 +15,6 @@ import { Controller, useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { useAppTheme } from "@/theme/ThemeContext";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -81,8 +80,6 @@ export function ResetPasswordScreen({ route, navigation }: Props) {
             <Pressable onPress={() => navigation.goBack()}>
               <ArrowLeft size={24} color={theme.textPrimary} />
             </Pressable>
-
-            <ThemeToggle />
           </View>
 
           <View style={styles.header}>

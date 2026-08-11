@@ -20,7 +20,6 @@ import { apiClient } from "@/lib/apiClient";
 import { useGroupsQuery } from "@/hooks/useGroupsQuery";
 import { DashboardSummary, FriendBalanceResponse } from "@/types/api";
 import { Logo } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppModal } from "@/components/AppModal";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -152,7 +151,6 @@ export function DashboardScreen() {
             >
               <Bell size={18} color={theme.textSecondary} />
             </Pressable>
-            <ThemeToggle size={38} />
           </View>
         </View>
       )}

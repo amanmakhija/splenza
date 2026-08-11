@@ -1,136 +1,144 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useRef,
-  useState
-} from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
-import ViewShot, { captureRef } from "react-native-view-shot";
-import Svg, { Defs, Mask, Rect, Circle, Image as SvgImage } from "react-native-svg";
+import React, { createContext, useCallback, useContext, useState } from "react";
+import { Dimensions, StyleSheet } from "react-native";
 import Animated, {
-  useAnimatedProps,
+  useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withSequence,
+  withDelay,
   Easing,
-  runOnJS
+  runOnJS,
 } from "react-native-reanimated";
-import { ThemeMode } from "@/theme/colors";
+import { ThemeMode, getTheme } from "@/theme/colors";
 import { useAppTheme } from "@/theme/ThemeContext";
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
 interface RevealContextValue {
-  /** Kicks off the circular reveal transition, originating from (originX, originY) in
-   *  screen coordinates (e.g. the center of the toggle button that was pressed), landing
-   *  on `nextMode` once the wipe finishes. */
-  triggerReveal: (originX: number, originY: number, nextMode: ThemeMode) => void;
+  /** Plays a theme-switch overlay animation originating from (originX, originY) in
+   *  screen coordinates (e.g. the center of the toggle button that was pressed). The
+   *  theme itself is committed immediately (see the comment in `triggerReveal`); the
+   *  overlay's job is purely to hide that change from view until it's done. */
+  triggerReveal: (
+    originX: number,
+    originY: number,
+    nextMode: ThemeMode,
+  ) => void;
 }
 
 const RevealContext = createContext<RevealContextValue | undefined>(undefined);
 
 export function useThemeReveal(): RevealContextValue {
   const ctx = useContext(RevealContext);
-  if (!ctx) throw new Error("useThemeReveal must be used within a CircularRevealProvider");
+  if (!ctx)
+    throw new Error(
+      "useThemeReveal must be used within a CircularRevealProvider",
+    );
   return ctx;
 }
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+// Big enough to fully cover the screen from any corner once scaled to 1, regardless
+// of where on screen the toggle button sits.
+const OVERLAY_DIAMETER = Math.hypot(SCREEN_W, SCREEN_H) * 2;
 
 /**
- * Wraps the entire app. On toggle:
- *  1. Screenshots the current (pre-transition) screen.
- *  2. Immediately commits the new theme, so the real UI underneath re-renders in the new colors.
- *  3. Lays the screenshot on top and "erases" it with a growing circular hole (SVG mask)
- *     centered on the button that was pressed, revealing the new theme underneath as it grows -
- *     the same visual language as Zomato/Material You's theme-switch animation.
- *  4. Once the circle covers the whole screen, the screenshot is discarded.
+ * Wraps the entire app and plays a Zomato-style theme switch: a solid circle
+ * in the *incoming* theme's color grows from the toggle button until it
+ * covers the whole screen, the real theme is committed underneath while
+ * fully hidden behind it, then the overlay fades away to reveal the app
+ * already sitting in its new colors.
+ *
+ * Deliberately does not screenshot or mask the actual UI (the earlier
+ * approach) - this is just one plain colored circle, animated purely via
+ * `transform: scale` and `opacity`. Both of those are compositor-only
+ * properties (no layout, no rasterizing app content, no native masking),
+ * so this is cheap on every platform and every device, emulators included.
  */
-export function CircularRevealProvider({ children }: { children: React.ReactNode }) {
+export function CircularRevealProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { setResolvedMode } = useAppTheme();
-  const viewShotRef = useRef<ViewShot>(null);
 
-  const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const [origin, setOrigin] = useState({ x: SCREEN_W / 2, y: SCREEN_H / 2 });
-  const radius = useSharedValue(0);
+  const [overlayColor, setOverlayColor] = useState("#000000");
 
-  const clearSnapshot = useCallback(() => setSnapshotUri(null), []);
+  const scale = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  const hideOverlay = useCallback(() => setOverlayVisible(false), []);
 
   const triggerReveal = useCallback(
-    async (originX: number, originY: number, nextMode: ThemeMode) => {
-      if (!viewShotRef.current) {
-        // Fallback: no snapshot capability available, just switch instantly.
-        setResolvedMode(nextMode);
-        return;
-      }
+    (originX: number, originY: number, nextMode: ThemeMode) => {
+      setOrigin({ x: originX, y: originY });
+      setOverlayColor(getTheme(nextMode).background);
+      setOverlayVisible(true);
 
-      try {
-        const uri = await captureRef(viewShotRef, { format: "png", quality: 0.92 });
-        setOrigin({ x: originX, y: originY });
-        setSnapshotUri(uri);
+      scale.value = 0;
+      opacity.value = 1;
 
-        // Commit the real theme change now - it renders underneath the frozen snapshot,
-        // invisible until the mask hole grows over it.
-        setResolvedMode(nextMode);
+      // Commit the real theme change right away, on the JS thread, rather
+      // than waiting for the UI-thread overlay animation to report back via
+      // runOnJS once it's done expanding. `setResolvedMode` re-renders every
+      // theme-context consumer in the whole app, which is real JS work -
+      // if we only *start* that after the overlay finishes covering the
+      // screen, the overlay can finish fading back out before that work is
+      // done, so the reveal shows the old colors for a beat before they
+      // flip. Firing it immediately gives React the entire cover+hold
+      // window (~700ms below) to finish, instead of racing it.
+      setResolvedMode(nextMode);
 
-        const maxRadius = Math.hypot(
-          Math.max(originX, SCREEN_W - originX),
-          Math.max(originY, SCREEN_H - originY)
-        );
-
-        radius.value = 0;
-        radius.value = withTiming(
-          maxRadius,
-          { duration: 650, easing: Easing.out(Easing.cubic) },
-          (finished) => {
-            if (finished) runOnJS(clearSnapshot)();
-          }
-        );
-      } catch {
-        // Screenshot capture failed (e.g. unsupported environment) - degrade gracefully.
-        setResolvedMode(nextMode);
-      }
+      // Grow the overlay to fully cover the screen, hold briefly so the
+      // covered frame doesn't flicker, then fade the overlay out to reveal
+      // the app already sitting in its new theme underneath.
+      scale.value = withTiming(1, {
+        duration: 380,
+        easing: Easing.out(Easing.cubic),
+      });
+      opacity.value = withDelay(
+        420,
+        withSequence(
+          withTiming(1, { duration: 0 }),
+          withTiming(
+            0,
+            { duration: 260, easing: Easing.in(Easing.quad) },
+            (finished) => {
+              if (finished) runOnJS(hideOverlay)();
+            },
+          ),
+        ),
+      );
     },
-    [radius, setResolvedMode, clearSnapshot]
+    [scale, opacity, setResolvedMode, hideOverlay],
   );
 
-  const animatedCircleProps = useAnimatedProps(() => ({
-    r: radius.value
+  const overlayStyle = useAnimatedStyle(() => ({
+    position: "absolute",
+    left: origin.x - OVERLAY_DIAMETER / 2,
+    top: origin.y - OVERLAY_DIAMETER / 2,
+    width: OVERLAY_DIAMETER,
+    height: OVERLAY_DIAMETER,
+    borderRadius: OVERLAY_DIAMETER / 2,
+    backgroundColor: overlayColor,
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
   }));
 
   return (
     <RevealContext.Provider value={{ triggerReveal }}>
-      <ViewShot ref={viewShotRef} style={styles.flex} options={{ format: "png" }}>
-        {children}
-      </ViewShot>
-
-      {snapshotUri ? (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <Svg width={SCREEN_W} height={SCREEN_H}>
-            <Defs>
-              <Mask id="revealMask">
-                {/* white = visible (keep showing the frozen old-theme snapshot) */}
-                <Rect x={0} y={0} width={SCREEN_W} height={SCREEN_H} fill="white" />
-                {/* black = hole (erase snapshot here, revealing the new theme underneath) */}
-                <AnimatedCircle cx={origin.x} cy={origin.y} animatedProps={animatedCircleProps} fill="black" />
-              </Mask>
-            </Defs>
-            <SvgImage
-              href={{ uri: snapshotUri }}
-              x={0}
-              y={0}
-              width={SCREEN_W}
-              height={SCREEN_H}
-              preserveAspectRatio="xMidYMid slice"
-              mask="url(#revealMask)"
-            />
-          </Svg>
-        </View>
+      <Animated.View style={styles.flex}>{children}</Animated.View>
+      {overlayVisible ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.overlayBase, overlayStyle]}
+        />
       ) : null}
     </RevealContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 }
+  flex: { flex: 1 },
+  overlayBase: { position: "absolute" },
 });

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
@@ -17,21 +17,34 @@ import {
   HelpCircle,
   Bell,
   FileUp,
+  Moon,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { Logo } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSwitch } from "@/components/AppSwitch";
+import { useThemeReveal } from "@/components/CircularRevealProvider";
 import { MainStackParamList } from "@/navigation/types";
+import Constants from "expo-constants";
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
+const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
 export function ProfileScreen() {
-  const { theme } = useAppTheme();
+  const { theme, mode } = useAppTheme();
+  const { triggerReveal } = useThemeReveal();
   const navigation = useNavigation<Nav>();
   const { user, logout } = useAuthStore();
+  const darkModeRowRef = useRef<View>(null);
+
+  const handleToggleDarkMode = () => {
+    darkModeRowRef.current?.measureInWindow((x, y, width, height) => {
+      const nextMode = mode === "dark" ? "light" : "dark";
+      triggerReveal(x + width / 2, y + height / 2, nextMode);
+    });
+  };
 
   const menuItems = [
     {
@@ -78,7 +91,6 @@ export function ProfileScreen() {
         <Text style={[styles.title, { color: theme.textPrimary }]}>
           Profile
         </Text>
-        <ThemeToggle size={40} />
       </View>
 
       <ScrollView
@@ -117,6 +129,28 @@ export function ProfileScreen() {
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
+          <View
+            ref={darkModeRowRef}
+            style={[
+              styles.menuRow,
+              { borderBottomWidth: 1, borderBottomColor: theme.border },
+            ]}
+          >
+            <View style={styles.menuLeft}>
+              <Moon size={18} color={theme.textMuted} />
+              <Text style={[styles.menuLabel, { color: theme.textPrimary }]}>
+                Dark mode
+              </Text>
+            </View>
+            <AppSwitch
+              value={mode === "dark"}
+              onValueChange={handleToggleDarkMode}
+              accessibilityLabel={
+                mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
+              }
+            />
+          </View>
+
           {menuItems.map((item, idx) => (
             <Pressable
               key={item.label}
@@ -155,7 +189,7 @@ export function ProfileScreen() {
         <View style={styles.footer}>
           <Logo size={28} />
           <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-            Splenza v1.1.0
+            Splenza v{APP_VERSION}
           </Text>
         </View>
       </ScrollView>

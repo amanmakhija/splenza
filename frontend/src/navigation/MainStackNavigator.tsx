@@ -22,6 +22,7 @@ import { SetPasswordScreen } from "@/screens/main/SetPasswordScreen";
 import { DeletedGroupsScreen } from "@/screens/main/DeletedGroupsScreen";
 import { GroupMembersScreen } from "@/screens/main/GroupMembersScreen";
 import { NotificationSettingsScreen } from "@/screens/main/NotificationSettingsScreen";
+import { BuyCreditsScreen } from "@/screens/main/BuyCreditsScreen";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -58,6 +59,11 @@ export function MainStackNavigator() {
         component={NotificationSettingsScreen}
       />
       <Stack.Screen name="GroupMembers" component={GroupMembersScreen} />
+      <Stack.Screen
+        name="BuyCredits"
+        component={BuyCreditsScreen}
+        options={{ presentation: "modal" }}
+      />
     </Stack.Navigator>
   );
 }

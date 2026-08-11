@@ -16,7 +16,6 @@ import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react-native";
 
 import { useAppTheme } from "@/theme/ThemeContext";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
@@ -81,8 +80,6 @@ export function ForgotPasswordScreen() {
             <Pressable onPress={() => navigation.goBack()}>
               <ArrowLeft size={24} color={theme.textPrimary} />
             </Pressable>
-
-            <ThemeToggle />
           </View>
 
           <View style={styles.header}>

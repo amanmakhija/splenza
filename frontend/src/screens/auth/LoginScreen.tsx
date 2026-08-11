@@ -20,7 +20,6 @@ import { Logo } from "@/components/Logo";
 import { TextField } from "@/components/TextField";
 import { PhoneNumberField } from "@/components/PhoneNumberField";
 import { Button } from "@/components/Button";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { AuthStackParamList } from "@/navigation/types";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -104,11 +103,6 @@ export function LoginScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.topRow}>
-            <View />
-            <ThemeToggle />
-          </View>
-
           <View style={styles.header}>
             <Logo size={88} />
             <Text style={[styles.title, { color: theme.textPrimary }]}>

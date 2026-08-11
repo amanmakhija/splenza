@@ -107,6 +107,7 @@ export type MainStackParamList = {
     value: string;
   };
   SetPassword: undefined;
+  BuyCredits: undefined;
 };
 
 export type RootStackParamList = {

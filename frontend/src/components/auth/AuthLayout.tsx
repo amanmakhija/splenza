@@ -13,7 +13,6 @@ import { ArrowLeft } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 
 import { useAppTheme } from "@/theme/ThemeContext";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 
 interface Props {
@@ -54,17 +53,13 @@ export function AuthLayout({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
         >
-          <View style={styles.topRow}>
-            {showBack ? (
+          {showBack ? (
+            <View style={styles.topRow}>
               <Pressable onPress={() => navigation.goBack()}>
                 <ArrowLeft size={24} color={theme.textPrimary} />
               </Pressable>
-            ) : (
-              <View />
-            )}
-
-            <ThemeToggle />
-          </View>
+            </View>
+          ) : null}
 
           <View style={styles.header}>
             {showLogo && <Logo size={88} />}
