@@ -28,7 +28,9 @@ import {
   Plane,
   HeartPulse,
   Zap,
+  ScanLine,
   type LucideIcon,
+  ChevronLeft,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -36,6 +38,12 @@ import { useAuthStore } from "@/store/authStore";
 import { useOfflineQueueStore } from "@/store/offlineQueueStore";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
+import {
+  useReceiptCredits,
+  useInvalidateReceiptCredits,
+} from "@/hooks/useReceiptCredits";
+import { pickReceiptImage } from "@/hooks/useImagePicker";
+import { scanReceipt, InsufficientCreditsError } from "@/lib/receiptScan";
 import { Category, Expense, SplitType } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
@@ -43,6 +51,7 @@ import { Checkbox } from "@/components/Checkbox";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { Avatar } from "@/components/Avatar";
 import { AppModal } from "@/components/AppModal";
+import { CreditsBadge } from "@/components/CreditsBadge";
 import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
@@ -176,6 +185,10 @@ export function CreateExpenseScreen() {
   const [prefilledFromEdit, setPrefilledFromEdit] = useState(false);
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [titleDraft, setTitleDraft] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+
+  const creditsQuery = useReceiptCredits();
+  const invalidateCredits = useInvalidateReceiptCredits();
 
   React.useEffect(() => {
     if (!isEditMode && allParticipants.length > 0 && selectedIds.length === 0) {
@@ -184,6 +197,26 @@ export function CreateExpenseScreen() {
     if (!paidBy && currentUser) setPaidBy(currentUser.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allParticipants]);
+
+  // When switching to a non-equal split type, inclusion is driven entirely
+  // by which participants already have a value typed in - re-derive
+  // selectedIds from that map rather than carrying over whatever was
+  // checked while in "Equal" mode (avoids a participant staying silently
+  // "selected" with no amount entered, which would just fail validation).
+  React.useEffect(() => {
+    if (splitType === "EQUAL") return;
+    const map =
+      splitType === "EXACT"
+        ? exactAmounts
+        : splitType === "PERCENTAGE"
+          ? percentages
+          : shareCounts;
+    const included = allParticipants
+      .filter((p) => (map[p.userId] ?? "").trim() !== "")
+      .map((p) => p.userId);
+    setSelectedIds(included);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splitType]);
 
   React.useEffect(() => {
     if (isEditMode && existingExpenseQuery.data && !prefilledFromEdit) {
@@ -214,6 +247,27 @@ export function CreateExpenseScreen() {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
+  };
+
+  // For EXACT/PERCENTAGE/SHARES splits there's no separate checkbox -
+  // typing a value in a participant's box is what includes them (an empty
+  // box means they're excluded from this expense). Each setter below keeps
+  // `selectedIds` in sync with whichever map is relevant to the active
+  // split type, so submit-time validation (which just iterates
+  // `selectedIds`) doesn't need to know anything about this rule.
+  const setParticipantValue = (
+    id: string,
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+  ) => {
+    setter((prev) => ({ ...prev, [id]: value }));
+    setSelectedIds((prev) => {
+      const included = value.trim() !== "";
+      const alreadyIn = prev.includes(id);
+      if (included && !alreadyIn) return [...prev, id];
+      if (!included && alreadyIn) return prev.filter((p) => p !== id);
+      return prev;
+    });
   };
 
   const invalidateRelated = () => {
@@ -376,6 +430,86 @@ export function CreateExpenseScreen() {
     setActiveSheet("title");
   };
 
+  // --- Receipt scanning (paid AI feature) ---------------------------------
+  // 2 free scans/day, then 1 credit per scan drawn from purchased balance.
+  // The server enforces and tracks the actual balance; this just reacts to
+  // its response (prefill on success, paywall on 402/429).
+  const runReceiptScan = async (localUri: string) => {
+    setIsScanning(true);
+    try {
+      const result = await scanReceipt(localUri);
+      invalidateCredits();
+
+      if (result.totalAmount != null) setAmount(String(result.totalAmount));
+      if (result.merchantName) setTitle(result.merchantName);
+      if (result.expenseDate) {
+        setDate(new Date(result.expenseDate + "T00:00:00"));
+      }
+      if (result.categoryId) setCategoryId(result.categoryId);
+
+      alert(
+        "Receipt scanned",
+        `We filled in what we could read${
+          result.merchantName ? ` from ${result.merchantName}` : ""
+        }. Double-check the details before saving.`,
+      );
+    } catch (err) {
+      if (err instanceof InsufficientCreditsError) {
+        alert("Out of credits", err.message, [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Buy credits",
+            onPress: () => navigation.navigate("BuyCredits"),
+          },
+        ]);
+        return;
+      }
+      alert("Couldn't scan receipt", getApiErrorMessage(err));
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleScanReceiptPress = () => {
+    if (isScanning) return;
+
+    // Soft client-side check for a snappier paywall - the server is still
+    // the real gate (balances can change from another device), so a scan
+    // that slips through here just gets a 402/InsufficientCreditsError below.
+    if (creditsQuery.data && creditsQuery.data.totalAvailable <= 0) {
+      alert(
+        "Out of credits",
+        "You've used today's free scans. Buy more credits to keep scanning receipts.",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Buy credits",
+            onPress: () => navigation.navigate("BuyCredits"),
+          },
+        ],
+      );
+      return;
+    }
+
+    alert("Scan receipt", "Take a new photo or choose one from your library.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const uri = await pickReceiptImage("camera");
+          if (uri) runReceiptScan(uri);
+        },
+      },
+      {
+        text: "Choose from library",
+        onPress: async () => {
+          const uri = await pickReceiptImage("library");
+          if (uri) runReceiptScan(uri);
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
@@ -383,29 +517,70 @@ export function CreateExpenseScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-          hitSlop={8}
+        <View style={styles.headerSide}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <ChevronLeft size={26} color={theme.textPrimary} />
+          </Pressable>
+        </View>
+        <Text
+          style={[styles.headerTitle, { color: theme.textPrimary }]}
+          numberOfLines={1}
         >
-          <Text style={{ color: theme.textSecondary, fontSize: 22 }}>‹</Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
           {isEditMode ? "Edit expense" : "Add expense"}
         </Text>
-        <Pressable onPress={onSubmit} disabled={isSaving} hitSlop={8}>
-          <Text
-            style={{
-              color: theme.primary,
-              fontWeight: "700",
-              fontSize: 15,
-              opacity: isSaving ? 0.5 : 1,
-            }}
+        <View style={[styles.headerSide, styles.headerActions]}>
+          <Pressable onPress={onSubmit} disabled={isSaving} hitSlop={8}>
+            <Text
+              style={{
+                color: theme.primary,
+                fontWeight: "700",
+                fontSize: 15,
+                opacity: isSaving ? 0.5 : 1,
+              }}
+            >
+              {isSaving ? "Saving…" : "Save"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Receipt scan entry point - paid AI feature (2 free/day, then credits) */}
+      <View
+        style={[
+          styles.scanCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <Pressable
+          onPress={handleScanReceiptPress}
+          disabled={isScanning}
+          accessibilityLabel="Scan receipt to autofill this expense"
+          accessibilityRole="button"
+          style={[styles.scanCardLeft, { opacity: isScanning ? 0.6 : 1 }]}
+        >
+          <View
+            style={[
+              styles.scanIconWrap,
+              { backgroundColor: theme.primaryContainer },
+            ]}
           >
-            {isSaving ? "Saving…" : "Save"}
-          </Text>
+            <ScanLine size={18} color={theme.primary} />
+          </View>
+          <View style={styles.scanCardTextWrap}>
+            <Text style={[styles.scanCardTitle, { color: theme.textPrimary }]}>
+              {isScanning ? "Scanning…" : "Scan receipt"}
+            </Text>
+            <Text style={[styles.scanCardSub, { color: theme.textMuted }]}>
+              Auto-fill amount & details
+            </Text>
+          </View>
         </Pressable>
+        <CreditsBadge onPress={() => navigation.navigate("BuyCredits")} />
       </View>
 
       <ScrollView
@@ -718,6 +893,14 @@ export function CreateExpenseScreen() {
                 },
               ]}
             >
+              <Avatar
+                name={p.name}
+                imageUrl={p.profilePictureUrl}
+                size={22}
+                backgroundColor={
+                  paidBy === p.userId ? "rgba(255,255,255,0.25)" : undefined
+                }
+              />
               <Text
                 style={{
                   color: paidBy === p.userId ? "#fff" : theme.textPrimary,
@@ -768,64 +951,87 @@ export function CreateExpenseScreen() {
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          {allParticipants.map((p) => (
-            <View key={p.userId}>
-              <Checkbox
-                label={p.name}
-                checked={selectedIds.includes(p.userId)}
-                onToggle={() => toggleParticipant(p.userId)}
-              />
-              {selectedIds.includes(p.userId) && splitType !== "EQUAL" ? (
-                <View style={styles.inlineInputWrap}>
-                  {splitType === "EXACT" && (
-                    <TextInput
-                      value={exactAmounts[p.userId] ?? ""}
-                      onChangeText={(v) =>
-                        setExactAmounts((prev) => ({ ...prev, [p.userId]: v }))
-                      }
-                      keyboardType="decimal-pad"
-                      placeholder="0.00"
-                      placeholderTextColor={theme.textMuted}
-                      style={[
-                        styles.inlineInput,
-                        { borderColor: theme.border, color: theme.textPrimary },
-                      ]}
-                    />
-                  )}
-                  {splitType === "PERCENTAGE" && (
-                    <TextInput
-                      value={percentages[p.userId] ?? ""}
-                      onChangeText={(v) =>
-                        setPercentages((prev) => ({ ...prev, [p.userId]: v }))
-                      }
-                      keyboardType="decimal-pad"
-                      placeholder="%"
-                      placeholderTextColor={theme.textMuted}
-                      style={[
-                        styles.inlineInput,
-                        { borderColor: theme.border, color: theme.textPrimary },
-                      ]}
-                    />
-                  )}
-                  {splitType === "SHARES" && (
-                    <TextInput
-                      value={shareCounts[p.userId] ?? ""}
-                      onChangeText={(v) =>
-                        setShareCounts((prev) => ({ ...prev, [p.userId]: v }))
-                      }
-                      keyboardType="number-pad"
-                      placeholder="1"
-                      placeholderTextColor={theme.textMuted}
-                      style={[
-                        styles.inlineInput,
-                        { borderColor: theme.border, color: theme.textPrimary },
-                      ]}
-                    />
-                  )}
-                </View>
-              ) : null}
-            </View>
-          ))}
+          {allParticipants.map((p) => {
+            if (splitType === "EQUAL") {
+              return (
+                <Checkbox
+                  key={p.userId}
+                  label={p.name}
+                  avatarName={p.name}
+                  avatarUrl={p.profilePictureUrl}
+                  checked={selectedIds.includes(p.userId)}
+                  onToggle={() => toggleParticipant(p.userId)}
+                />
+              );
+            }
+
+            // Non-equal splits: no checkbox - the textbox itself is the
+            // inclusion control. A value present means this person is in
+            // the split; an empty box means they're left out.
+            return (
+              <View key={p.userId} style={styles.participantValueRow}>
+                <Avatar
+                  name={p.name}
+                  imageUrl={p.profilePictureUrl}
+                  size={32}
+                />
+                <Text
+                  style={[
+                    styles.participantValueName,
+                    { color: theme.textPrimary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {p.name}
+                </Text>
+                {splitType === "EXACT" && (
+                  <TextInput
+                    value={exactAmounts[p.userId] ?? ""}
+                    onChangeText={(v) =>
+                      setParticipantValue(p.userId, v, setExactAmounts)
+                    }
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor={theme.textMuted}
+                    style={[
+                      styles.inlineInput,
+                      { borderColor: theme.border, color: theme.textPrimary },
+                    ]}
+                  />
+                )}
+                {splitType === "PERCENTAGE" && (
+                  <TextInput
+                    value={percentages[p.userId] ?? ""}
+                    onChangeText={(v) =>
+                      setParticipantValue(p.userId, v, setPercentages)
+                    }
+                    keyboardType="decimal-pad"
+                    placeholder="%"
+                    placeholderTextColor={theme.textMuted}
+                    style={[
+                      styles.inlineInput,
+                      { borderColor: theme.border, color: theme.textPrimary },
+                    ]}
+                  />
+                )}
+                {splitType === "SHARES" && (
+                  <TextInput
+                    value={shareCounts[p.userId] ?? ""}
+                    onChangeText={(v) =>
+                      setParticipantValue(p.userId, v, setShareCounts)
+                    }
+                    keyboardType="number-pad"
+                    placeholder="1"
+                    placeholderTextColor={theme.textMuted}
+                    style={[
+                      styles.inlineInput,
+                      { borderColor: theme.border, color: theme.textPrimary },
+                    ]}
+                  />
+                )}
+              </View>
+            );
+          })}
         </View>
         <Button
           title="Done"
@@ -870,12 +1076,47 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: "700" },
+  headerSide: { flex: 1, flexDirection: "row", alignItems: "center" },
+  headerActions: { justifyContent: "flex-end" },
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  scanCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  scanCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexShrink: 1,
+  },
+  scanIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scanCardTextWrap: { flexShrink: 1 },
+  scanCardTitle: { fontSize: 14, fontWeight: "700" },
+  scanCardSub: { fontSize: 11, marginTop: 1 },
 
   content: { paddingHorizontal: 20, paddingBottom: 12 },
   amountWrap: { alignItems: "center", paddingVertical: 24 },
@@ -934,19 +1175,29 @@ const styles = StyleSheet.create({
   },
   paidByRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   paidByChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
   },
   participantsCard: { borderRadius: 14, borderWidth: 1, padding: 14 },
-  inlineInputWrap: { paddingLeft: 34, paddingBottom: 8 },
+  participantValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 8,
+  },
+  participantValueName: { flex: 1, fontSize: 15, fontWeight: "600" },
   inlineInput: {
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    width: 100,
+    width: 80,
     fontSize: 13,
   },
 });

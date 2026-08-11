@@ -82,6 +82,54 @@ export interface Category {
   icon: string | null;
 }
 
+// --- Receipt scan credits (paid AI feature) --------------------------------
+
+/**
+ * Current state of the user's receipt-scan credit balance. `freeRemaining`
+ * resets server-side once per day (see `freeResetAt`); `purchasedBalance`
+ * never expires and is drawn down only after the free daily credits are
+ * used up.
+ */
+export interface ReceiptScanCredits {
+  freeRemaining: number;
+  freeLimitPerDay: number;
+  purchasedBalance: number;
+  /** ISO timestamp of when `freeRemaining` next resets to `freeLimitPerDay`. */
+  freeResetAt: string;
+  /** freeRemaining + purchasedBalance, for convenience. */
+  totalAvailable: number;
+}
+
+/** A purchasable pack of receipt-scan credits. */
+export interface CreditPackage {
+  id: string;
+  credits: number;
+  priceInPaise: number;
+  currency: string;
+  /** e.g. "Most popular" - purely cosmetic, may be null. */
+  badge: string | null;
+}
+
+/**
+ * Result of scanning a receipt image. Fields mirror what `CreateExpenseScreen`
+ * can prefill directly - `categoryId` is only set when the backend was able
+ * to confidently match a line-item/merchant to one of the user's existing
+ * categories.
+ */
+export interface ReceiptScanResult {
+  merchantName: string | null;
+  totalAmount: number | null;
+  currency: string | null;
+  expenseDate: string | null; // ISO date, e.g. "2026-08-10"
+  categoryId: string | null;
+  categoryName: string | null;
+  lineItems: { description: string; amount: number }[];
+  /** Raw receipt image URL as stored by the backend, for reference/attachment. */
+  receiptImageUrl: string | null;
+  /** Remaining credits (free + purchased) immediately after this scan. */
+  creditsRemaining: number;
+}
+
 export interface ActivityLogEntry {
   id: string;
   actorId: string;

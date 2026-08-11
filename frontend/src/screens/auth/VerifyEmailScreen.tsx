@@ -14,7 +14,6 @@ import { ArrowLeft } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
 
 import { useAppTheme } from "@/theme/ThemeContext";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/Button";
 import { alert } from "@/components/AppAlert";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -136,8 +135,6 @@ export function VerifyEmailScreen({ route, navigation }: Props) {
           <Pressable onPress={() => navigation.goBack()}>
             <ArrowLeft color={theme.textPrimary} size={24} />
           </Pressable>
-
-          <ThemeToggle />
         </View>
 
         <View style={styles.content}>

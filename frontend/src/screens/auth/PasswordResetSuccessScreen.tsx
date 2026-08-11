@@ -14,7 +14,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Button } from "@/components/Button";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { AuthStackParamList } from "@/navigation/types";
 
@@ -44,11 +43,6 @@ export function PasswordResetSuccessScreen({ navigation }: Props) {
         },
       ]}
     >
-      <View style={styles.topRow}>
-        <View />
-        <ThemeToggle />
-      </View>
-
       <View style={styles.content}>
         <Animated.View
           entering={ZoomIn.duration(500)}

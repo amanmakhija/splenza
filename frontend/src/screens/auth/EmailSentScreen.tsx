@@ -6,7 +6,6 @@ import { MailCheck } from "lucide-react-native";
 
 import { useAppTheme } from "@/theme/ThemeContext";
 import { Button } from "@/components/Button";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthStackParamList } from "@/navigation/types";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "EmailSent">;
@@ -25,11 +24,6 @@ export function EmailSentScreen({ route, navigation }: Props) {
         },
       ]}
     >
-      <View style={styles.topRow}>
-        <View />
-        <ThemeToggle />
-      </View>
-
       <ScrollView contentContainerStyle={styles.content}>
         <View
           style={[
