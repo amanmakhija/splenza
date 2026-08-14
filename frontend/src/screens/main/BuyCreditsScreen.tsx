@@ -9,8 +9,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Sparkles, Check, ShieldCheck } from "lucide-react-native";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import {
+  ChevronLeft,
+  Sparkles,
+  Check,
+  ShieldCheck,
+  Clock,
+} from "lucide-react-native";
 import * as RNIap from "react-native-iap";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -83,6 +89,7 @@ export function BuyCreditsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [storeProducts, setStoreProducts] = useState<PlayProduct[]>([]);
+  const [productsChecked, setProductsChecked] = useState(false);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const packagesRef = useRef<CreditPackage[]>([]);
 
@@ -173,14 +180,21 @@ export function BuyCreditsScreen() {
   }, [finishPurchase]);
 
   // Once our backend's package list is in, fetch the matching Play Store
-  // product details (localized price, currency) for each one.
+  // product details (localized price, currency) for each one. In closed
+  // testing, before any managed products exist in Play Console yet, this
+  // will resolve with an empty/partial list - `productsChecked` lets the
+  // UI below tell "still loading" apart from "genuinely nothing to sell
+  // yet" so we can show a real empty state instead of a broken buy button.
   useEffect(() => {
     if (!connected || !packagesQuery.data?.length) return;
     RNIap.getProducts({
       skus: packagesQuery.data.map((p) => p.googlePlayProductId),
     })
-      .then(setStoreProducts)
-      .catch(() => {});
+      .then((products) => {
+        setStoreProducts(products);
+        setProductsChecked(true);
+      })
+      .catch(() => setProductsChecked(true));
   }, [connected, packagesQuery.data]);
 
   useEffect(() => {
@@ -211,6 +225,24 @@ export function BuyCreditsScreen() {
   const localizedPriceFor = (pkg: CreditPackage) =>
     storeProducts.find((sp) => sp.productId === pkg.googlePlayProductId)
       ?.localizedPrice ?? `₹${(pkg.priceInPaise / 100).toFixed(0)}`;
+
+  // Nothing is actually purchasable yet if: the backend hasn't returned any
+  // packages (endpoint not built/deployed, or none configured), or it has
+  // but none of them exist as real Play Console products yet (closed
+  // testing, before managed products are set up). Rather than show a price
+  // list where "Buy" silently fails, show an honest "coming soon" state.
+  const stillLoading =
+    packagesQuery.isLoading ||
+    (!!packagesQuery.data?.length && !productsChecked);
+  const noBackendPackages =
+    !packagesQuery.isLoading &&
+    (packagesQuery.isError || !packagesQuery.data?.length);
+  const noStoreProducts =
+    productsChecked &&
+    !!packagesQuery.data?.length &&
+    storeProducts.length === 0;
+  const purchasingUnavailable =
+    !stillLoading && (noBackendPackages || noStoreProducts);
 
   return (
     <SafeAreaView
@@ -254,70 +286,105 @@ export function BuyCreditsScreen() {
         ) : null}
       </View>
 
-      <View style={styles.list}>
-        {packagesQuery.isLoading ? (
-          <ActivityIndicator color={theme.primary} />
-        ) : (
-          packagesQuery.data?.map((pkg) => {
-            const selected = pkg.id === selectedId;
-            return (
-              <Pressable
-                key={pkg.id}
-                onPress={() => setSelectedId(pkg.id)}
-                style={[
-                  styles.packageRow,
-                  {
-                    borderColor: selected ? theme.primary : theme.border,
-                    backgroundColor: selected
-                      ? theme.primaryContainer
-                      : theme.surface,
-                  },
-                ]}
-              >
-                <View style={styles.packageInfo}>
-                  <Text
-                    style={[
-                      styles.packageCredits,
-                      { color: theme.textPrimary },
-                    ]}
-                  >
-                    {pkg.credits} credits
-                  </Text>
-                  {pkg.badge ? (
-                    <Text
-                      style={[styles.packageBadge, { color: theme.primary }]}
-                    >
-                      {pkg.badge}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.packageRight}>
-                  <Text
-                    style={[styles.packagePrice, { color: theme.textPrimary }]}
-                  >
-                    {localizedPriceFor(pkg)}
-                  </Text>
-                  {selected ? <Check size={18} color={theme.primary} /> : null}
-                </View>
-              </Pressable>
-            );
-          })
-        )}
-      </View>
-
-      <View style={styles.footer}>
-        <Button
-          title={purchasingId ? "Processing…" : "Buy selected pack"}
-          disabled={!selectedId || !connected || purchasingId !== null}
-          onPress={handleBuy}
-        />
-        <View style={styles.secureRow}>
-          <ShieldCheck size={13} color={theme.textMuted} />
-          <Text style={[styles.secureText, { color: theme.textMuted }]}>
-            Payments are handled securely by Google Play
+      {purchasingUnavailable ? (
+        <View style={styles.comingSoon}>
+          <View
+            style={[
+              styles.iconWrap,
+              {
+                backgroundColor: theme.background,
+                borderWidth: 1,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <Clock size={22} color={theme.textMuted} />
+          </View>
+          <Text style={[styles.introTitle, { color: theme.textPrimary }]}>
+            Credit purchases aren't live yet
+          </Text>
+          <Text style={[styles.introSub, { color: theme.textMuted }]}>
+            We're still setting up purchases on our end. Your free daily credits
+            for each AI feature still work as normal in the meantime - check
+            back here once purchases are live.
           </Text>
         </View>
-      </View>
+      ) : (
+        <>
+          <View style={styles.list}>
+            {stillLoading ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : (
+              packagesQuery.data?.map((pkg) => {
+                const selected = pkg.id === selectedId;
+                return (
+                  <Pressable
+                    key={pkg.id}
+                    onPress={() => setSelectedId(pkg.id)}
+                    style={[
+                      styles.packageRow,
+                      {
+                        borderColor: selected ? theme.primary : theme.border,
+                        backgroundColor: selected
+                          ? theme.primaryContainer
+                          : theme.surface,
+                      },
+                    ]}
+                  >
+                    <View style={styles.packageInfo}>
+                      <Text
+                        style={[
+                          styles.packageCredits,
+                          { color: theme.textPrimary },
+                        ]}
+                      >
+                        {pkg.credits} credits
+                      </Text>
+                      {pkg.badge ? (
+                        <Text
+                          style={[
+                            styles.packageBadge,
+                            { color: theme.primary },
+                          ]}
+                        >
+                          {pkg.badge}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.packageRight}>
+                      <Text
+                        style={[
+                          styles.packagePrice,
+                          { color: theme.textPrimary },
+                        ]}
+                      >
+                        {localizedPriceFor(pkg)}
+                      </Text>
+                      {selected ? (
+                        <Check size={18} color={theme.primary} />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+
+          <View style={styles.footer}>
+            <Button
+              title={purchasingId ? "Processing…" : "Buy selected pack"}
+              disabled={!selectedId || !connected || purchasingId !== null}
+              onPress={handleBuy}
+            />
+            <View style={styles.secureRow}>
+              <ShieldCheck size={13} color={theme.textMuted} />
+              <Text style={[styles.secureText, { color: theme.textMuted }]}>
+                Payments are handled securely by Google Play
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -349,6 +416,12 @@ const styles = StyleSheet.create({
   introTitle: { fontSize: 18, fontWeight: "800", marginBottom: 6 },
   introSub: { fontSize: 13, textAlign: "center", lineHeight: 19 },
   balance: { fontSize: 12, fontWeight: "600", marginTop: 14 },
+  comingSoon: {
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingTop: 40,
+    gap: 4,
+  },
   list: { paddingHorizontal: 20, paddingTop: 24, gap: 10 },
   packageRow: {
     flexDirection: "row",
