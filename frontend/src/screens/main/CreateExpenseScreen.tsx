@@ -40,6 +40,7 @@ import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useAiCredits, useInvalidateAiCredits } from "@/hooks/useAiCredits";
 import { pickReceiptImage } from "@/hooks/useImagePicker";
 import { scanReceipt, InsufficientCreditsError } from "@/lib/receiptScan";
+import { suggestCategory } from "@/lib/categorySuggest";
 import { Category, Expense, SplitType } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
@@ -182,6 +183,7 @@ export function CreateExpenseScreen() {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isSuggestingCategory, setIsSuggestingCategory] = useState(false);
 
   const creditsQuery = useAiCredits("RECEIPT_SCAN");
   const invalidateCredits = useInvalidateAiCredits();
@@ -426,6 +428,37 @@ export function CreateExpenseScreen() {
     setActiveSheet("title");
   };
 
+  // Auto-categorize from the typed description - a free, unlimited nicety
+  // (unlike receipt scan/voice entry, this doesn't touch the AI credits
+  // system - see suggestCategory's doc comment). Only fills in a category
+  // if the user hasn't already picked one themselves; never overrides an
+  // explicit choice. Runs in the background after the description sheet
+  // closes, so it never blocks the user from continuing to fill the form.
+  const handleTitleDone = () => {
+    const trimmed = titleDraft.trim();
+    setTitle(trimmed);
+    setActiveSheet(null);
+
+    if (!trimmed || categoryId !== null || !categoriesQuery.data?.length)
+      return;
+
+    setIsSuggestingCategory(true);
+    suggestCategory(
+      trimmed,
+      categoriesQuery.data.map((c) => c.id),
+    )
+      .then((suggestedId) => {
+        // Re-check categoryId at resolution time too, in case the user
+        // manually picked one while the request was in flight.
+        if (suggestedId) {
+          setCategoryId((current) =>
+            current === null ? suggestedId : current,
+          );
+        }
+      })
+      .finally(() => setIsSuggestingCategory(false));
+  };
+
   // --- Receipt scanning (paid AI feature) ---------------------------------
   // 2 free scans/day, then 1 credit per scan drawn from purchased balance.
   // The server enforces and tracks the actual balance; this just reacts to
@@ -647,7 +680,9 @@ export function CreateExpenseScreen() {
               ]}
             >
               <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>
-                {selectedCategory?.name ?? "No category"}
+                {isSuggestingCategory && !selectedCategory
+                  ? "Detecting category…"
+                  : (selectedCategory?.name ?? "No category")}
               </Text>
               <Text style={[styles.rowSubLabel, { color: theme.textMuted }]}>
                 {groupOrPersonalLabel}
@@ -796,10 +831,7 @@ export function CreateExpenseScreen() {
         />
         <Button
           title="Done"
-          onPress={() => {
-            setTitle(titleDraft.trim());
-            setActiveSheet(null);
-          }}
+          onPress={handleTitleDone}
           style={{ marginTop: 8 }}
         />
       </BottomSheet>
