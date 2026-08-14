@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Privacy Policy — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>09/08/2026</strong>
+        Last updated: <strong>15/08/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -89,6 +89,13 @@ export default function PrivacyPolicyPage() {
               memberships, and money owed/settled between users
             </td>
             <td style={styles.td}>Yes, to use the app</td>
+          </tr>
+          <tr>
+            <td style={styles.td}>Receipt photos</td>
+            <td style={styles.td}>
+              Optional AI-assisted receipt scanning — see section 1.6
+            </td>
+            <td style={styles.td}>No</td>
           </tr>
         </tbody>
       </table>
@@ -205,12 +212,75 @@ export default function PrivacyPolicyPage() {
         </li>
         <li style={styles.li}>
           We do not read your device&apos;s SMS, call logs, or photos beyond an
-          image you explicitly choose to upload as a profile picture.
+          image you explicitly choose to upload as a profile picture or receipt.
         </li>
         <li style={styles.li}>
           We do not use advertising identifiers or serve third-party ads.
         </li>
       </ul>
+
+      <p style={styles.p}>
+        <strong>
+          1.6 Receipt photos and expense descriptions (AI-assisted features)
+        </strong>
+      </p>
+      <p style={styles.p}>
+        Splenza includes optional AI-assisted features to help you enter
+        expenses faster:
+      </p>
+      <ul style={styles.ul}>
+        <li style={styles.li}>
+          <strong>Receipt scanning.</strong> If you choose to photograph or
+          select a receipt image, that image is uploaded to our servers and sent
+          to <strong>Anthropic</strong>, our AI processing partner, solely to
+          read the merchant name, amount, date, and a suggested category from
+          it. The extracted details are shown to you to review and edit before
+          you save the expense — nothing is saved automatically without your
+          confirmation.
+        </li>
+        <li style={styles.li}>
+          <strong>Category suggestion.</strong> If you type a description for an
+          expense, that text may also be sent to Anthropic to suggest a matching
+          category from your existing categories. This is a free, unlimited
+          feature and does not involve any image data.
+        </li>
+        <li style={styles.li}>
+          These features are entirely optional — you can add expenses manually
+          without using either of them.
+        </li>
+        <li style={styles.li}>
+          Anthropic processes this data on our behalf to provide these features
+          and does not use it to train its models. See section 6 for how long we
+          retain receipt images.
+        </li>
+      </ul>
+
+      <p style={styles.p}>
+        <strong>1.7 Microphone permission</strong>
+      </p>
+      <p style={styles.p}>
+        The Android version of the App requests microphone permission. This is
+        included in preparation for an upcoming voice-based expense entry
+        feature that is <strong>not yet active</strong>. At present, the App
+        does not record, access, or transmit any audio, and no microphone data
+        is collected. Once voice entry is released, we will update this Privacy
+        Policy beforehand to describe exactly what audio data is collected and
+        how it&apos;s used.
+      </p>
+
+      <p style={styles.p}>
+        <strong>1.8 In-app purchases</strong>
+      </p>
+      <p style={styles.p}>
+        Splenza offers optional credit packs (used to unlock extra AI-assisted
+        scans beyond your free daily allowance) via Google Play Billing. When
+        you make a purchase, Google shares confirmation of the transaction (the
+        product purchased and a purchase token) with us so we can credit your
+        account — we do not receive or store your card number, bank details, or
+        other payment credentials. Your payment method itself is held and
+        processed entirely by Google; see Google Play&apos;s own privacy policy
+        for how they handle it.
+      </p>
 
       <h2 style={styles.h2}>2. How We Use Your Information</h2>
       <p style={styles.p}>We use the information above to:</p>
@@ -231,6 +301,15 @@ export default function PrivacyPolicyPage() {
         <li style={styles.li}>
           Show you which of your device contacts already use Splenza, if you
           choose to use the optional &quot;Find friends&quot; feature
+        </li>
+        <li style={styles.li}>
+          Read receipt photos and typed descriptions to auto-fill or suggest
+          expense details, if you choose to use these optional AI-assisted
+          features
+        </li>
+        <li style={styles.li}>
+          Process optional in-app credit purchases via Google Play Billing and
+          maintain your credit balance
         </li>
         <li style={styles.li}>
           Send you transactional push notifications (friend requests, expense
@@ -276,6 +355,10 @@ export default function PrivacyPolicyPage() {
         Your device contacts (phone numbers/emails) submitted through the
         &quot;Find friends&quot; feature are not shown to any other user — they
         are only used server-side to check for matching Splenza accounts.
+        Receipt photos and typed descriptions sent for AI processing (section
+        1.6) are not visible to other users beyond the expense details you
+        choose to save into a shared group, same as if you&apos;d entered them
+        manually.
       </p>
 
       <h2 style={styles.h2}>4. Third-Party Services We Use</h2>
@@ -312,6 +395,27 @@ export default function PrivacyPolicyPage() {
             <td style={styles.td}>
               Phone number (only when you sign up, log in, or add a phone number
               with an SMS-verified code)
+            </td>
+          </tr>
+          <tr>
+            <td style={styles.td}>Anthropic</td>
+            <td style={styles.td}>
+              Reading receipt photos and suggesting expense categories (optional
+              AI-assisted features, section 1.6)
+            </td>
+            <td style={styles.td}>
+              Receipt images and/or typed expense descriptions, only when you
+              choose to use these features
+            </td>
+          </tr>
+          <tr>
+            <td style={styles.td}>Google Play Billing</td>
+            <td style={styles.td}>
+              Processing optional in-app credit purchases (section 1.8)
+            </td>
+            <td style={styles.td}>
+              Purchase confirmation only — we never receive your payment card or
+              bank details
             </td>
           </tr>
         </tbody>
@@ -365,7 +469,10 @@ export default function PrivacyPolicyPage() {
         visible to other group members in an anonymized form, since deleting it
         would corrupt their balance history). Contact information submitted
         through the &quot;Find friends&quot; feature is not retained at all —
-        see section 1.2.
+        see section 1.2. Receipt photos are retained only for as long as needed
+        to process them and for you to review the result, and are deleted
+        automatically afterward unless you choose to keep an expense that
+        references one.
       </p>
 
       <h2 style={styles.h2}>7. Your Rights and Choices</h2>
@@ -390,6 +497,10 @@ export default function PrivacyPolicyPage() {
         <li style={styles.li}>
           Revoke contacts permission at any time via your device settings, which
           immediately stops the App from being able to read your contacts
+        </li>
+        <li style={styles.li}>
+          Stop using the receipt scanning or category suggestion features at any
+          time and enter expenses manually instead
         </li>
       </ul>
       <p style={styles.p}>

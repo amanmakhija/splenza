@@ -10,7 +10,7 @@ export default function TermsPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Terms & Conditions — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>03/08/2026</strong>
+        Last updated: <strong>15/08/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -73,6 +73,11 @@ export default function TermsPage() {
           the rights of others (e.g. in group names, notes, or expense
           titles/descriptions)
         </li>
+        <li style={styles.li}>
+          Attempt to circumvent, automate, or abuse the AI-assisted features or
+          credit system described in sections 5 and 6 (e.g. scripting repeated
+          scans to exhaust free credits, or exploiting the purchase flow)
+        </li>
       </ul>
       <p style={styles.p}>
         We may suspend or terminate accounts that violate these Terms.
@@ -82,31 +87,97 @@ export default function TermsPage() {
       <ul style={styles.ul}>
         <li style={styles.li}>
           You retain ownership of any content you submit (names, notes, group
-          descriptions, profile pictures).
+          descriptions, profile pictures, receipt photos).
         </li>
         <li style={styles.li}>
           By submitting content, you grant Splenza a limited license to store,
           display, and process that content as necessary to provide the
           App&apos;s functionality (e.g. showing an expense you created to other
-          members of your group).
+          members of your group, or sending a receipt photo to our AI processing
+          partner as described in our Privacy Policy).
         </li>
         <li style={styles.li}>
           You are responsible for ensuring you have the right to upload any
-          content (e.g. a profile picture) you submit.
+          content (e.g. a profile picture or receipt) you submit.
         </li>
       </ul>
 
-      <h2 style={styles.h2}>5. Accuracy of Financial Records</h2>
+      <h2 style={styles.h2}>5. AI-Assisted Features</h2>
       <p style={styles.p}>
-        Expense amounts, splits, and settlement records are entered by users,
-        not verified by Splenza. We&apos;re not responsible for disputes between
-        users about who owes what, whether a payment was actually made outside
-        the App, or the accuracy of any user-submitted data. Splenza is a
-        record-keeping convenience, not a source of financial or legal truth
-        between parties.
+        Splenza offers optional AI-assisted features — reading details off a
+        photographed receipt, and suggesting an expense category from text you
+        type. These features are automated and provided purely for convenience.
+      </p>
+      <ul style={styles.ul}>
+        <li style={styles.li}>
+          Amounts, dates, merchant names, and categories extracted or suggested
+          by these features <strong>may be inaccurate or incomplete</strong>.
+          They are shown to you to review before anything is saved.
+        </li>
+        <li style={styles.li}>
+          You are solely responsible for reviewing and confirming all details
+          before saving an expense that used an AI-assisted feature.
+        </li>
+        <li style={styles.li}>
+          We are not liable for financial discrepancies, disputes between users,
+          or losses arising from inaccurate AI-generated data that you did not
+          correct before saving.
+        </li>
+        <li style={styles.li}>
+          These features, their daily free allowances, and their availability
+          may change or be temporarily or permanently discontinued at our
+          discretion.
+        </li>
+      </ul>
+
+      <h2 style={styles.h2}>6. Credits and In-App Purchases</h2>
+      <ul style={styles.ul}>
+        <li style={styles.li}>
+          <strong>What credits are.</strong> Certain AI-assisted features (such
+          as receipt scanning) consume &quot;credits.&quot; Each feature has its
+          own limited number of free credits that reset once every 24 hours.
+          Additional credits can be purchased and are shared across all
+          AI-assisted features that use credits.
+        </li>
+        <li style={styles.li}>
+          <strong>Purchases.</strong> Credit purchases are made and processed
+          through Google Play Billing and are subject to Google Play&apos;s own
+          terms and payment processing. We do not store your payment card or
+          bank details.
+        </li>
+        <li style={styles.li}>
+          <strong>No expiry, no cash value.</strong> Purchased credits do not
+          expire and have no cash value. Credits cannot be transferred,
+          exchanged for cash, or redeemed outside the App.
+        </li>
+        <li style={styles.li}>
+          <strong>Refunds.</strong> Credit purchases are generally
+          non-refundable, except where required by applicable law or Google
+          Play&apos;s own refund policies. Refund requests should be made
+          through Google Play. If a purchase is refunded or charged back, we
+          reserve the right to deduct the corresponding credits from your
+          account.
+        </li>
+        <li style={styles.li}>
+          <strong>Free daily credits.</strong> Free daily credit allowances
+          reset once every 24 hours per feature, do not roll over if unused, and
+          may be changed at our discretion with reasonable notice where required
+          by law.
+        </li>
+      </ul>
+
+      <h2 style={styles.h2}>7. Accuracy of Financial Records</h2>
+      <p style={styles.p}>
+        Expense amounts, splits, and settlement records are entered by users
+        (whether typed manually or filled in via an AI-assisted feature you
+        chose to use and confirm), not independently verified by Splenza.
+        We&apos;re not responsible for disputes between users about who owes
+        what, whether a payment was actually made outside the App, or the
+        accuracy of any user-submitted data. Splenza is a record-keeping
+        convenience, not a source of financial or legal truth between parties.
       </p>
 
-      <h2 style={styles.h2}>6. Push Notifications</h2>
+      <h2 style={styles.h2}>8. Push Notifications</h2>
       <p style={styles.p}>
         By using the App, you may receive push notifications related to friend
         requests, expense activity, and settlements in groups you belong to. You
@@ -114,7 +185,7 @@ export default function TermsPage() {
         settings.
       </p>
 
-      <h2 style={styles.h2}>7. Finding Friends via Your Contacts</h2>
+      <h2 style={styles.h2}>9. Finding Friends via Your Contacts</h2>
       <p style={styles.p}>
         Splenza includes an optional feature that, with your permission, reads
         your device&apos;s contacts to show you which of them already use the
@@ -129,7 +200,7 @@ export default function TermsPage() {
         without affecting your ability to use the rest of the App.
       </p>
 
-      <h2 style={styles.h2}>8. Third-Party Sign-In</h2>
+      <h2 style={styles.h2}>10. Third-Party Sign-In</h2>
       <p style={styles.p}>
         If you sign in using Google, your use of that service is also governed
         by Google&apos;s own terms and privacy policy. We&apos;re not
@@ -137,7 +208,7 @@ export default function TermsPage() {
         providers.
       </p>
 
-      <h2 style={styles.h2}>9. Service Availability</h2>
+      <h2 style={styles.h2}>11. Service Availability</h2>
       <p style={styles.p}>
         We aim to keep Splenza available and reliable, but we don&apos;t
         guarantee uninterrupted access. The App may be unavailable occasionally
@@ -145,26 +216,28 @@ export default function TermsPage() {
         liable for any loss resulting from downtime.
       </p>
 
-      <h2 style={styles.h2}>10. Disclaimer of Warranties</h2>
+      <h2 style={styles.h2}>12. Disclaimer of Warranties</h2>
       <p style={styles.legal}>
         The App is provided &quot;as is&quot; and &quot;as available&quot;
         without warranties of any kind, either express or implied, including but
         not limited to implied warranties of merchantability, fitness for a
         particular purpose, or non-infringement. We do not warrant that the App
-        will be uninterrupted, error-free, or secure.
+        will be uninterrupted, error-free, or secure, or that any AI-assisted
+        feature will produce accurate results.
       </p>
 
-      <h2 style={styles.h2}>11. Limitation of Liability</h2>
+      <h2 style={styles.h2}>13. Limitation of Liability</h2>
       <p style={styles.legal}>
         To the maximum extent permitted by law, Splenza and its developers shall
         not be liable for any indirect, incidental, special, consequential, or
         punitive damages, or any loss of data, money, goodwill, or other
         intangible losses, resulting from your use of (or inability to use) the
         App, including any disputes between users regarding expenses or
-        settlements recorded in the App.
+        settlements recorded in the App, and including losses arising from
+        inaccurate output of any AI-assisted feature.
       </p>
 
-      <h2 style={styles.h2}>12. Changes to the App or Terms</h2>
+      <h2 style={styles.h2}>14. Changes to the App or Terms</h2>
       <p style={styles.p}>
         We may update these Terms or change, suspend, or discontinue any part of
         the App at any time. We&apos;ll notify you of material changes to these
@@ -172,21 +245,23 @@ export default function TermsPage() {
         accept the updated Terms.
       </p>
 
-      <h2 style={styles.h2}>13. Termination</h2>
+      <h2 style={styles.h2}>15. Termination</h2>
       <p style={styles.p}>
         You may stop using Splenza and delete your account at any time. We may
         suspend or terminate your account if you violate these Terms or if we
         discontinue the service, with notice where reasonably possible.
+        Purchased credits are forfeited upon account deletion unless required
+        otherwise by applicable law.
       </p>
 
-      <h2 style={styles.h2}>14. Governing Law</h2>
+      <h2 style={styles.h2}>16. Governing Law</h2>
       <p style={styles.p}>
         These Terms are governed by the laws of India, without regard to
         conflict-of-law principles. Any disputes will be subject to the
         exclusive jurisdiction of the courts in India.
       </p>
 
-      <h2 style={styles.h2}>15. Contact Us</h2>
+      <h2 style={styles.h2}>17. Contact Us</h2>
       <div style={styles.contactBox}>
         <p style={{ margin: 0 }}>
           <strong>help@splenza.in</strong>
