@@ -13,10 +13,10 @@ import com.splitwise.app.repository.PendingSignupRepository;
 import com.splitwise.app.repository.RefreshTokenRepository;
 import com.splitwise.app.repository.SettlementRepository;
 import com.splitwise.app.repository.UserRepository;
+import com.splitwise.app.security.JwtService;
 import com.splitwise.app.repository.UserIdentifierRepository;
 import com.splitwise.app.repository.UserOAuthLinkRepository;
 import com.splitwise.app.repository.OtpChallengeRepository;
-import com.splitwise.app.security.JwtService;
 
 import jakarta.mail.BodyPart;
 import jakarta.mail.Multipart;

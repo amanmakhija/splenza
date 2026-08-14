@@ -5,6 +5,8 @@ import com.splitwise.app.exception.GlobalExceptionHandler;
 import com.splitwise.app.ratelimit.RateLimitFilter;
 import com.splitwise.app.security.AdminBroadcastFilter;
 import com.splitwise.app.security.JwtAuthenticationFilter;
+import com.splitwise.app.security.RtdnWebhookFilter;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,10 +28,11 @@ import static org.hamcrest.Matchers.nullValue;
 import com.splitwise.app.config.SecurityConfig;
 
 @WebMvcTest(controllers = AppConfigController.class, excludeFilters = {
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = AdminBroadcastFilter.class)
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class),
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class),
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class),
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = AdminBroadcastFilter.class),
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RtdnWebhookFilter.class)
 })
 @AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
