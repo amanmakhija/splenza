@@ -21,9 +21,57 @@ rate-limit:
     free:
       general: 60
       write: 20
+      ai: 10
     pro:
       general: 300
       write: 120
+      ai: 30
+
+ai-credit:
+  free-daily-limits:
+    receipt_scan: ${AI_CREDIT_FREE_RECEIPT_SCAN:2}
+    voice_expense: ${AI_CREDIT_FREE_VOICE_EXPENSE:2}
+  packages:
+    - id: pack_10
+      credits: 10
+      price-in-paise: 4900
+      currency: INR
+      google-play-product-id: ai_credits_10
+    - id: pack_30
+      credits: 30
+      price-in-paise: 9900
+      currency: INR
+      badge: "Most popular"
+      google-play-product-id: ai_credits_30
+    - id: pack_100
+      credits: 100
+      price-in-paise: 24900
+      currency: INR
+      google-play-product-id: ai_credits_100
+
+google-play:
+  package-name: ${GOOGLE_PLAY_PACKAGE_NAME:}
+  service-account-credentials: ${GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS:}
+
+rtdn:
+  webhook-token: ${RTDN_WEBHOOK_TOKEN:}
+
+ai:
+  # Which vision provider ReceiptScanService uses - "anthropic" (default) or
+  # "openai". Only that provider's client/properties beans get created (see
+  # AnthropicVisionClient / OpenAiVisionClient's @ConditionalOnProperty) -
+  # switching is a one-line env var change, no code/redeploy-logic change.
+  provider: ${AI_PROVIDER:anthropic}
+  anthropic:
+    api-key: ${AI_API_KEY:}
+    model: ${AI_ANTHROPIC_MODEL:claude-sonnet-4-6}
+    base-url: ${AI_ANTHROPIC_BASE_URL:https://api.anthropic.com/v1/messages}
+    max-tokens: ${AI_ANTHROPIC_MAX_TOKENS:1024}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${AI_OPENAI_MODEL:gpt-4o}
+    base-url: ${AI_OPENAI_BASE_URL:https://api.openai.com/v1/chat/completions}
+    max-tokens: ${AI_OPENAI_MAX_TOKENS:1024}
 
 app:
   cors:

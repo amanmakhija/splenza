@@ -13,10 +13,12 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -40,6 +42,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
             HttpMethod.PUT.name(),
             HttpMethod.PATCH.name(),
             HttpMethod.DELETE.name());
+
+    // AI feature endpoints get their own, tighter limit regardless of HTTP
+    // method - add a new pattern here whenever a new AI feature controller
+    // ships (e.g. "/api/v1/voice-expenses/**").
+    private static final List<String> AI_PATH_PATTERNS = List.of(
+            "/api/v1/receipt-scans", "/api/v1/receipt-scans/**",
+            "/api/v1/ai-credits/purchases/verify");
+
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     private final JwtService jwtService;
     private final RateLimiterService rateLimiterService;
@@ -86,10 +97,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        RateLimitCategory category
-                = WRITE_METHODS.contains(request.getMethod())
-                ? RateLimitCategory.WRITE
-                : RateLimitCategory.GENERAL;
+        RateLimitCategory category = categoryFor(request);
 
         if (!rateLimiterService.tryConsume(userId, tier, category)) {
 
@@ -108,6 +116,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private RateLimitCategory categoryFor(HttpServletRequest request) {
+
+        String path = request.getRequestURI();
+
+        boolean isAiPath = AI_PATH_PATTERNS.stream()
+                .anyMatch(pattern -> pathMatcher.match(pattern, path));
+
+        if (isAiPath) {
+            return RateLimitCategory.AI;
+        }
+
+        return WRITE_METHODS.contains(request.getMethod())
+                ? RateLimitCategory.WRITE
+                : RateLimitCategory.GENERAL;
     }
 
     private void writeTooManyRequests(

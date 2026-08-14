@@ -2,6 +2,7 @@ package com.splitwise.app.config;
 
 import com.splitwise.app.ratelimit.RateLimitFilter;
 import com.splitwise.app.security.AdminBroadcastFilter;
+import com.splitwise.app.security.RtdnWebhookFilter;
 import com.splitwise.app.security.JwtAuthenticationEntryPoint;
 import com.splitwise.app.security.JwtAuthenticationFilter;
 import com.splitwise.app.logging.RequestIdFilter;
@@ -37,6 +38,7 @@ public class SecurityConfig {
     private final CorsProperties corsProperties;
     private final RequestIdFilter requestIdFilter;
     private final AdminBroadcastFilter adminBroadcastFilter;
+    private final RtdnWebhookFilter rtdnWebhookFilter;
 
     private static final String[] PUBLIC_ENDPOINTS = {
         "/api/v1/auth/**",
@@ -47,7 +49,11 @@ public class SecurityConfig {
         "/actuator/health",
         // Not actually "public" - gated entirely by AdminBroadcastFilter's own
         // secret check below, deliberately outside the JWT/user auth system.
-        "/api/v1/admin/notifications/broadcast"
+        "/api/v1/admin/notifications/broadcast",
+        // Not actually "public" either - gated by RtdnWebhookFilter's own
+        // shared-secret check below. Called directly by Google Cloud Pub/Sub,
+        // which has no JWT to present.
+        "/api/v1/ai-credits/rtdn-webhook"
     };
 
     @Bean
@@ -73,6 +79,7 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(adminBroadcastFilter, RequestIdFilter.class)
+                .addFilterBefore(rtdnWebhookFilter, RequestIdFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, RequestIdFilter.class)
                 .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 

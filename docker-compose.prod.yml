@@ -49,8 +49,19 @@ services:
       FIREBASE_ENABLED: "true"
       FIREBASE_CREDENTIALS: /run/secrets/firebase-admin.json
 
+      # AI credits / receipt scanning
+      AI_API_KEY: ${AI_API_KEY}
+
+      # Google Play Billing purchase verification
+      GOOGLE_PLAY_PACKAGE_NAME: ${GOOGLE_PLAY_PACKAGE_NAME}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS: /run/secrets/google-play-billing.json
+
+      # RTDN (Play refund/chargeback webhook) shared secret
+      RTDN_WEBHOOK_TOKEN: ${RTDN_WEBHOOK_TOKEN}
+
     volumes:
       - ${FIREBASE_CREDENTIALS_HOST}:/run/secrets/firebase-admin.json:ro
+      - ${GOOGLE_PLAY_CREDENTIALS_HOST}:/run/secrets/google-play-billing.json:ro
 
     ports:
       - "8080:8080"

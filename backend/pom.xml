@@ -169,6 +169,19 @@
             <artifactId>firebase-admin</artifactId>
             <version>9.4.3</version>
         </dependency>
+
+        <!-- Google Play Developer API - verifying AI-credit purchase tokens
+        server-to-server (GooglePlayBillingService) -->
+        <dependency>
+            <groupId>com.google.apis</groupId>
+            <artifactId>google-api-services-androidpublisher</artifactId>
+            <version>v3-rev20230615-2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
+            <version>1.23.0</version>
+        </dependency>
     </dependencies>
 
     <build>

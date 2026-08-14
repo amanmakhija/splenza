@@ -90,4 +90,24 @@ public class ApiException extends RuntimeException {
                 ErrorCode.VERIFICATION_EXPIRED
         );
     }
+
+    /**
+     * Neither a free daily use nor a purchased credit was available for this AI
+     * feature call. The client shows this as "buy more credits".
+     */
+    public static ApiException paymentRequired(String message) {
+        return new ApiException(
+                message,
+                HttpStatus.PAYMENT_REQUIRED,
+                ErrorCode.INSUFFICIENT_CREDITS
+        );
+    }
+
+    public static ApiException purchaseVerificationFailed(String message) {
+        return new ApiException(
+                message,
+                HttpStatus.BAD_REQUEST,
+                ErrorCode.PURCHASE_VERIFICATION_FAILED
+        );
+    }
 }

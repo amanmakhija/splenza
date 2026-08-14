@@ -54,12 +54,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.splitwise.app.ratelimit.RateLimitFilter;
 import com.splitwise.app.security.AdminBroadcastFilter;
 import com.splitwise.app.security.JwtAuthenticationFilter;
+import com.splitwise.app.security.RtdnWebhookFilter;
 
 @WebMvcTest(controllers = AuthController.class, excludeFilters = {
     @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class),
     @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class),
     @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class),
-    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = AdminBroadcastFilter.class)
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = AdminBroadcastFilter.class),
+    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RtdnWebhookFilter.class)
 })
 @AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)

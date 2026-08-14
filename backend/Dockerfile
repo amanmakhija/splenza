@@ -15,8 +15,10 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# curl needed for the HEALTHCHECK below
-RUN apk add --no-cache curl
+# curl needed for the HEALTHCHECK below; libheif-tools provides heif-convert,
+# used by HeicImageConverter to normalize HEIC/HEIF receipt photos to JPEG
+# before they reach the vision API (which doesn't accept HEIC directly)
+RUN apk add --no-cache curl libheif-tools
 
 # Create a dedicated non-root user/group to run the app. Running containers
 # as root is a common security finding - if the JVM or a dependency is ever
