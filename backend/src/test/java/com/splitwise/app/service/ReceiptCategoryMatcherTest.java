@@ -28,7 +28,7 @@ class ReceiptCategoryMatcherTest {
     @DisplayName("Matches a merchant name to an existing category by keyword")
     void match_findsCategoryByKeyword() {
 
-        Category foodCategory = Category.builder().name("Food & Drink").build();
+        Category foodCategory = Category.builder().name("Food").build();
         when(categoryRepository.findAll()).thenReturn(List.of(foodCategory));
 
         Optional<Category> result = matcher.match("Domino's Pizza Koramangala");
@@ -40,12 +40,12 @@ class ReceiptCategoryMatcherTest {
     @DisplayName("Is case-insensitive when matching keywords")
     void match_isCaseInsensitive() {
 
-        Category groceries = Category.builder().name("Groceries").build();
-        when(categoryRepository.findAll()).thenReturn(List.of(groceries));
+        Category food = Category.builder().name("Food").build();
+        when(categoryRepository.findAll()).thenReturn(List.of(food));
 
         Optional<Category> result = matcher.match("BIG BAZAAR SUPERMARKET");
 
-        assertThat(result).contains(groceries);
+        assertThat(result).contains(food);
     }
 
     @Test
@@ -60,7 +60,7 @@ class ReceiptCategoryMatcherTest {
     @DisplayName("Returns empty rather than guessing when no keyword matches")
     void match_returnsEmpty_whenNoKeywordMatches() {
 
-        when(categoryRepository.findAll()).thenReturn(List.of(Category.builder().name("Food & Drink").build()));
+        when(categoryRepository.findAll()).thenReturn(List.of(Category.builder().name("Food").build()));
 
         Optional<Category> result = matcher.match("Completely Unrecognizable Merchant Co");
 
@@ -72,7 +72,7 @@ class ReceiptCategoryMatcherTest {
             + "app has no category with that exact name")
     void match_returnsEmpty_whenKeywordMatchesButCategoryDoesNotExist() {
 
-        // No "Food & Drink" category configured in this app instance.
+        // No "Food" category configured in this app instance.
         when(categoryRepository.findAll()).thenReturn(List.of(Category.builder().name("Misc").build()));
 
         Optional<Category> result = matcher.match("Some Cafe Downtown");

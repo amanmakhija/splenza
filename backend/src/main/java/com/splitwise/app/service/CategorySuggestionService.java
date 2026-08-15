@@ -20,20 +20,21 @@ import java.util.regex.Pattern;
  * ai_feature_daily_usage/ai_credit_wallets involvement - this is a lightweight
  * UX nicety, not a paid AI feature, and doesn't call an external AI API at all.
  *
- * Conservative by design: returns no suggestion rather than a low-confidence
- * one - a wrong auto-fill is more annoying to notice and undo than an empty
- * field, so ties and no-hits both resolve to "suggest nothing."
+ * Falls back to a category named "Others" (case-insensitive), if the caller has
+ * one, whenever nothing scores confidently or two candidates tie - rather than
+ * an empty null suggestion. "Others" is only ever used as this fallback, never
+ * scored/matched directly against keywords itself.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CategorySuggestionService {
 
+    private static final String FALLBACK_CATEGORY_NAME = "Others";
+
     // A whole-word match against the category's own name is a solid signal
-    // (e.g. description "grocery run" against a category literally named
-    // "Groceries" contains "grocer" as a shared root - handled by the
-    // keyword table below - or "Food" exactly matching a "Food & Drink"
-    // word). Keyword hits (see CategoryKeywords) are a stronger, more
+    // (e.g. description "food for the party" against a category named
+    // "Food"). Keyword hits (see CategoryKeywords) are a stronger, more
     // specific signal since they capture brand names, synonyms, etc. that
     // the category's own name wouldn't contain.
     private static final int CATEGORY_NAME_WORD_MATCH_SCORE = 2;
@@ -84,10 +85,23 @@ public class CategorySuggestionService {
         }
 
         if (best == null || tiedForBest) {
-            return null;
+            return fallbackToOthers(candidates);
         }
 
         return best.getId();
+    }
+
+    /**
+     * Only ever falls back to "Others" if the caller's own set actually
+     * contains a category by that name - never invents a suggestion outside the
+     * provided categoryIds.
+     */
+    private UUID fallbackToOthers(List<Category> candidates) {
+        return candidates.stream()
+                .filter(c -> FALLBACK_CATEGORY_NAME.equalsIgnoreCase(c.getName()))
+                .findFirst()
+                .map(Category::getId)
+                .orElse(null);
     }
 
     private int scoreCandidate(Category category, String haystack, String normalizedHaystack) {

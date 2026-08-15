@@ -33,6 +33,7 @@ import java.util.UUID;
 public class ReceiptScanService {
 
     private static final long MAX_FILE_SIZE_BYTES = 10L * 1024 * 1024;
+    private static final String FALLBACK_CATEGORY_NAME = "Others";
 
     private final AiCreditService aiCreditService;
     private final ReceiptVisionClient visionClient;
@@ -134,8 +135,9 @@ public class ReceiptScanService {
      * verbatim, so this should be an exact match - but never trust model output
      * blindly. Falls back to the merchant-name keyword matcher (see
      * ReceiptCategoryMatcher) if the model returned null or something that
-     * doesn't correspond to a real category, rather than dropping the category
-     * entirely.
+     * doesn't correspond to a real category, and if even that comes up empty,
+     * falls back to a category named "Others" (if the app has one) rather than
+     * leaving the expense uncategorized.
      */
     private Optional<Category> resolveCategory(ReceiptExtractionRaw raw) {
 
@@ -148,7 +150,12 @@ public class ReceiptScanService {
                     + "falling back to keyword matching.", raw.category);
         }
 
-        return categoryMatcher.match(raw.merchantName);
+        Optional<Category> keywordMatch = categoryMatcher.match(raw.merchantName);
+        if (keywordMatch.isPresent()) {
+            return keywordMatch;
+        }
+
+        return categoryRepository.findByNameIgnoreCase(FALLBACK_CATEGORY_NAME);
     }
 
     private LocalDate parseDate(String isoDate) {

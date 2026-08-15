@@ -91,7 +91,7 @@ class ReceiptScanServiceTest {
         when(categoryRepository.findAll()).thenReturn(List.of());
         when(visionClient.extract(eq(JPEG_BYTES), eq("image/jpeg"), any())).thenReturn(raw);
 
-        Category category = Category.builder().id(UUID.randomUUID()).name("Food & Drink").build();
+        Category category = Category.builder().id(UUID.randomUUID()).name("Food").build();
         when(categoryMatcher.match("Cafe Coffee Day")).thenReturn(Optional.of(category));
 
         when(aiCreditService.getBalance(userId, AiFeature.RECEIPT_SCAN))
@@ -114,8 +114,8 @@ class ReceiptScanServiceTest {
 
         MockMultipartFile file = new MockMultipartFile("file", "receipt.jpg", "image/jpeg", JPEG_BYTES);
 
-        Category foodCategory = Category.builder().id(UUID.randomUUID()).name("Food & Drink").build();
-        Category travelCategory = Category.builder().id(UUID.randomUUID()).name("Transportation").build();
+        Category foodCategory = Category.builder().id(UUID.randomUUID()).name("Food").build();
+        Category travelCategory = Category.builder().id(UUID.randomUUID()).name("Travel").build();
         when(categoryRepository.findAll()).thenReturn(List.of(foodCategory, travelCategory));
 
         when(aiCreditService.consume(userId, AiFeature.RECEIPT_SCAN))
@@ -123,18 +123,18 @@ class ReceiptScanServiceTest {
 
         ReceiptExtractionRaw raw = new ReceiptExtractionRaw();
         raw.merchantName = "Random Merchant Co";
-        raw.category = "Food & Drink";
+        raw.category = "Food";
         when(visionClient.extract(eq(JPEG_BYTES), eq("image/jpeg"),
-                eq(List.of("Food & Drink", "Transportation")))).thenReturn(raw);
+                eq(List.of("Food", "Travel")))).thenReturn(raw);
 
-        when(categoryRepository.findByNameIgnoreCase("Food & Drink")).thenReturn(Optional.of(foodCategory));
+        when(categoryRepository.findByNameIgnoreCase("Food")).thenReturn(Optional.of(foodCategory));
         when(aiCreditService.getBalance(userId, AiFeature.RECEIPT_SCAN))
                 .thenReturn(AiFeatureCreditsResponse.builder().totalAvailable(1).build());
 
         ReceiptScanResult result = receiptScanService.scan(userId, file);
 
         assertThat(result.getCategoryId()).isEqualTo(foodCategory.getId());
-        assertThat(result.getCategoryName()).isEqualTo("Food & Drink");
+        assertThat(result.getCategoryName()).isEqualTo("Food");
         // The AI's own category choice was used directly - no need to fall
         // back to guessing from the merchant name.
         verify(categoryMatcher, never()).match(any());
@@ -159,7 +159,7 @@ class ReceiptScanServiceTest {
         when(categoryRepository.findByNameIgnoreCase("Made Up Category That Does Not Exist"))
                 .thenReturn(Optional.empty());
 
-        Category fallbackCategory = Category.builder().id(UUID.randomUUID()).name("Food & Drink").build();
+        Category fallbackCategory = Category.builder().id(UUID.randomUUID()).name("Food").build();
         when(categoryMatcher.match("Cafe Coffee Day")).thenReturn(Optional.of(fallbackCategory));
         when(aiCreditService.getBalance(userId, AiFeature.RECEIPT_SCAN))
                 .thenReturn(AiFeatureCreditsResponse.builder().totalAvailable(1).build());
@@ -167,6 +167,34 @@ class ReceiptScanServiceTest {
         ReceiptScanResult result = receiptScanService.scan(userId, file);
 
         assertThat(result.getCategoryId()).isEqualTo(fallbackCategory.getId());
+    }
+
+    @Test
+    @DisplayName("scan() falls back to an 'Others' category when neither the AI nor keyword matching found anything")
+    void scan_fallsBackToOthersCategory_whenNothingMatches() {
+
+        MockMultipartFile file = new MockMultipartFile("file", "receipt.jpg", "image/jpeg", JPEG_BYTES);
+
+        when(categoryRepository.findAll()).thenReturn(List.of());
+
+        when(aiCreditService.consume(userId, AiFeature.RECEIPT_SCAN))
+                .thenReturn(new AiCreditService.ConsumptionResult(CreditSource.FREE));
+
+        ReceiptExtractionRaw raw = new ReceiptExtractionRaw();
+        raw.merchantName = "Totally Unknown Merchant";
+        raw.category = null;
+        when(visionClient.extract(eq(JPEG_BYTES), eq("image/jpeg"), any())).thenReturn(raw);
+
+        when(categoryMatcher.match("Totally Unknown Merchant")).thenReturn(Optional.empty());
+
+        Category othersCategory = Category.builder().id(UUID.randomUUID()).name("Others").build();
+        when(categoryRepository.findByNameIgnoreCase("Others")).thenReturn(Optional.of(othersCategory));
+        when(aiCreditService.getBalance(userId, AiFeature.RECEIPT_SCAN))
+                .thenReturn(AiFeatureCreditsResponse.builder().totalAvailable(1).build());
+
+        ReceiptScanResult result = receiptScanService.scan(userId, file);
+
+        assertThat(result.getCategoryId()).isEqualTo(othersCategory.getId());
     }
 
     @Test

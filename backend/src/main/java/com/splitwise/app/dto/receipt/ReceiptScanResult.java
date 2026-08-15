@@ -24,10 +24,9 @@ public class ReceiptScanResult {
 
     /**
      * Best-effort category match against the app's existing categories by
-     * keyword, e.g. "restaurant"/"cafe" -> Food & Drink. Null if nothing
-     * matched confidently - the client should leave category selection to the
-     * user rather than the app silently guessing wrong, see
-     * ReceiptCategoryMatcher.
+     * keyword, e.g. "restaurant"/"cafe" -> Food. Null if nothing matched
+     * confidently - the client should leave category selection to the user
+     * rather than the app silently guessing wrong, see ReceiptCategoryMatcher.
      */
     private UUID categoryId;
     private String categoryName;
