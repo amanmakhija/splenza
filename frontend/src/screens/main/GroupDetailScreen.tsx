@@ -29,6 +29,13 @@ import {
   ChevronLeft,
   Info,
   CloudOff,
+  ArrowLeftRight,
+  Receipt,
+  PartyPopper,
+  Download,
+  UserPlus,
+  Activity as ActivityIcon,
+  type LucideIcon,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
@@ -309,6 +316,28 @@ export function GroupDetailScreen() {
     else if (y < EXPAND_AT) setCollapsed(false);
   };
 
+  // Collapse the instant the user starts dragging, regardless of whether
+  // the list actually has enough content to scroll - this is what makes it
+  // collapse on "a bit" of scroll no matter the list's length, rather than
+  // waiting for contentOffset to cross COLLAPSE_AT (which a short list may
+  // never do, or only reach transiently via an overscroll bounce).
+  const handleScrollBeginDrag = () => setCollapsed(true);
+
+  // Whatever happened mid-gesture, explicitly decide the final state once
+  // the gesture actually ends (finger lifted, and again once any momentum/
+  // bounce-back settles) based on where the list actually rested. This is
+  // what keeps it from getting stuck: even a short list that can't
+  // physically scroll away from y=0 always fires these end events once it
+  // snaps back, so the card reliably re-expands - unlike relying only on
+  // continuous onScroll frames, which a non-scrollable list may stop
+  // emitting before reaching a "back near the top" reading.
+  const handleScrollSettle = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    const y = event.nativeEvent.contentOffset.y;
+    setCollapsed(y > EXPAND_AT);
+  };
+
   const balanceCardAnimatedStyle = {
     height: collapseAnim.interpolate({
       inputRange: [0, 1],
@@ -412,18 +441,35 @@ export function GroupDetailScreen() {
     );
   }, [pendingTimelineItems, timeline.items, searchQuery]);
 
+  const activityIconFor = (type: string): LucideIcon => {
+    switch (type) {
+      case "SETTLEMENT_MADE":
+        return ArrowLeftRight;
+      case "EXPENSE_CREATED":
+        return Receipt;
+      case "GROUP_CREATED":
+        return PartyPopper;
+      case "IMPORT_COMPLETED":
+        return Download;
+      case "MEMBER_JOINED":
+        return UserPlus;
+      default:
+        return ActivityIcon;
+    }
+  };
+
   const activityLabel = (type: string) => {
     switch (type) {
       case "SETTLEMENT_MADE":
-        return "💸 Settlement";
+        return "Settlement";
       case "EXPENSE_CREATED":
-        return "🧾 Expense";
+        return "Expense";
       case "GROUP_CREATED":
-        return "🎉 Group";
+        return "Group";
       case "IMPORT_COMPLETED":
-        return "📥 Import";
+        return "Import";
       case "MEMBER_JOINED":
-        return "👤 Member";
+        return "Member";
       default:
         return "Activity";
     }
@@ -733,6 +779,9 @@ export function GroupDetailScreen() {
               keyExtractor={(item) => `${item.type}-${item.data.id}`}
               scrollEnabled
               onScroll={handleListScroll}
+              onScrollBeginDrag={handleScrollBeginDrag}
+              onScrollEndDrag={handleScrollSettle}
+              onMomentumScrollEnd={handleScrollSettle}
               scrollEventThrottle={16}
               contentContainerStyle={{ paddingBottom: 84 }}
               refreshControl={
@@ -758,12 +807,14 @@ export function GroupDetailScreen() {
                 />
               )}
               ListFooterComponent={
-                timeline.isFetchingMore ? (
-                  <ActivityIndicator
-                    style={{ marginVertical: 24 }}
-                    color={theme.primary}
-                  />
-                ) : null
+                <>
+                  {timeline.isFetchingMore ? (
+                    <ActivityIndicator
+                      style={{ marginVertical: 24 }}
+                      color={theme.primary}
+                    />
+                  ) : null}
+                </>
               }
               renderItem={({ item }) => {
                 if (item.type === "settlement") {
@@ -887,6 +938,8 @@ export function GroupDetailScreen() {
           currentUserId={currentUser?.id}
           formatAmount={formatAmount}
           onScroll={handleListScroll}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onScrollSettle={handleScrollSettle}
           onSettle={(debt) =>
             navigation.navigate("SettleUp", {
               groupId,
@@ -908,6 +961,9 @@ export function GroupDetailScreen() {
               data={activityQuery.data ?? []}
               keyExtractor={(a) => a.id}
               onScroll={handleListScroll}
+              onScrollBeginDrag={handleScrollBeginDrag}
+              onScrollEndDrag={handleScrollSettle}
+              onMomentumScrollEnd={handleScrollSettle}
               scrollEventThrottle={16}
               refreshControl={
                 <RefreshControl
@@ -921,19 +977,29 @@ export function GroupDetailScreen() {
                   style={[styles.rowDivider, { backgroundColor: theme.border }]}
                 />
               )}
-              renderItem={({ item }) => (
-                <View style={styles.activityRow}>
-                  <Text style={[styles.activityType, { color: theme.primary }]}>
-                    {activityLabel(item.actionType)}
-                  </Text>
-                  <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>
-                    {describeActivity(item)}
-                  </Text>
-                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                    {formatDate(item.createdAt)}
-                  </Text>
-                </View>
-              )}
+              renderItem={({ item }) => {
+                const ActivityTypeIcon = activityIconFor(item.actionType);
+                return (
+                  <View style={styles.activityRow}>
+                    <View style={styles.activityTypeRow}>
+                      <ActivityTypeIcon size={12} color={theme.primary} />
+                      <Text
+                        style={[styles.activityType, { color: theme.primary }]}
+                      >
+                        {activityLabel(item.actionType)}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[styles.rowTitle, { color: theme.textPrimary }]}
+                    >
+                      {describeActivity(item)}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                      {formatDate(item.createdAt)}
+                    </Text>
+                  </View>
+                );
+              }}
               ListEmptyComponent={
                 !activityQuery.isLoading ? (
                   <Text style={[styles.emptyText, { color: theme.textMuted }]}>
@@ -970,6 +1036,8 @@ interface ScrollableBalancesProps {
   formatAmount: (n: number) => string;
   onSettle: (debt: DebtEdge) => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onScrollBeginDrag: () => void;
+  onScrollSettle: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
 
 function ScrollableBalances({
@@ -979,6 +1047,8 @@ function ScrollableBalances({
   formatAmount,
   onSettle,
   onScroll,
+  onScrollBeginDrag,
+  onScrollSettle,
 }: ScrollableBalancesProps) {
   return (
     <View style={styles.body}>
@@ -986,6 +1056,9 @@ function ScrollableBalances({
         data={[{ key: "content" }]}
         keyExtractor={(i) => i.key}
         onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollSettle}
+        onMomentumScrollEnd={onScrollSettle}
         scrollEventThrottle={16}
         renderItem={() => (
           <View>
@@ -1269,5 +1342,11 @@ const styles = StyleSheet.create({
   },
 
   activityRow: { paddingVertical: 14 },
-  activityType: { fontSize: 11, fontWeight: "700", marginBottom: 6 },
+  activityTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 6,
+  },
+  activityType: { fontSize: 11, fontWeight: "700" },
 });

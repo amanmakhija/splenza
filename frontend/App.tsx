@@ -22,11 +22,13 @@ import {
   setupGlobalErrorHandlers,
   identifyUserForCrashReports,
 } from "@/lib/crashReporting";
+import { setupReactQueryOnlineManager } from "@/lib/queryOnlineManager";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { InAppNotificationToast } from "@/components/InAppNotificationToast";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 setupGlobalErrorHandlers();
+setupReactQueryOnlineManager();
 
 const messaging = getMessaging(getApp());
 
