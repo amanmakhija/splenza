@@ -10,11 +10,11 @@ import com.splitwise.app.exception.ApiException;
 import com.splitwise.app.exception.GlobalExceptionHandler;
 import com.splitwise.app.ratelimit.RateLimitFilter;
 import com.splitwise.app.security.AdminBroadcastFilter;
+import com.splitwise.app.security.RtdnWebhookFilter;
 import com.splitwise.app.security.AppUserDetailsService;
 import com.splitwise.app.security.JwtAuthenticationEntryPoint;
 import com.splitwise.app.security.JwtAuthenticationFilter;
 import com.splitwise.app.security.JwtService;
-import com.splitwise.app.security.RtdnWebhookFilter;
 import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.config.SecurityConfig;
 import com.splitwise.app.service.ExpenseService;
@@ -68,6 +68,9 @@ class ExpenseControllerTest {
 
     @MockBean
     private ExpenseService expenseService;
+
+    @MockBean
+    private com.splitwise.app.service.CategorySuggestionService categorySuggestionService;
 
     @MockBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -746,6 +749,66 @@ class ExpenseControllerTest {
 
             verify(expenseService)
                     .searchPaged(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Suggest category")
+    class SuggestCategoryTests {
+
+        @Test
+        @WithMockUser
+        @DisplayName("returns the suggested categoryId when the service finds a match")
+        void shouldReturnSuggestedCategory() throws Exception {
+
+            UUID transportCategoryId = UUID.randomUUID();
+
+            com.splitwise.app.dto.expense.SuggestCategoryRequest request
+                    = new com.splitwise.app.dto.expense.SuggestCategoryRequest();
+            request.setDescription("Uber to airport");
+            request.setCategoryIds(List.of(UUID.randomUUID(), transportCategoryId));
+
+            when(categorySuggestionService.suggest(eq("Uber to airport"), any()))
+                    .thenReturn(transportCategoryId);
+
+            mockMvc.perform(post("/api/v1/expenses/suggest-category")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(asJson(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.categoryId").value(transportCategoryId.toString()));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("returns a null categoryId when nothing matches - never errors")
+        void shouldReturnNullCategoryId_whenNoConfidentMatch() throws Exception {
+
+            com.splitwise.app.dto.expense.SuggestCategoryRequest request
+                    = new com.splitwise.app.dto.expense.SuggestCategoryRequest();
+            request.setDescription("asdkjasd");
+            request.setCategoryIds(List.of(UUID.randomUUID()));
+
+            when(categorySuggestionService.suggest(any(), any())).thenReturn(null);
+
+            mockMvc.perform(post("/api/v1/expenses/suggest-category")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(asJson(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.categoryId").doesNotExist());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("blank description and missing categoryIds never cause a 400 - service handles it")
+        void shouldReturn200_evenForEmptyRequest() throws Exception {
+
+            when(categorySuggestionService.suggest(any(), any())).thenReturn(null);
+
+            mockMvc.perform(post("/api/v1/expenses/suggest-category")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.categoryId").doesNotExist());
         }
     }
 

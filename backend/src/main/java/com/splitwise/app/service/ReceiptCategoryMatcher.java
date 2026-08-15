@@ -14,8 +14,7 @@ import java.util.Optional;
 /**
  * Best-effort match from a scanned receipt's merchant name / line items to one
  * of the app's existing Category rows, by keyword against the category NAME
- * (not a separate hardcoded category-ID mapping - so admin-managed category
- * renames/additions don't require a code change here).
+ * (see CategoryKeywords, shared with CategorySuggestionService).
  *
  * Deliberately conservative: if nothing matches confidently, this returns empty
  * rather than guessing - leaving categoryId null (see ReceiptScanResult) so the
@@ -28,27 +27,6 @@ import java.util.Optional;
 public class ReceiptCategoryMatcher {
 
     private final CategoryRepository categoryRepository;
-
-    // Keyword -> category name to look for (case-insensitive, matched
-    // against Category.name). First matching keyword wins.
-    private static final Map<String, List<String>> KEYWORDS_BY_CATEGORY_NAME = Map.ofEntries(
-            Map.entry("Food & Drink", List.of(
-                    "restaurant", "cafe", "coffee", "diner", "bistro", "eatery", "food", "kitchen",
-                    "pizza", "burger", "bakery", "sweets", "dhaba", "bar", "pub", "brewery")),
-            Map.entry("Groceries", List.of(
-                    "grocery", "supermarket", "mart", "bazaar", "kirana", "provisions", "fresh")),
-            Map.entry("Transportation", List.of(
-                    "uber", "ola", "taxi", "cab", "fuel", "petrol", "diesel", "metro", "railway",
-                    "parking", "toll", "auto")),
-            Map.entry("Entertainment", List.of(
-                    "cinema", "movie", "theatre", "theater", "multiplex", "pvr", "inox")),
-            Map.entry("Shopping", List.of(
-                    "mall", "store", "retail", "boutique", "fashion", "apparel")),
-            Map.entry("Utilities", List.of(
-                    "electricity", "water bill", "gas", "broadband", "recharge", "utility")),
-            Map.entry("Medical", List.of(
-                    "pharmacy", "hospital", "clinic", "medical", "chemist", "diagnostic"))
-    );
 
     /**
      * @param merchantName as extracted from the receipt (may be null/blank)
@@ -64,7 +42,7 @@ public class ReceiptCategoryMatcher {
 
         List<Category> categories = categoryRepository.findAll();
 
-        for (Map.Entry<String, List<String>> entry : KEYWORDS_BY_CATEGORY_NAME.entrySet()) {
+        for (Map.Entry<String, List<String>> entry : CategoryKeywords.KEYWORDS_BY_CATEGORY_NAME.entrySet()) {
 
             boolean keywordHit = entry.getValue().stream().anyMatch(haystack::contains);
             if (!keywordHit) {

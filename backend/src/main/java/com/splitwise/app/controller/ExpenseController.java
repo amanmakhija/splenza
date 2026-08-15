@@ -2,6 +2,7 @@ package com.splitwise.app.controller;
 
 import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.dto.expense.*;
+import com.splitwise.app.service.CategorySuggestionService;
 import com.splitwise.app.service.ExpenseService;
 import com.splitwise.app.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class ExpenseController {
 
     private final ExpenseService expenseService;
+    private final CategorySuggestionService categorySuggestionService;
 
     @Operation(summary = "Create expense", description = "Creates a new expense and splits cost among specified members.")
     @ApiResponses({
@@ -199,5 +201,21 @@ public class ExpenseController {
                         pageable
                 )
         );
+    }
+
+    @Operation(summary = "Suggest a category for an expense description",
+            description = "Cheap, fast keyword match between the description and the caller's own category "
+            + "set - not part of the AI credits system, no credit is spent. Returns categoryId: null "
+            + "if nothing matches with reasonable confidence.")
+    @ApiResponse(responseCode = "200", description = "Suggestion computed (categoryId may be null)")
+    @PostMapping("/suggest-category")
+    public SuggestCategoryResponse suggestCategory(@RequestBody SuggestCategoryRequest request) {
+
+        UUID suggested = categorySuggestionService.suggest(
+                request.getDescription(), request.getCategoryIds());
+
+        return SuggestCategoryResponse.builder()
+                .categoryId(suggested)
+                .build();
     }
 }

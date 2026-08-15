@@ -115,7 +115,7 @@ public class AiCreditService {
         log.info("Refunded AI credit: user={}, feature={}, source={}.", userId, feature, source);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AiFeatureCreditsResponse getBalance(UUID userId, AiFeature feature) {
 
         ensureRowsExist(userId, feature);
