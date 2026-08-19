@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Check, X } from "lucide-react-native";
+import { Check, X } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CompositeNavigationProp } from "@react-navigation/native";
@@ -17,6 +17,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { useFriendsQuery } from "@/hooks/useFriendsQuery";
 import { Avatar } from "@/components/Avatar";
+import { AddExpenseFab } from "@/components/AddExpenseFab";
 import { FriendRequestDto } from "@/types/api";
 import { MainStackParamList, FriendsStackParamList } from "@/navigation/types";
 
@@ -76,9 +77,14 @@ export function FriendsScreen() {
         </Text>
         <Pressable
           onPress={() => navigation.navigate("AddFriend")}
-          style={[styles.addButton, { backgroundColor: theme.primary }]}
+          accessibilityLabel="Add friends"
+          accessibilityRole="button"
         >
-          <UserPlus color="#fff" size={20} />
+          <Text
+            style={{ color: theme.primary, fontWeight: "700", fontSize: 14 }}
+          >
+            Add friends
+          </Text>
         </Pressable>
       </View>
 
@@ -212,6 +218,8 @@ export function FriendsScreen() {
           }
         />
       )}
+
+      <AddExpenseFab />
     </SafeAreaView>
   );
 }
@@ -227,13 +235,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: { fontSize: 24, fontWeight: "800" },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   tabs: {
     flexDirection: "row",
     paddingHorizontal: 20,

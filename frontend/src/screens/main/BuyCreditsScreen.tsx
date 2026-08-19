@@ -9,13 +9,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronLeft, Sparkles, Check, ShieldCheck } from "lucide-react-native";
+import { useQuery } from "@tanstack/react-query";
+import { Sparkles, Check, ShieldCheck } from "lucide-react-native";
 import * as RNIap from "react-native-iap";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { alert } from "@/components/AppAlert";
 import { Button } from "@/components/Button";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { useAiCredits, useInvalidateAiCredits } from "@/hooks/useAiCredits";
 import { CreditPackage } from "@/types/api";
 
@@ -222,20 +223,7 @@ export function BuyCreditsScreen() {
       style={[styles.flex, { backgroundColor: theme.background }]}
       edges={["top", "bottom"]}
     >
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-          hitSlop={8}
-        >
-          <ChevronLeft size={26} color={theme.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
-          Buy credits
-        </Text>
-        <View style={styles.headerSide} />
-      </View>
+      <ScreenHeader title="Buy credits" />
 
       <View style={styles.intro}>
         <View
@@ -336,19 +324,6 @@ export function BuyCreditsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerSide: { flex: 1, flexDirection: "row", alignItems: "center" },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "700",
-  },
   intro: { alignItems: "center", paddingHorizontal: 28, paddingTop: 8 },
   iconWrap: {
     width: 56,

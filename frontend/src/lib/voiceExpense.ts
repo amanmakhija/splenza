@@ -1,26 +1,31 @@
 import Constants from "expo-constants";
 import { storage, StorageKeys } from "@/lib/storage";
 import { ApiErrorBody } from "@/lib/apiClient";
-import { ReceiptScanResult } from "@/types/api";
+import { VoiceExpenseResult } from "@/types/api";
 import { InsufficientCreditsError } from "@/lib/aiFeatureErrors";
 
 export { InsufficientCreditsError };
 
 /**
- * Uploads a locally-picked receipt photo to the AI scanning endpoint and
- * returns the parsed expense fields. This consumes one RECEIPT_SCAN credit
- * server-side (1 free-tier credit if available today, otherwise one credit
- * from the shared purchased wallet - see `AiFeatureKey` in `types/api.ts`)
- * - the server is the source of truth for the balance, this call just
- * reports what's left afterwards via `creditsRemaining`.
+ * Uploads a locally-recorded voice clip to the voice-expense endpoint and
+ * returns either a structured draft to prefill `CreateExpenseScreen` with,
+ * or a clarification question if the backend couldn't confidently resolve
+ * everything. This consumes one VOICE_EXPENSE credit server-side (1
+ * free-tier credit if available today, otherwise one credit from the shared
+ * purchased wallet - see `AiFeatureKey` in `types/api.ts`).
+ *
+ * `groupId` is required - the backend resolves spoken names ("Paul", "Emma")
+ * to actual member userIds using this group's real membership, and will
+ * never invent a userId that isn't an actual member.
  *
  * Deliberately uses native `fetch` instead of the shared `apiClient` axios
  * instance for multipart bodies - see the detailed comment in
  * `uploadImage.ts` for why (RN FormData + axios don't mix reliably).
  */
-export async function scanReceipt(
+export async function submitVoiceExpense(
   localUri: string,
-): Promise<ReceiptScanResult> {
+  groupId: string,
+): Promise<VoiceExpenseResult> {
   const baseURL = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
   if (!baseURL) {
     throw new Error(
@@ -30,11 +35,11 @@ export async function scanReceipt(
 
   const token = storage.getString(StorageKeys.ACCESS_TOKEN);
 
-  const filename = localUri.split("/").pop() ?? "receipt.jpg";
+  const filename = localUri.split("/").pop() ?? "voice-expense.m4a";
   const match = /\.(\w+)$/.exec(localUri);
   const ext = match?.[1]?.toLowerCase();
   const mimeType =
-    ext === "png" ? "image/png" : ext === "heic" ? "image/heic" : "image/jpeg";
+    ext === "wav" ? "audio/wav" : ext === "caf" ? "audio/x-caf" : "audio/m4a";
 
   const formData = new FormData();
   formData.append("file", {
@@ -42,15 +47,17 @@ export async function scanReceipt(
     name: filename,
     type: mimeType,
   } as unknown as Blob);
+  formData.append("groupId", groupId);
 
   const controller = new AbortController();
-  // Receipt OCR/AI parsing takes longer than a typical request - give it
-  // more room than the 15s default apiClient timeout before giving up.
+  // Speech-to-text + NLP parsing (and the AI fallback path) takes longer
+  // than a typical request - give it more room than the 15s default
+  // apiClient timeout before giving up.
   const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   let response: Response;
   try {
-    response = await fetch(`${baseURL}/api/v1/receipt-scans`, {
+    response = await fetch(`${baseURL}/api/v1/voice-expenses`, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -62,7 +69,7 @@ export async function scanReceipt(
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error(
-        "That took too long to scan. Please check your connection and try again.",
+        "That took too long to process. Please check your connection and try again.",
       );
     }
     throw new Error(
@@ -73,7 +80,7 @@ export async function scanReceipt(
   }
 
   if (!response.ok) {
-    let message = "Couldn't read that receipt. Please try again.";
+    let message = "Couldn't understand that recording. Please try again.";
     try {
       const body = (await response.json()) as ApiErrorBody;
       if (body.message) message = body.message;

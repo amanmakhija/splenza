@@ -3,7 +3,7 @@
     "name": "Splenza",
     "slug": "splenza",
     "scheme": "splenza",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -76,7 +76,14 @@
           "photosPermission": "Allow Splenza to access your photos so you can set a group photo."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Splenza to access your microphone so you can add expenses by voice."
+        }
+      ],
+      "./plugins/withoutMediaPlaybackForegroundService"
     ],
     "extra": {
       "apiBaseUrl": "https://api.splenza.in",
@@ -91,7 +98,9 @@
     "androidStatusBar": {
       "backgroundColor": "#FAFAF8"
     },
-    "runtimeVersion": { "policy": "fingerprint" },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "updates": {
       "url": "https://u.expo.dev/8ef9b94d-d61c-4317-ad8d-a2e7ebbc8293"
     }

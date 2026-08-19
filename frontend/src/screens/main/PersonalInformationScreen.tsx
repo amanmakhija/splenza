@@ -21,7 +21,6 @@ import { uploadImage } from "@/lib/uploadImage";
 import { useAuthStore } from "@/store/authStore";
 import { useMyProfileQuery } from "@/hooks/useMyProfileQuery";
 import { TextField } from "@/components/TextField";
-import { Button } from "@/components/Button";
 import { MainStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
@@ -79,18 +78,40 @@ export function PersonalInformationScreen() {
       edges={["top", "bottom"]}
     >
       <View style={styles.header}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-          hitSlop={8}
+        <View style={styles.headerSide}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <ChevronLeft size={26} color={theme.textPrimary} />
+          </Pressable>
+        </View>
+        <Text
+          style={[styles.headerTitle, { color: theme.textPrimary }]}
+          numberOfLines={1}
         >
-          <ChevronLeft size={26} color={theme.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
           Personal Information
         </Text>
-        <View style={{ width: 26 }} />
+        <View style={[styles.headerSide, styles.headerActions]}>
+          <Pressable
+            onPress={() => saveMutation.mutate()}
+            disabled={!hasChanges || !name.trim()}
+            hitSlop={8}
+          >
+            <Text
+              style={{
+                color: theme.primary,
+                fontWeight: "700",
+                fontSize: 15,
+                opacity: saveMutation.isPending ? 0.5 : 1,
+              }}
+            >
+              {saveMutation.isPending ? "Saving…" : "Save"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
       <ScrollView
         contentContainerStyle={styles.content}
@@ -178,14 +199,6 @@ export function PersonalInformationScreen() {
           </Text>
         ) : null}
 
-        <Button
-          title="Save changes"
-          onPress={() => saveMutation.mutate()}
-          loading={saveMutation.isPending}
-          disabled={!hasChanges || !name.trim()}
-          style={{ marginTop: 4 }}
-        />
-
         <Pressable
           onPress={() => navigation.navigate("AccountSecurity")}
           style={[
@@ -213,7 +226,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  headerTitle: { fontSize: 16, fontWeight: "700" },
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  headerSide: { flex: 1, flexDirection: "row", alignItems: "center" },
+  headerActions: { justifyContent: "flex-end" },
 
   avatarSection: { alignItems: "center", marginBottom: 28 },
   avatar: {

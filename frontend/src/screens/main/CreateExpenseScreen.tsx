@@ -7,6 +7,7 @@ import {
   TextInput,
   Pressable,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -15,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   Calendar,
+  Trash2,
   Users,
   ChevronRight,
   Delete,
@@ -28,8 +30,8 @@ import {
   HeartPulse,
   Zap,
   ScanLine,
+  Mic,
   type LucideIcon,
-  ChevronLeft,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
@@ -39,9 +41,10 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import { useAiCredits, useInvalidateAiCredits } from "@/hooks/useAiCredits";
 import { pickReceiptImage } from "@/hooks/useImagePicker";
-import { scanReceipt, InsufficientCreditsError } from "@/lib/receiptScan";
+import { scanReceipt } from "@/lib/receiptScan";
+import { InsufficientCreditsError } from "@/lib/aiFeatureErrors";
 import { suggestCategory } from "@/lib/categorySuggest";
-import { Category, Expense, SplitType } from "@/types/api";
+import { Category, Expense, SplitType, VoiceExpenseResult } from "@/types/api";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
@@ -49,6 +52,8 @@ import { SegmentedControl } from "@/components/SegmentedControl";
 import { Avatar } from "@/components/Avatar";
 import { AppModal } from "@/components/AppModal";
 import { CreditsBadge } from "@/components/CreditsBadge";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { VoiceEntrySheet } from "@/components/VoiceEntrySheet";
 import { alert } from "@/components/AppAlert";
 import { MainStackParamList } from "@/navigation/types";
 
@@ -184,8 +189,10 @@ export function CreateExpenseScreen() {
   const [titleDraft, setTitleDraft] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [isSuggestingCategory, setIsSuggestingCategory] = useState(false);
+  const [voiceSheetVisible, setVoiceSheetVisible] = useState(false);
 
   const creditsQuery = useAiCredits("RECEIPT_SCAN");
+  const voiceCreditsQuery = useAiCredits("VOICE_EXPENSE");
   const invalidateCredits = useInvalidateAiCredits();
 
   React.useEffect(() => {
@@ -539,30 +546,110 @@ export function CreateExpenseScreen() {
     ]);
   };
 
+  const handleVoicePress = () => {
+    if (voiceSheetVisible || !groupId) return;
+
+    // Same soft client-side check as the receipt scan button above - the
+    // server is still the real gate.
+    if (voiceCreditsQuery.data && voiceCreditsQuery.data.totalAvailable <= 0) {
+      alert(
+        "Out of credits",
+        "You've used today's free voice entries. Buy more credits to keep using voice entry.",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Buy credits",
+            onPress: () => navigation.navigate("BuyCredits"),
+          },
+        ],
+      );
+      return;
+    }
+
+    setVoiceSheetVisible(true);
+  };
+
+  // Applies whatever fields a voice command resolved to the form - never
+  // more than what the backend was actually confident about (each field is
+  // independently nullable). Every userId here has already been validated
+  // server-side against this group's real membership, but we re-check
+  // against `allParticipants` too before touching split state, just so a
+  // stale/mismatched draft can never reference someone not actually in this
+  // expense's participant list.
+  const applyExpenseDraft = (
+    draft: NonNullable<VoiceExpenseResult["draft"]>,
+  ) => {
+    if (draft.title) setTitle(draft.title);
+    if (draft.amount != null) setAmount(String(draft.amount));
+    if (draft.expenseDate) setDate(new Date(draft.expenseDate + "T00:00:00"));
+    if (draft.categoryId) setCategoryId(draft.categoryId);
+    if (draft.payerUserId) setPaidBy(draft.payerUserId);
+    if (draft.splitType) setSplitType(draft.splitType);
+
+    const validParticipants = draft.participants.filter((p) =>
+      allParticipants.some((ap) => ap.userId === p.userId),
+    );
+    if (validParticipants.length === 0) return;
+
+    setSelectedIds(validParticipants.map((p) => p.userId));
+
+    const amountsByUserId: Record<string, string> = {};
+    validParticipants.forEach((p) => {
+      if (p.amount != null) amountsByUserId[p.userId] = String(p.amount);
+    });
+    if (Object.keys(amountsByUserId).length === 0) return;
+
+    if (draft.splitType === "EXACT") setExactAmounts(amountsByUserId);
+    else if (draft.splitType === "PERCENTAGE") setPercentages(amountsByUserId);
+    else if (draft.splitType === "SHARES") setShareCounts(amountsByUserId);
+  };
+
+  const handleVoiceResult = (result: VoiceExpenseResult) => {
+    setVoiceSheetVisible(false);
+    invalidateCredits("VOICE_EXPENSE");
+
+    if (result.draft) applyExpenseDraft(result.draft);
+
+    const heard = result.transcript
+      ? `\n\nWe heard: "${result.transcript}"`
+      : "";
+    if (result.status === "NEEDS_CLARIFICATION") {
+      alert(
+        "One more thing",
+        `${result.clarificationQuestion ?? "We couldn't quite catch everything."}${heard}\n\nWe filled in what we could - please complete the rest below.`,
+      );
+    } else {
+      alert(
+        "Got it!",
+        `We filled in what we understood.${heard}\n\nDouble-check the details before saving.`,
+      );
+    }
+  };
+
+  const handleVoiceInsufficientCredits = (message: string) => {
+    setVoiceSheetVisible(false);
+    alert("Out of credits", message, [
+      { text: "Not now", style: "cancel" },
+      {
+        text: "Buy credits",
+        onPress: () => navigation.navigate("BuyCredits"),
+      },
+    ]);
+  };
+
+  const handleVoiceError = (message: string) => {
+    setVoiceSheetVisible(false);
+    alert("Couldn't process that", message);
+  };
+
   return (
     <SafeAreaView
       style={[styles.flex, { backgroundColor: theme.background }]}
       edges={["bottom", "top"]}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerSide}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            accessibilityLabel="Back"
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <ChevronLeft size={26} color={theme.textPrimary} />
-          </Pressable>
-        </View>
-        <Text
-          style={[styles.headerTitle, { color: theme.textPrimary }]}
-          numberOfLines={1}
-        >
-          {isEditMode ? "Edit expense" : "Add expense"}
-        </Text>
-        <View style={[styles.headerSide, styles.headerActions]}>
+      <ScreenHeader
+        title={isEditMode ? "Edit expense" : "Add expense"}
+        right={
           <Pressable onPress={onSubmit} disabled={isSaving} hitSlop={8}>
             <Text
               style={{
@@ -575,45 +662,75 @@ export function CreateExpenseScreen() {
               {isSaving ? "Saving…" : "Save"}
             </Text>
           </Pressable>
-        </View>
-      </View>
+        }
+      />
 
-      {/* Receipt scan entry point - paid AI feature (2 free/day, then credits) */}
-      <View
-        style={[
-          styles.scanCard,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <Pressable
-          onPress={handleScanReceiptPress}
-          disabled={isScanning}
-          accessibilityLabel="Scan receipt to autofill this expense"
-          accessibilityRole="button"
-          style={[styles.scanCardLeft, { opacity: isScanning ? 0.6 : 1 }]}
-        >
-          <View
+      {/* AI-assisted entry - a slim action row rather than a boxed card, so it
+          doesn't compete for attention with the actual amount/details below.
+          Both features are paid (free daily credits + a shared purchased
+          pool) - purchased balance is identical no matter which feature you
+          check, so one small badge here represents the whole wallet rather
+          than showing two separate (but numerically identical) figures. */}
+      <View style={styles.aiToolsStrip}>
+        <View style={styles.aiPillsRow}>
+          <Pressable
+            onPress={handleScanReceiptPress}
+            disabled={isScanning}
+            accessibilityLabel="Scan receipt to autofill this expense"
+            accessibilityRole="button"
             style={[
-              styles.scanIconWrap,
+              styles.aiPill,
               { backgroundColor: theme.primaryContainer },
+              isScanning && { opacity: 0.6 },
             ]}
           >
-            <ScanLine size={18} color={theme.primary} />
-          </View>
-          <View style={styles.scanCardTextWrap}>
-            <Text style={[styles.scanCardTitle, { color: theme.textPrimary }]}>
+            {isScanning ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <ScanLine size={14} color={theme.primary} />
+            )}
+            <Text style={[styles.aiPillLabel, { color: theme.primary }]}>
               {isScanning ? "Scanning…" : "Scan receipt"}
             </Text>
-            <Text style={[styles.scanCardSub, { color: theme.textMuted }]}>
-              Auto-fill amount & details
-            </Text>
-          </View>
-        </Pressable>
+          </Pressable>
+
+          {/* Voice entry needs a real group to resolve spoken names ("Paul",
+              "Emma") to member userIds, so it's not offered on a
+              friend-only (no group) expense. */}
+          {groupId ? (
+            <Pressable
+              onPress={handleVoicePress}
+              accessibilityLabel="Add this expense by voice"
+              accessibilityRole="button"
+              style={[
+                styles.aiPill,
+                { backgroundColor: theme.primaryContainer },
+              ]}
+            >
+              <Mic size={14} color={theme.primary} />
+              <Text style={[styles.aiPillLabel, { color: theme.primary }]}>
+                Add by voice
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
         <CreditsBadge
           featureKey="RECEIPT_SCAN"
           onPress={() => navigation.navigate("BuyCredits")}
         />
       </View>
+
+      {groupId ? (
+        <VoiceEntrySheet
+          visible={voiceSheetVisible}
+          groupId={groupId}
+          onClose={() => setVoiceSheetVisible(false)}
+          onResult={handleVoiceResult}
+          onInsufficientCredits={handleVoiceInsufficientCredits}
+          onError={handleVoiceError}
+        />
+      ) : null}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -1105,49 +1222,25 @@ function BottomSheet({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerSide: { flex: 1, flexDirection: "row", alignItems: "center" },
-  headerActions: { justifyContent: "flex-end" },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "700",
-  },
 
-  scanCard: {
+  aiToolsStrip: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    gap: 8,
   },
-  scanCardLeft: {
+  aiPillsRow: { flexDirection: "row", gap: 8, flexShrink: 1 },
+  aiPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    flexShrink: 1,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  scanIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scanCardTextWrap: { flexShrink: 1 },
-  scanCardTitle: { fontSize: 14, fontWeight: "700" },
-  scanCardSub: { fontSize: 11, marginTop: 1 },
+  aiPillLabel: { fontSize: 12.5, fontWeight: "700" },
 
   content: { paddingHorizontal: 20, paddingBottom: 12 },
   amountWrap: { alignItems: "center", paddingVertical: 24 },

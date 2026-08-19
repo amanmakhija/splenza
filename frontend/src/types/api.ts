@@ -143,6 +143,58 @@ export interface ReceiptScanResult {
   creditsRemaining: number;
 }
 
+// --- Voice-based expense entry (VOICE_EXPENSE AI feature) -------------------
+
+/**
+ * One participant as understood from a voice command. `amount` is only
+ * populated for an explicit/custom split (e.g. "Marco's drink cost 200") -
+ * `null` means this person shares the remainder equally, mirroring how
+ * `CreateExpenseScreen`'s own EXACT-split text boxes work (an empty box
+ * excludes someone; here, `null` just means "no explicit figure was said").
+ */
+export interface VoiceExpenseParticipant {
+  userId: string;
+  amount: number | null;
+}
+
+/**
+ * Structured expense fields extracted from a voice command, in the current
+ * group's context - every `userId` here is guaranteed by the backend to be
+ * an actual member of the group the recording was made in (the AI is never
+ * allowed to invent one). Any field the backend couldn't confidently
+ * determine is `null` rather than guessed, so `CreateExpenseScreen` can
+ * prefill only what's known and leave the rest for the user to fill in
+ * normally - this is a draft to review, not a final expense.
+ */
+export interface ExpenseDraft {
+  title: string | null;
+  amount: number | null;
+  currency: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  expenseDate: string | null; // ISO date, e.g. "2026-08-10"
+  payerUserId: string | null;
+  splitType: SplitType | null;
+  participants: VoiceExpenseParticipant[];
+}
+
+/**
+ * Response from submitting a voice recording. When `status` is
+ * `NEEDS_CLARIFICATION`, `draft` may still be partially populated with
+ * whatever the backend *was* confident about - only the specific missing
+ * piece described in `clarificationQuestion` is left blank.
+ */
+export interface VoiceExpenseResult {
+  status: "OK" | "NEEDS_CLARIFICATION";
+  draft: ExpenseDraft | null;
+  clarificationQuestion: string | null;
+  /** What the speech-to-text step heard, shown to the user so they can tell
+   * at a glance whether a wrong result was a mishearing or a parsing issue. */
+  transcript: string | null;
+  /** VOICE_EXPENSE feature's free-remaining + shared purchased balance, immediately after this request. */
+  creditsRemaining: number;
+}
+
 export interface ActivityLogEntry {
   id: string;
   actorId: string;

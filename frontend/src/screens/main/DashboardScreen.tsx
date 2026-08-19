@@ -10,17 +10,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Bell, Plus, Users, X } from "lucide-react-native";
+import { Search, Bell, Plus, X } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
-import { useGroupsQuery } from "@/hooks/useGroupsQuery";
+import { AddExpensePickerSheet } from "@/components/AddExpensePickerSheet";
 import { DashboardSummary, FriendBalanceResponse } from "@/types/api";
 import { Logo } from "@/components/Logo";
-import { AppModal } from "@/components/AppModal";
 import { Avatar } from "@/components/Avatar";
 import {
   MainStackParamList,
@@ -65,7 +64,6 @@ export function DashboardScreen() {
     queryKey: ["dashboard-summary"],
     queryFn: ({ signal }) => fetchSummary({ signal }),
   });
-  const groupsQuery = useGroupsQuery({ enabled: addModalOpen });
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
 
@@ -294,60 +292,10 @@ export function DashboardScreen() {
         </Pressable>
       </View>
 
-      <AppModal
+      <AddExpensePickerSheet
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        title="Add an expense"
-        scrollable={false}
-      >
-        <Text
-          style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}
-        >
-          Pick a group
-        </Text>
-        <FlatList
-          data={groupsQuery.data ?? []}
-          keyExtractor={(g) => g.id}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => {
-                setAddModalOpen(false);
-                navigation.navigate("CreateExpense", { groupId: item.id });
-              }}
-              style={styles.modalRow}
-            >
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: theme.primaryContainer },
-                ]}
-              >
-                <Users size={16} color={theme.primary} />
-              </View>
-              <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
-                {item.name}
-              </Text>
-            </Pressable>
-          )}
-          ListEmptyComponent={
-            <Text style={{ color: theme.textMuted, paddingVertical: 8 }}>
-              No groups yet.
-            </Text>
-          }
-          ListFooterComponent={
-            <Text
-              style={{
-                color: theme.textMuted,
-                fontSize: 12,
-                marginTop: 16,
-              }}
-            >
-              To split with just one friend, open their profile and tap "Add
-              expense" instead.
-            </Text>
-          }
-        />
-      </AppModal>
+      />
     </SafeAreaView>
   );
 }

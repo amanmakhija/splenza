@@ -12,9 +12,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CompositeNavigationProp } from "@react-navigation/native";
-import { Plus, Users } from "lucide-react-native";
+import { Users } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { useGroupsQuery } from "@/hooks/useGroupsQuery";
+import { AddExpenseFab } from "@/components/AddExpenseFab";
 import { MainStackParamList, GroupsStackParamList } from "@/navigation/types";
 
 type Nav = CompositeNavigationProp<
@@ -156,14 +157,7 @@ export function GroupsScreen() {
         }
       />
 
-      <Pressable
-        onPress={() => navigation.navigate("CreateGroup")}
-        accessibilityLabel="Create group"
-        accessibilityRole="button"
-        style={[styles.fab, { backgroundColor: theme.primary }]}
-      >
-        <Plus color="#fff" size={26} />
-      </Pressable>
+      <AddExpenseFab />
     </SafeAreaView>
   );
 }
@@ -209,19 +203,4 @@ const styles = StyleSheet.create({
   },
   emptyText: { textAlign: "center", fontSize: 14 },
   deletedLink: { alignItems: "center", paddingVertical: 16 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
 });
