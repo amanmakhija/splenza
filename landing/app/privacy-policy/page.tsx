@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
     <div style={styles.container}>
       <h1 style={styles.h1}>Privacy Policy — Splenza</h1>
       <p style={styles.updated}>
-        Last updated: <strong>15/08/2026</strong>
+        Last updated: <strong>19/08/2026</strong>
       </p>
 
       <p style={styles.p}>
@@ -94,6 +94,13 @@ export default function PrivacyPolicyPage() {
             <td style={styles.td}>Receipt photos</td>
             <td style={styles.td}>
               Optional AI-assisted receipt scanning — see section 1.6
+            </td>
+            <td style={styles.td}>No</td>
+          </tr>
+          <tr>
+            <td style={styles.td}>Voice recordings</td>
+            <td style={styles.td}>
+              Optional AI-assisted voice expense entry — see section 1.7
             </td>
             <td style={styles.td}>No</td>
           </tr>
@@ -215,6 +222,11 @@ export default function PrivacyPolicyPage() {
           image you explicitly choose to upload as a profile picture or receipt.
         </li>
         <li style={styles.li}>
+          We do not record or access your microphone except when you explicitly
+          start a voice recording using the voice expense entry feature
+          described in section 1.7 — the App does not listen in the background.
+        </li>
+        <li style={styles.li}>
           We do not use advertising identifiers or serve third-party ads.
         </li>
       </ul>
@@ -256,24 +268,60 @@ export default function PrivacyPolicyPage() {
       </ul>
 
       <p style={styles.p}>
-        <strong>1.7 Microphone permission</strong>
+        <strong>1.7 Voice-based expense entry (AI-assisted feature)</strong>
       </p>
       <p style={styles.p}>
-        The Android version of the App requests microphone permission. This is
-        included in preparation for an upcoming voice-based expense entry
-        feature that is <strong>not yet active</strong>. At present, the App
-        does not record, access, or transmit any audio, and no microphone data
-        is collected. Once voice entry is released, we will update this Privacy
-        Policy beforehand to describe exactly what audio data is collected and
-        how it&apos;s used.
+        Splenza also lets you add an expense by describing it out loud — for
+        example, saying who paid, the amount, and how to split it. If you choose
+        to use this feature:
       </p>
+      <ul style={styles.ul}>
+        <li style={styles.li}>
+          Your voice recording is uploaded to our servers and sent to{" "}
+          <strong>OpenAI</strong> (using their Whisper speech-to-text model)
+          solely to transcribe what you said into text.
+        </li>
+        <li style={styles.li}>
+          That transcript is then processed to identify the expense amount,
+          description, category, date, who paid, and how to split it between
+          group members. This is done first by our own systems, and — for more
+          complex or ambiguous descriptions — may also be sent to{" "}
+          <strong>Anthropic</strong>, the same AI processing partner used for
+          receipt scanning.
+        </li>
+        <li style={styles.li}>
+          To resolve names you mention (e.g. &quot;split with Paul and
+          Emma&quot;) to the correct people, this processing uses the member
+          list of the group you&apos;re adding the expense to. It never
+          attributes an expense to someone who isn&apos;t actually a member of
+          that group.
+        </li>
+        <li style={styles.li}>
+          The resulting expense details are shown to you to review and edit
+          before you save the expense — nothing is saved automatically without
+          your confirmation. If something couldn&apos;t be confidently
+          understood (for example, a missing amount), the App will ask you to
+          fill in that detail yourself rather than guessing.
+        </li>
+        <li style={styles.li}>
+          This feature is entirely optional — you can add expenses manually or
+          by typing a description instead.
+        </li>
+        <li style={styles.li}>
+          Voice recordings and transcripts are retained only for as long as
+          needed to process them and for you to review the result, and are
+          deleted automatically afterward unless you choose to keep an expense
+          that resulted from one — the same retention approach used for receipt
+          photos (see section 6).
+        </li>
+      </ul>
 
       <p style={styles.p}>
         <strong>1.8 In-app purchases</strong>
       </p>
       <p style={styles.p}>
         Splenza offers optional credit packs (used to unlock extra AI-assisted
-        scans beyond your free daily allowance) via Google Play Billing. When
+        features beyond your free daily allowance) via Google Play Billing. When
         you make a purchase, Google shares confirmation of the transaction (the
         product purchased and a purchase token) with us so we can credit your
         account — we do not receive or store your card number, bank details, or
@@ -306,6 +354,11 @@ export default function PrivacyPolicyPage() {
           Read receipt photos and typed descriptions to auto-fill or suggest
           expense details, if you choose to use these optional AI-assisted
           features
+        </li>
+        <li style={styles.li}>
+          Transcribe and interpret a voice recording into a structured expense
+          for you to review, if you choose to use the optional voice expense
+          entry feature
         </li>
         <li style={styles.li}>
           Process optional in-app credit purchases via Google Play Billing and
@@ -355,10 +408,10 @@ export default function PrivacyPolicyPage() {
         Your device contacts (phone numbers/emails) submitted through the
         &quot;Find friends&quot; feature are not shown to any other user — they
         are only used server-side to check for matching Splenza accounts.
-        Receipt photos and typed descriptions sent for AI processing (section
-        1.6) are not visible to other users beyond the expense details you
-        choose to save into a shared group, same as if you&apos;d entered them
-        manually.
+        Receipt photos, voice recordings, and typed descriptions sent for AI
+        processing (sections 1.6 and 1.7) are not visible to other users beyond
+        the expense details you choose to save into a shared group, same as if
+        you&apos;d entered them manually.
       </p>
 
       <h2 style={styles.h2}>4. Third-Party Services We Use</h2>
@@ -400,12 +453,23 @@ export default function PrivacyPolicyPage() {
           <tr>
             <td style={styles.td}>Anthropic</td>
             <td style={styles.td}>
-              Reading receipt photos and suggesting expense categories (optional
-              AI-assisted features, section 1.6)
+              Reading receipt photos, suggesting expense categories, and
+              interpreting voice-transcribed expense descriptions (optional
+              AI-assisted features, sections 1.6 and 1.7)
             </td>
             <td style={styles.td}>
-              Receipt images and/or typed expense descriptions, only when you
-              choose to use these features
+              Receipt images, typed expense descriptions, and/or voice
+              transcripts, only when you choose to use these features
+            </td>
+          </tr>
+          <tr>
+            <td style={styles.td}>OpenAI</td>
+            <td style={styles.td}>
+              Transcribing voice recordings into text (optional voice expense
+              entry feature, section 1.7)
+            </td>
+            <td style={styles.td}>
+              Voice recordings, only when you choose to use this feature
             </td>
           </tr>
           <tr>
@@ -469,10 +533,10 @@ export default function PrivacyPolicyPage() {
         visible to other group members in an anonymized form, since deleting it
         would corrupt their balance history). Contact information submitted
         through the &quot;Find friends&quot; feature is not retained at all —
-        see section 1.2. Receipt photos are retained only for as long as needed
-        to process them and for you to review the result, and are deleted
-        automatically afterward unless you choose to keep an expense that
-        references one.
+        see section 1.2. Receipt photos and voice recordings/transcripts are
+        retained only for as long as needed to process them and for you to
+        review the result, and are deleted automatically afterward unless you
+        choose to keep an expense that references one.
       </p>
 
       <h2 style={styles.h2}>7. Your Rights and Choices</h2>
@@ -499,8 +563,8 @@ export default function PrivacyPolicyPage() {
           immediately stops the App from being able to read your contacts
         </li>
         <li style={styles.li}>
-          Stop using the receipt scanning or category suggestion features at any
-          time and enter expenses manually instead
+          Stop using the receipt scanning, category suggestion, or voice expense
+          entry features at any time and enter expenses manually instead
         </li>
       </ul>
       <p style={styles.p}>

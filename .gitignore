@@ -14,5 +14,6 @@ target/
 *.iml
 .vscode/
 secrets/
+docs/
 
 frontend/google-services.json

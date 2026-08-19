@@ -1,8 +1,11 @@
+import Image from "next/image";
+
 const shots = [
-  { label: "Home ledger" },
-  { label: "Voice entry" },
-  { label: "Receipt scan" },
-  { label: "Simplify debts" },
+  { label: "Home ledger", src: "/screenshots/dashboard.png" },
+  { label: "Groups", src: "/screenshots/groups.png" },
+  { label: "Add expense", src: "/screenshots/add-expense.png" },
+  { label: "Add by voice", src: "/screenshots/voice-entry.png" },
+  { label: "Group details", src: "/screenshots/group-details.png" },
 ];
 
 export default function ScreenshotShowcase() {
@@ -18,27 +21,22 @@ export default function ScreenshotShowcase() {
               A closer look at Splenza.
             </h2>
           </div>
-          <p className="max-w-xs text-sm text-ink2">
-            Real screens are on their way — these frames are placeholders
-            until launch.
-          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-5 sm:gap-7 lg:grid-cols-4">
-          {shots.map((s, i) => (
-            <figure key={s.label} className="group">
-              <div className="relative mx-auto aspect-[9/19] w-full max-w-[220px] rounded-[2rem] border-[6px] border-ink bg-stripe p-1.5 shadow-[0_18px_36px_-20px_rgba(17,18,16,0.35)] transition-transform duration-300 group-hover:-translate-y-2">
-                <div className="absolute left-1/2 top-2.5 h-1.5 w-14 -translate-x-1/2 rounded-full bg-ink/80" />
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-[1.5rem] border border-line bg-surface text-ink3">
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-                    <rect x="3" y="4" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" />
-                    <path d="m3 15 4.5-4.5a1.5 1.5 0 0 1 2.1 0L14 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="16" cy="9" r="1.4" stroke="currentColor" strokeWidth="1.6" />
-                  </svg>
-                  <span className="font-mono text-[11px]">
-                    Screenshot {String(i + 1).padStart(2, "0")}
-                  </span>
-                </div>
+        <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4 sm:gap-7 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
+          {shots.map((s) => (
+            <figure
+              key={s.label}
+              className="group w-[62vw] flex-shrink-0 snap-start sm:w-[45vw] lg:w-full"
+            >
+              <div className="relative mx-auto aspect-[468/997] w-full max-w-[220px] overflow-hidden rounded-[1.6rem] border-[6px] border-ink bg-ink shadow-[0_18px_36px_-20px_rgba(17,18,16,0.35)] transition-transform duration-300 group-hover:-translate-y-2">
+                <Image
+                  src={s.src}
+                  alt={s.label}
+                  fill
+                  sizes="(max-width: 640px) 62vw, (max-width: 1024px) 45vw, 220px"
+                  className="object-cover"
+                />
               </div>
               <figcaption className="mt-3 text-center text-xs font-medium text-ink2">
                 {s.label}
