@@ -48,6 +48,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     // ships (e.g. "/api/v1/voice-expenses/**").
     private static final List<String> AI_PATH_PATTERNS = List.of(
             "/api/v1/receipt-scans", "/api/v1/receipt-scans/**",
+            "/api/v1/voice-expenses", "/api/v1/voice-expenses/**",
             "/api/v1/ai-credits/purchases/verify");
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

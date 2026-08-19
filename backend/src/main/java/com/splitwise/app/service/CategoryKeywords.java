@@ -23,9 +23,9 @@ import java.util.Map;
  * keywords - see CategorySuggestionService's "Others" fallback for how it's
  * used instead.
  */
-final class CategoryKeywords {
+public final class CategoryKeywords {
 
-    static final Map<String, List<String>> KEYWORDS_BY_CATEGORY_NAME = Map.ofEntries(
+    public static final Map<String, List<String>> KEYWORDS_BY_CATEGORY_NAME = Map.ofEntries(
             Map.entry("Food", List.of(
                     "restaurant", "cafe", "coffee", "diner", "bistro", "eatery", "food", "kitchen",
                     "pizza", "burger", "bakery", "sweets", "dhaba", "bar", "pub", "brewery", "lunch",
