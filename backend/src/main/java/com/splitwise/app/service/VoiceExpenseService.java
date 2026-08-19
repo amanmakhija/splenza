@@ -14,6 +14,8 @@ import com.splitwise.app.nlp.GroupContext;
 import com.splitwise.app.repository.CategoryRepository;
 import com.splitwise.app.repository.GroupMemberRepository;
 import com.splitwise.app.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,7 @@ public class VoiceExpenseService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
 
+    @Transactional
     public VoiceExpenseResult process(UUID userId, UUID groupId, MultipartFile file) {
 
         byte[] audioBytes = validateAndRead(file);
