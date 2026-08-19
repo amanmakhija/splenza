@@ -2,7 +2,6 @@ package com.splitwise.app.repository;
 
 import com.splitwise.app.entity.AiFeatureDailyUsage;
 import com.splitwise.app.entity.User;
-import com.splitwise.app.enums.AiFeature;
 import com.splitwise.app.enums.AuthProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
+
+    private static final String AI_ASSIST = "AI_ASSIST";
+    private static final String OTHER_GROUP = "SOME_OTHER_GROUP";
 
     @Autowired
     private AiFeatureDailyUsageRepository repository;
@@ -75,14 +77,14 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
         User user = persistUser();
         Instant firstResetAt = Instant.now().plusSeconds(3600);
 
-        repository.initializeIfMissing(user.getId(), AiFeature.RECEIPT_SCAN.name(), firstResetAt);
-        repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2); // free_used_today -> 1
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, firstResetAt);
+        repository.tryConsumeFree(user.getId(), AI_ASSIST, 2); // free_used_today -> 1
 
         // Calling init again with a different reset time must NOT reset the
         // row that already exists.
-        repository.initializeIfMissing(user.getId(), AiFeature.RECEIPT_SCAN.name(), Instant.now().plusSeconds(999999));
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, Instant.now().plusSeconds(999999));
 
-        AiFeatureDailyUsage usage = repository.findByUserIdAndFeatureKey(user.getId(), AiFeature.RECEIPT_SCAN).get();
+        AiFeatureDailyUsage usage = repository.findByUserIdAndCreditGroup(user.getId(), AI_ASSIST).get();
         assertThat(usage.getFreeUsedToday()).isEqualTo(1);
     }
 
@@ -91,34 +93,57 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
     void tryConsumeFree_respectsLimit() {
 
         User user = persistUser();
-        repository.initializeIfMissing(user.getId(), AiFeature.RECEIPT_SCAN.name(), Instant.now().plusSeconds(3600));
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, Instant.now().plusSeconds(3600));
 
-        assertThat(repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2)).isEqualTo(1);
-        assertThat(repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2)).isEqualTo(1);
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(1);
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(1);
         // Third attempt should fail - limit of 2 already used.
-        assertThat(repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2)).isEqualTo(0);
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(0);
 
-        AiFeatureDailyUsage usage = repository.findByUserIdAndFeatureKey(user.getId(), AiFeature.RECEIPT_SCAN).get();
+        AiFeatureDailyUsage usage = repository.findByUserIdAndCreditGroup(user.getId(), AI_ASSIST).get();
         assertThat(usage.getFreeUsedToday()).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("Two independent AiFeature rows for the same user track completely independent allowances")
-    void differentFeatures_haveIndependentAllowances() {
+    @DisplayName("Two features sharing the same credit group draw down the SAME counter, not "
+            + "independent ones")
+    void featuresSharingAGroup_drawDownTheSameCounter() {
 
         User user = persistUser();
         Instant resetAt = Instant.now().plusSeconds(3600);
 
-        repository.initializeIfMissing(user.getId(), AiFeature.RECEIPT_SCAN.name(), resetAt);
-        repository.initializeIfMissing(user.getId(), AiFeature.VOICE_EXPENSE.name(), resetAt);
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, resetAt);
 
-        // Exhaust RECEIPT_SCAN's allowance entirely.
-        repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2);
-        repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2);
-        assertThat(repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2)).isEqualTo(0);
+        // Simulates RECEIPT_SCAN consuming 1, then VOICE_EXPENSE consuming
+        // the other - both map to AI_ASSIST (see FeatureCreditGroups), so
+        // they're really just two callers hitting the same row.
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(1);
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(1);
 
-        // VOICE_EXPENSE must be completely unaffected.
-        assertThat(repository.tryConsumeFree(user.getId(), AiFeature.VOICE_EXPENSE, 2)).isEqualTo(1);
+        // The group's shared allowance is now fully exhausted - a third
+        // attempt from either "feature" fails, since there's only one
+        // counter between them.
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Two different credit groups for the same user track completely independent allowances")
+    void differentCreditGroups_haveIndependentAllowances() {
+
+        User user = persistUser();
+        Instant resetAt = Instant.now().plusSeconds(3600);
+
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, resetAt);
+        repository.initializeIfMissing(user.getId(), OTHER_GROUP, resetAt);
+
+        // Exhaust AI_ASSIST's allowance entirely.
+        repository.tryConsumeFree(user.getId(), AI_ASSIST, 2);
+        repository.tryConsumeFree(user.getId(), AI_ASSIST, 2);
+        assertThat(repository.tryConsumeFree(user.getId(), AI_ASSIST, 2)).isEqualTo(0);
+
+        // A different (hypothetical, ungrouped-feature) group must be
+        // completely unaffected.
+        assertThat(repository.tryConsumeFree(user.getId(), OTHER_GROUP, 2)).isEqualTo(1);
     }
 
     @Test
@@ -128,23 +153,23 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
         User user = persistUser();
         Instant future = Instant.now().plusSeconds(3600);
 
-        repository.initializeIfMissing(user.getId(), AiFeature.RECEIPT_SCAN.name(), future);
-        repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2);
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, future);
+        repository.tryConsumeFree(user.getId(), AI_ASSIST, 2);
 
         // Not yet expired - no-op.
         int rowsTouched = repository.resetIfExpired(
-                user.getId(), AiFeature.RECEIPT_SCAN, Instant.now(), future.plusSeconds(3600));
+                user.getId(), AI_ASSIST, Instant.now(), future.plusSeconds(3600));
         assertThat(rowsTouched).isEqualTo(0);
-        assertThat(repository.findByUserIdAndFeatureKey(user.getId(), AiFeature.RECEIPT_SCAN).get().getFreeUsedToday())
+        assertThat(repository.findByUserIdAndCreditGroup(user.getId(), AI_ASSIST).get().getFreeUsedToday())
                 .isEqualTo(1);
 
         // Simulate expiry by resetting with a "now" that's after the stored free_reset_at.
         Instant nextReset = Instant.now().plusSeconds(86400);
         int rowsTouchedAfterExpiry = repository.resetIfExpired(
-                user.getId(), AiFeature.RECEIPT_SCAN, future.plusSeconds(1), nextReset);
+                user.getId(), AI_ASSIST, future.plusSeconds(1), nextReset);
         assertThat(rowsTouchedAfterExpiry).isEqualTo(1);
 
-        AiFeatureDailyUsage usage = repository.findByUserIdAndFeatureKey(user.getId(), AiFeature.RECEIPT_SCAN).get();
+        AiFeatureDailyUsage usage = repository.findByUserIdAndCreditGroup(user.getId(), AI_ASSIST).get();
         assertThat(usage.getFreeUsedToday()).isEqualTo(0);
         // Postgres TIMESTAMPTZ only has microsecond precision and can round
         // (not just truncate) the last digit, so an exact Instant equality
@@ -158,23 +183,24 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
     void refundFree_clampsAtZero() {
 
         User user = persistUser();
-        repository.initializeIfMissing(user.getId(), AiFeature.RECEIPT_SCAN.name(), Instant.now().plusSeconds(3600));
+        repository.initializeIfMissing(user.getId(), AI_ASSIST, Instant.now().plusSeconds(3600));
 
         // Nothing consumed yet - refund should be a no-op, not go negative.
-        repository.refundFree(user.getId(), AiFeature.RECEIPT_SCAN);
-        assertThat(repository.findByUserIdAndFeatureKey(user.getId(), AiFeature.RECEIPT_SCAN).get().getFreeUsedToday())
+        repository.refundFree(user.getId(), AI_ASSIST);
+        assertThat(repository.findByUserIdAndCreditGroup(user.getId(), AI_ASSIST).get().getFreeUsedToday())
                 .isEqualTo(0);
 
-        repository.tryConsumeFree(user.getId(), AiFeature.RECEIPT_SCAN, 2);
-        repository.refundFree(user.getId(), AiFeature.RECEIPT_SCAN);
-        assertThat(repository.findByUserIdAndFeatureKey(user.getId(), AiFeature.RECEIPT_SCAN).get().getFreeUsedToday())
+        repository.tryConsumeFree(user.getId(), AI_ASSIST, 2);
+        repository.refundFree(user.getId(), AI_ASSIST);
+        assertThat(repository.findByUserIdAndCreditGroup(user.getId(), AI_ASSIST).get().getFreeUsedToday())
                 .isEqualTo(0);
     }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @DisplayName("Concurrent tryConsumeFree calls never let free_used_today exceed the daily limit "
-            + "(the classic double-spend race)")
+            + "(the classic double-spend race) - including across two different callers/features "
+            + "sharing the same group")
     void tryConsumeFree_isSafeUnderConcurrency() throws InterruptedException {
 
         // Runs outside @DataJpaTest's default test transaction (which would
@@ -196,7 +222,7 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
 
         txTemplate.executeWithoutResult(status
-                -> repository.initializeIfMissing(userId, AiFeature.RECEIPT_SCAN.name(), Instant.now().plusSeconds(3600)));
+                -> repository.initializeIfMissing(userId, AI_ASSIST, Instant.now().plusSeconds(3600)));
 
         ExecutorService executor = Executors.newFixedThreadPool(10);
         CountDownLatch startLatch = new CountDownLatch(1);
@@ -208,7 +234,7 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
                 try {
                     startLatch.await();
                     int updated = txTemplate.execute(status
-                            -> repository.tryConsumeFree(userId, AiFeature.RECEIPT_SCAN, limit));
+                            -> repository.tryConsumeFree(userId, AI_ASSIST, limit));
                     if (updated > 0) {
                         successCount.incrementAndGet();
                     }
@@ -235,12 +261,12 @@ class AiFeatureDailyUsageRepositoryTest extends BaseRepositoryTest {
             assertThat(successCount.get()).isEqualTo(limit);
 
             Optional<AiFeatureDailyUsage> finalState = txTemplate.execute(status
-                    -> repository.findByUserIdAndFeatureKey(userId, AiFeature.RECEIPT_SCAN));
+                    -> repository.findByUserIdAndCreditGroup(userId, AI_ASSIST));
             assertThat(finalState).isPresent();
             assertThat(finalState.get().getFreeUsedToday()).isEqualTo(limit);
         } finally {
             txTemplate.executeWithoutResult(status
-                    -> repository.findByUserIdAndFeatureKey(userId, AiFeature.RECEIPT_SCAN)
+                    -> repository.findByUserIdAndCreditGroup(userId, AI_ASSIST)
                             .ifPresent(repository::delete));
         }
     }

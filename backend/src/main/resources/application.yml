@@ -28,9 +28,14 @@ rate-limit:
       ai: 30
 
 ai-credit:
+  # Keyed by credit GROUP name (see FeatureCreditGroups), not by individual
+  # feature - RECEIPT_SCAN and VOICE_EXPENSE currently share the "ai_assist"
+  # group's single combined daily allowance, rather than each getting its
+  # own. A future feature added to that same group automatically shares
+  # this same limit with no config change; a feature deliberately left
+  # ungrouped would need its own entry here keyed by its own feature name.
   free-daily-limits:
-    receipt_scan: ${AI_CREDIT_FREE_RECEIPT_SCAN:2}
-    voice_expense: ${AI_CREDIT_FREE_VOICE_EXPENSE:2}
+    ai_assist: ${AI_CREDIT_FREE_AI_ASSIST:2}
   packages:
     - id: pack_10
       credits: 10

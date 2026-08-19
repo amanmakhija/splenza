@@ -31,17 +31,22 @@ import java.util.UUID;
 
 /**
  * The single shared engine every AI feature (RECEIPT_SCAN, VOICE_EXPENSE, ...)
- * goes through to spend/refund a credit. Each feature gets its own free daily
- * allowance (ai_feature_daily_usage, keyed by feature) but all features draw
- * from one shared purchased wallet (ai_credit_wallets) once their free
- * allowance for the day is used up.
+ * goes through to spend/refund a credit. Free daily allowances are shared
+ * across whichever features map to the same credit group (see
+ * FeatureCreditGroups - RECEIPT_SCAN and VOICE_EXPENSE currently share the
+ * "AI_ASSIST" group, so using one draws down the same counter as the other),
+ * and every feature also draws from one shared purchased wallet
+ * (ai_credit_wallets) once its group's free allowance for the day is used up.
+ * ai_credit_usage_log still records the actual feature used (not just the
+ * group) for analytics, even though the limit itself doesn't distinguish
+ * between grouped features - see {@link #logUsage}.
  *
  * Concurrency: every balance mutation here is a single atomic `UPDATE ...
  * WHERE` statement (see the repositories), never a read-then-write - so two
- * concurrent requests for the same user can never both pass a stale "do I have
- * credit?" check (the classic double-spend race). Rows are lazily created/reset
- * on first use rather than requiring a pre-provisioning step or relying solely
- * on a cron job.
+ * concurrent requests for the same user (even for two different features
+ * sharing a group) can never both pass a stale "do I have credit?" check (the
+ * classic double-spend race). Rows are lazily created/reset on first use rather
+ * than requiring a pre-provisioning step or relying solely on a cron job.
  */
 @Slf4j
 @Service
@@ -61,9 +66,9 @@ public class AiCreditService {
 
     /**
      * Ensures a feature call is entitled to run, atomically debiting one credit
-     * (free-first, then purchased) and logging the usage. Throws
-     * ApiException.paymentRequired() (402) if neither is available - the caller
-     * should not attempt the AI work in that case.
+     * (free-first, from the feature's credit group, then purchased) and logging
+     * the usage. Throws ApiException.paymentRequired() (402) if neither is
+     * available - the caller should not attempt the AI work in that case.
      *
      * The caller MUST call {@link #refund} if the AI work subsequently fails,
      * so the user isn't charged for a failed call.
@@ -71,13 +76,15 @@ public class AiCreditService {
     @Transactional
     public ConsumptionResult consume(UUID userId, AiFeature feature) {
 
-        ensureRowsExist(userId, feature);
-        rolloverIfExpired(userId, feature);
+        String creditGroup = FeatureCreditGroups.groupFor(feature);
 
-        int freeLimit = properties.freeLimitFor(feature.name());
+        ensureRowsExist(userId, creditGroup);
+        rolloverIfExpired(userId, creditGroup);
+
+        int freeLimit = properties.freeLimitFor(creditGroup);
 
         int freeRowsUpdated = freeLimit > 0
-                ? dailyUsageRepository.tryConsumeFree(userId, feature, freeLimit)
+                ? dailyUsageRepository.tryConsumeFree(userId, creditGroup, freeLimit)
                 : 0;
 
         CreditSource source;
@@ -87,8 +94,8 @@ public class AiCreditService {
         } else {
             int purchasedRowsUpdated = walletRepository.tryConsumePurchased(userId);
             if (purchasedRowsUpdated == 0) {
-                log.info("Denied AI feature call: user={}, feature={} - no free or purchased credits available.",
-                        userId, feature);
+                log.info("Denied AI feature call: user={}, feature={}, creditGroup={} - no free or "
+                        + "purchased credits available.", userId, feature, creditGroup);
                 throw ApiException.paymentRequired(
                         "You're out of AI credits for " + feature.name() + ". Buy more to continue.");
             }
@@ -108,27 +115,29 @@ public class AiCreditService {
     @Transactional
     public void refund(UUID userId, AiFeature feature, CreditSource source) {
         if (source == CreditSource.FREE) {
-            dailyUsageRepository.refundFree(userId, feature);
+            dailyUsageRepository.refundFree(userId, FeatureCreditGroups.groupFor(feature));
         } else {
             walletRepository.refundPurchased(userId);
         }
         log.info("Refunded AI credit: user={}, feature={}, source={}.", userId, feature, source);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public AiFeatureCreditsResponse getBalance(UUID userId, AiFeature feature) {
 
-        ensureRowsExist(userId, feature);
-        rolloverIfExpired(userId, feature);
+        String creditGroup = FeatureCreditGroups.groupFor(feature);
 
-        AiFeatureDailyUsage usage = dailyUsageRepository.findByUserIdAndFeatureKey(userId, feature)
+        ensureRowsExist(userId, creditGroup);
+        rolloverIfExpired(userId, creditGroup);
+
+        AiFeatureDailyUsage usage = dailyUsageRepository.findByUserIdAndCreditGroup(userId, creditGroup)
                 .orElseThrow(() -> ApiException.notFound("No usage record found for this feature"));
 
         int purchasedBalance = walletRepository.findByUserId(userId)
                 .map(w -> w.getPurchasedBalance())
                 .orElse(0);
 
-        int freeLimit = properties.freeLimitFor(feature.name());
+        int freeLimit = properties.freeLimitFor(creditGroup);
         int freeRemaining = Math.max(0, freeLimit - usage.getFreeUsedToday());
 
         return AiFeatureCreditsResponse.builder()
@@ -204,13 +213,13 @@ public class AiCreditService {
         log.info("Deducted {} AI credits from user {} due to a Play refund/chargeback.", credits, userId);
     }
 
-    private void ensureRowsExist(UUID userId, AiFeature feature) {
-        dailyUsageRepository.initializeIfMissing(userId, feature.name(), nextResetAt());
+    private void ensureRowsExist(UUID userId, String creditGroup) {
+        dailyUsageRepository.initializeIfMissing(userId, creditGroup, nextResetAt());
         walletRepository.initializeIfMissing(userId);
     }
 
-    private void rolloverIfExpired(UUID userId, AiFeature feature) {
-        dailyUsageRepository.resetIfExpired(userId, feature, Instant.now(), nextResetAt());
+    private void rolloverIfExpired(UUID userId, String creditGroup) {
+        dailyUsageRepository.resetIfExpired(userId, creditGroup, Instant.now(), nextResetAt());
     }
 
     /**

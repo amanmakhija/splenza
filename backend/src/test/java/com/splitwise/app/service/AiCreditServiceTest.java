@@ -63,7 +63,7 @@ class AiCreditServiceTest {
         userId = UUID.randomUUID();
 
         properties = new AiCreditProperties();
-        properties.setFreeDailyLimits(Map.of("receipt_scan", 2, "voice_expense", 2));
+        properties.setFreeDailyLimits(Map.of("ai_assist", 2));
         // @InjectMocks constructs AiCreditService with a fresh AiCreditProperties()
         // mock by default (empty limits) - swap it for a real, populated instance.
         aiCreditService = new AiCreditService(
@@ -80,7 +80,7 @@ class AiCreditServiceTest {
     @DisplayName("consume() spends a free credit first when the daily allowance isn't used up")
     void consume_usesFreeCreditFirst() {
 
-        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq(AiFeature.RECEIPT_SCAN), eq(2)))
+        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq("AI_ASSIST"), eq(2)))
                 .thenReturn(1);
 
         var result = aiCreditService.consume(userId, AiFeature.RECEIPT_SCAN);
@@ -93,7 +93,7 @@ class AiCreditServiceTest {
     @DisplayName("consume() falls back to the purchased wallet once the free allowance is exhausted")
     void consume_fallsBackToPurchasedWallet() {
 
-        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq(AiFeature.RECEIPT_SCAN), eq(2)))
+        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq("AI_ASSIST"), eq(2)))
                 .thenReturn(0);
         when(walletRepository.tryConsumePurchased(userId)).thenReturn(1);
 
@@ -103,10 +103,30 @@ class AiCreditServiceTest {
     }
 
     @Test
+    @DisplayName("Two grouped features (RECEIPT_SCAN, VOICE_EXPENSE) draw down the SAME shared "
+            + "free allowance, not independent ones")
+    void consume_sharesFreeAllowanceAcrossGroupedFeatures() {
+
+        // First call (RECEIPT_SCAN) succeeds against the shared counter...
+        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq("AI_ASSIST"), eq(2)))
+                .thenReturn(1, 0); // ...second call (VOICE_EXPENSE) finds the SAME counter now exhausted
+
+        var first = aiCreditService.consume(userId, AiFeature.RECEIPT_SCAN);
+        assertThat(first.source()).isEqualTo(CreditSource.FREE);
+
+        when(walletRepository.tryConsumePurchased(userId)).thenReturn(1);
+        var second = aiCreditService.consume(userId, AiFeature.VOICE_EXPENSE);
+
+        assertThat(second.source()).isEqualTo(CreditSource.PURCHASED);
+        // Both calls hit the exact same credit group counter.
+        verify(dailyUsageRepository, times(2)).tryConsumeFree(eq(userId), eq("AI_ASSIST"), eq(2));
+    }
+
+    @Test
     @DisplayName("consume() throws 402 paymentRequired when neither free nor purchased credit is available")
     void consume_throwsPaymentRequired_whenNoCreditsAvailable() {
 
-        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq(AiFeature.RECEIPT_SCAN), eq(2)))
+        when(dailyUsageRepository.tryConsumeFree(eq(userId), eq("AI_ASSIST"), eq(2)))
                 .thenReturn(0);
         when(walletRepository.tryConsumePurchased(userId)).thenReturn(0);
 
@@ -118,10 +138,11 @@ class AiCreditServiceTest {
     }
 
     @Test
-    @DisplayName("consume() never attempts the purchased wallet when a feature has no free allowance configured")
-    void consume_skipsFreeAttempt_whenFeatureHasNoFreeLimitConfigured() {
+    @DisplayName("consume() never attempts the purchased wallet when a credit group has no free "
+            + "allowance configured")
+    void consume_skipsFreeAttempt_whenGroupHasNoFreeLimitConfigured() {
 
-        properties.setFreeDailyLimits(Map.of("receipt_scan", 2)); // voice_expense NOT configured -> defaults to 0
+        properties.setFreeDailyLimits(Map.of()); // AI_ASSIST NOT configured -> defaults to 0
 
         when(walletRepository.tryConsumePurchased(userId)).thenReturn(1);
 
@@ -132,12 +153,13 @@ class AiCreditServiceTest {
     }
 
     @Test
-    @DisplayName("refund() credits back the free bucket when the original consumption was FREE")
+    @DisplayName("refund() credits back the free bucket (keyed by credit group) when the original "
+            + "consumption was FREE")
     void refund_freeSource_incrementsFreeBucketBack() {
 
         aiCreditService.refund(userId, AiFeature.RECEIPT_SCAN, CreditSource.FREE);
 
-        verify(dailyUsageRepository).refundFree(userId, AiFeature.RECEIPT_SCAN);
+        verify(dailyUsageRepository).refundFree(userId, "AI_ASSIST");
         verify(walletRepository, never()).refundPurchased(any());
     }
 
@@ -158,12 +180,12 @@ class AiCreditServiceTest {
         Instant resetAt = Instant.now().plusSeconds(3600);
         AiFeatureDailyUsage usage = AiFeatureDailyUsage.builder()
                 .id(UUID.randomUUID())
-                .featureKey(AiFeature.RECEIPT_SCAN)
+                .creditGroup("AI_ASSIST")
                 .freeUsedToday(2)
                 .freeResetAt(resetAt)
                 .build();
 
-        when(dailyUsageRepository.findByUserIdAndFeatureKey(userId, AiFeature.RECEIPT_SCAN))
+        when(dailyUsageRepository.findByUserIdAndCreditGroup(userId, "AI_ASSIST"))
                 .thenReturn(Optional.of(usage));
 
         var wallet = com.splitwise.app.entity.AiCreditWallet.builder()
@@ -182,17 +204,43 @@ class AiCreditServiceTest {
     }
 
     @Test
+    @DisplayName("getBalance() returns identical freeRemaining/freeLimitPerDay for two features "
+            + "sharing the same credit group")
+    void getBalance_isIdenticalAcrossGroupedFeatures() {
+
+        AiFeatureDailyUsage usage = AiFeatureDailyUsage.builder()
+                .id(UUID.randomUUID())
+                .creditGroup("AI_ASSIST")
+                .freeUsedToday(1)
+                .freeResetAt(Instant.now().plusSeconds(3600))
+                .build();
+
+        when(dailyUsageRepository.findByUserIdAndCreditGroup(userId, "AI_ASSIST"))
+                .thenReturn(Optional.of(usage));
+        when(walletRepository.findByUserId(userId)).thenReturn(Optional.empty());
+
+        AiFeatureCreditsResponse receiptScanBalance = aiCreditService.getBalance(userId, AiFeature.RECEIPT_SCAN);
+        AiFeatureCreditsResponse voiceExpenseBalance = aiCreditService.getBalance(userId, AiFeature.VOICE_EXPENSE);
+
+        assertThat(receiptScanBalance.getFreeRemaining()).isEqualTo(voiceExpenseBalance.getFreeRemaining());
+        assertThat(receiptScanBalance.getFreeLimitPerDay()).isEqualTo(voiceExpenseBalance.getFreeLimitPerDay());
+        // featureKey itself still reflects which feature was actually asked about.
+        assertThat(receiptScanBalance.getFeatureKey()).isEqualTo("RECEIPT_SCAN");
+        assertThat(voiceExpenseBalance.getFeatureKey()).isEqualTo("VOICE_EXPENSE");
+    }
+
+    @Test
     @DisplayName("getBalance() defaults purchasedBalance to 0 when the wallet row doesn't exist yet")
     void getBalance_defaultsToZeroWalletBalance() {
 
         AiFeatureDailyUsage usage = AiFeatureDailyUsage.builder()
                 .id(UUID.randomUUID())
-                .featureKey(AiFeature.RECEIPT_SCAN)
+                .creditGroup("AI_ASSIST")
                 .freeUsedToday(0)
                 .freeResetAt(Instant.now().plusSeconds(3600))
                 .build();
 
-        when(dailyUsageRepository.findByUserIdAndFeatureKey(userId, AiFeature.RECEIPT_SCAN))
+        when(dailyUsageRepository.findByUserIdAndCreditGroup(userId, "AI_ASSIST"))
                 .thenReturn(Optional.of(usage));
         when(walletRepository.findByUserId(userId)).thenReturn(Optional.empty());
 

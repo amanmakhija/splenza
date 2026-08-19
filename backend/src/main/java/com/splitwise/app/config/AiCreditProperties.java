@@ -11,11 +11,12 @@ import java.util.Map;
 
 /**
  * Binds the `ai-credit.*` config block. `freeDailyLimits` maps a lowercase
- * AiFeature name (e.g. "receipt_scan") to that feature's independent free daily
- * allowance - adding a new AI feature's limit is a config-only change once the
- * AiFeature enum value exists. `packages` lists the purchasable credit packs
- * shown to the client and their corresponding Google Play managed product IDs
- * (configured to match in Play Console).
+ * credit group name (e.g. "ai_assist" - see FeatureCreditGroups for which
+ * features share which group) to that group's shared free daily allowance - two
+ * or more AI features grouped together draw down the SAME counter, not
+ * independent ones. `packages` lists the purchasable credit packs shown to the
+ * client and their corresponding Google Play managed product IDs (configured to
+ * match in Play Console).
  */
 @Slf4j
 @Component
@@ -24,14 +25,15 @@ import java.util.Map;
 public class AiCreditProperties {
 
     /**
-     * featureName (lowercase, e.g. "receipt_scan") -> free uses per day.
+     * creditGroup (lowercase, e.g. "ai_assist") -> free uses per day, shared by
+     * every AiFeature mapped to that group.
      */
     private Map<String, Integer> freeDailyLimits = Map.of();
 
     private List<Package> packages = List.of();
 
     /**
-     * Falls back to a conservative default (no free uses) if a feature isn't
+     * Falls back to a conservative default (no free uses) if a group isn't
      * configured, so a missing config entry fails safe rather than open.
      */
     private static final int DEFAULT_FREE_LIMIT = 0;
@@ -43,8 +45,8 @@ public class AiCreditProperties {
                 packages.stream().map(Package::getId).toList());
     }
 
-    public int freeLimitFor(String featureName) {
-        return freeDailyLimits.getOrDefault(featureName.toLowerCase(), DEFAULT_FREE_LIMIT);
+    public int freeLimitFor(String creditGroup) {
+        return freeDailyLimits.getOrDefault(creditGroup.toLowerCase(), DEFAULT_FREE_LIMIT);
     }
 
     @Data
