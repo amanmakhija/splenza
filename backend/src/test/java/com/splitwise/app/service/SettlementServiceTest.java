@@ -3,6 +3,7 @@ package com.splitwise.app.service;
 import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.dto.settlement.CreateSettlementRequest;
 import com.splitwise.app.dto.settlement.SettlementResponse;
+import com.splitwise.app.dto.settlement.UpdateSettlementRequest;
 import com.splitwise.app.entity.ActivityLog;
 import com.splitwise.app.entity.Group;
 import com.splitwise.app.entity.Settlement;
@@ -135,7 +136,7 @@ class SettlementServiceTest {
                 anyMap());
 
         verify(notificationService)
-                .notifySettlement(recipientId, "Aman", new BigDecimal("250.00"));
+                .notifySettlement(recipientId, "Aman", new BigDecimal("250.00"), saved.getId());
     }
 
     @Test
@@ -377,5 +378,220 @@ class SettlementServiceTest {
                         PageRequest.of(0, 10));
 
         assertEquals(1, response.getContent().size());
+    }
+
+    // -------------------------------------------------------------------------
+    // getById
+    // -------------------------------------------------------------------------
+    @Test
+    void getById_shouldReturnWhenRequesterIsParticipant() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        SettlementResponse response = settlementService.getById(actingUserId, s.getId());
+
+        assertNotNull(response);
+        assertEquals(recipientId, response.getPaidTo());
+        assertEquals(actingUserId, response.getPaidBy());
+    }
+
+    @Test
+    void getById_shouldAllowThePayeeToo() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        // recipient (payee) is also a participant, so this must not throw
+        SettlementResponse response = settlementService.getById(recipientId, s.getId());
+
+        assertNotNull(response);
+    }
+
+    @Test
+    void getById_shouldThrowNotFoundWhenMissing() {
+
+        UUID id = UUID.randomUUID();
+
+        when(settlementRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class,
+                () -> settlementService.getById(actingUserId, id));
+    }
+
+    @Test
+    void getById_shouldThrowNotFoundWhenDeleted() {
+
+        Settlement s = settlement();
+        s.setDeleted(true);
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        assertThrows(ApiException.class,
+                () -> settlementService.getById(actingUserId, s.getId()));
+    }
+
+    @Test
+    void getById_shouldThrowForbiddenWhenNotParticipant() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        assertThrows(ApiException.class,
+                () -> settlementService.getById(UUID.randomUUID(), s.getId()));
+    }
+
+    // -------------------------------------------------------------------------
+    // updateAmount
+    // -------------------------------------------------------------------------
+    private UpdateSettlementRequest updateRequest(String amount) {
+        UpdateSettlementRequest r = new UpdateSettlementRequest();
+        r.setAmount(new BigDecimal(amount));
+        return r;
+    }
+
+    @Test
+    void updateAmount_shouldUpdateLogAndNotifyOtherParticipant() {
+
+        Settlement s = settlement(); // paidBy = actingUser, paidTo = recipient, group set
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+        when(settlementRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userRepository.getReferenceById(actingUserId)).thenReturn(actingUser);
+
+        SettlementResponse response =
+                settlementService.updateAmount(actingUserId, s.getId(), updateRequest("120.00"));
+
+        assertEquals(new BigDecimal("120.00"), response.getAmount());
+        assertEquals(new BigDecimal("120.00"), s.getAmount());
+
+        verify(settlementRepository).save(s);
+        verify(activityLogService).log(
+                eq(groupId),
+                eq(actingUserId),
+                eq(ActivityLog.ActionType.SETTLEMENT_EDITED),
+                eq(s.getId()),
+                anyMap());
+        // actor is the payer, so the payee is notified
+        verify(notificationService)
+                .notifySettlementUpdated(recipientId, "Aman", new BigDecimal("120.00"), s.getId());
+    }
+
+    @Test
+    void updateAmount_shouldNotifyPayerWhenPayeeEdits() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+        when(settlementRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userRepository.getReferenceById(recipientId)).thenReturn(recipient);
+
+        // recipient (payee) makes the edit
+        settlementService.updateAmount(recipientId, s.getId(), updateRequest("75.00"));
+
+        // the payer (actingUser) is the "other" participant and must be notified
+        verify(notificationService)
+                .notifySettlementUpdated(actingUserId, "John", new BigDecimal("75.00"), s.getId());
+    }
+
+    @Test
+    void updateAmount_shouldLogWithNullGroupForDirectSettlement() {
+
+        Settlement s = settlement();
+        s.setGroup(null); // direct (non-group) settlement
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+        when(settlementRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userRepository.getReferenceById(actingUserId)).thenReturn(actingUser);
+
+        settlementService.updateAmount(actingUserId, s.getId(), updateRequest("10.00"));
+
+        verify(activityLogService).log(
+                isNull(),
+                eq(actingUserId),
+                eq(ActivityLog.ActionType.SETTLEMENT_EDITED),
+                eq(s.getId()),
+                anyMap());
+    }
+
+    @Test
+    void updateAmount_shouldThrowNotFoundWhenMissing() {
+
+        UUID id = UUID.randomUUID();
+
+        when(settlementRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class,
+                () -> settlementService.updateAmount(actingUserId, id, updateRequest("120.00")));
+
+        verify(settlementRepository, never()).save(any());
+    }
+
+    @Test
+    void updateAmount_shouldThrowForbiddenWhenNotParticipant() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        assertThrows(ApiException.class,
+                () -> settlementService.updateAmount(UUID.randomUUID(), s.getId(), updateRequest("120.00")));
+
+        verify(settlementRepository, never()).save(any());
+        verifyNoInteractions(notificationService);
+    }
+
+    // -------------------------------------------------------------------------
+    // delete
+    // -------------------------------------------------------------------------
+    @Test
+    void delete_shouldSoftDeleteLogAndRemoveNotifications() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        settlementService.delete(actingUserId, s.getId());
+
+        assertTrue(s.isDeleted());
+
+        verify(settlementRepository).save(s);
+        verify(activityLogService).log(
+                eq(groupId),
+                eq(actingUserId),
+                eq(ActivityLog.ActionType.SETTLEMENT_DELETED),
+                eq(s.getId()),
+                anyMap());
+        verify(notificationService).removeSettlementNotifications(s.getId());
+    }
+
+    @Test
+    void delete_shouldThrowNotFoundWhenMissing() {
+
+        UUID id = UUID.randomUUID();
+
+        when(settlementRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class,
+                () -> settlementService.delete(actingUserId, id));
+
+        verify(settlementRepository, never()).save(any());
+    }
+
+    @Test
+    void delete_shouldThrowForbiddenWhenNotParticipant() {
+
+        Settlement s = settlement();
+
+        when(settlementRepository.findById(s.getId())).thenReturn(Optional.of(s));
+
+        assertThrows(ApiException.class,
+                () -> settlementService.delete(UUID.randomUUID(), s.getId()));
+
+        verify(settlementRepository, never()).save(any());
+        verifyNoInteractions(notificationService);
     }
 }

@@ -3,6 +3,7 @@ package com.splitwise.app.controller;
 import com.splitwise.app.dto.common.PageResponse;
 import com.splitwise.app.dto.settlement.CreateSettlementRequest;
 import com.splitwise.app.dto.settlement.SettlementResponse;
+import com.splitwise.app.dto.settlement.UpdateSettlementRequest;
 import com.splitwise.app.service.SettlementService;
 import com.splitwise.app.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,6 +57,88 @@ public class SettlementController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @Operation(
+            summary = "Get a settlement by ID",
+            description = "Fetches a single settlement. Only the two participants (payer or payee) may view it."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Settlement retrieved successfully"),
+        @ApiResponse(responseCode = "403", description = "You are not a participant in this settlement"),
+        @ApiResponse(responseCode = "404", description = "Settlement not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/{settlementId}")
+    public ResponseEntity<SettlementResponse> getById(
+            @Parameter(description = "UUID of the settlement", required = true)
+            @PathVariable UUID settlementId) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Fetching settlement {} requested by user {}.", settlementId, userId);
+
+        return ResponseEntity.ok(
+                settlementService.getById(userId, settlementId)
+        );
+    }
+
+    @Operation(
+            summary = "Update a settlement's amount",
+            description = "Edits ONLY the amount of a settlement. Who paid whom, the group, and the timestamp are "
+            + "immutable once created and cannot be changed here (any other fields in the body are ignored). "
+            + "Only the two participants (payer or payee) may edit it."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Settlement updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid amount"),
+        @ApiResponse(responseCode = "403", description = "You are not a participant in this settlement"),
+        @ApiResponse(responseCode = "404", description = "Settlement not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @PatchMapping("/{settlementId}")
+    public ResponseEntity<SettlementResponse> update(
+            @Parameter(description = "UUID of the settlement", required = true)
+            @PathVariable UUID settlementId,
+            @Valid @RequestBody UpdateSettlementRequest request) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Update settlement {} requested by user {}.", settlementId, userId);
+
+        SettlementResponse response
+                = settlementService.updateAmount(userId, settlementId, request);
+
+        log.info("Settlement {} updated successfully by user {}.", settlementId, userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Delete a settlement",
+            description = "Deletes a settlement, fully reversing its effect on balances. Only the two participants "
+            + "(payer or payee) may delete it."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Settlement deleted successfully"),
+        @ApiResponse(responseCode = "403", description = "You are not a participant in this settlement"),
+        @ApiResponse(responseCode = "404", description = "Settlement not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @DeleteMapping("/{settlementId}")
+    public ResponseEntity<Void> delete(
+            @Parameter(description = "UUID of the settlement", required = true)
+            @PathVariable UUID settlementId) {
+
+        UUID userId = SecurityUtils.getCurrentUserId();
+
+        log.debug("Delete settlement {} requested by user {}.", settlementId, userId);
+
+        settlementService.delete(userId, settlementId);
+
+        log.info("Settlement {} deleted by user {}.", settlementId, userId);
+
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(

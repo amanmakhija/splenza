@@ -329,4 +329,103 @@ class SettlementRepositoryTest extends BaseRepositoryTest {
 
         assertThat(page.getContent()).hasSize(1);
     }
+
+    // -------------------------------------------------------------------------
+    // Soft-delete exclusion (regression for the "deleted AND A OR B" precedence bug)
+    // -------------------------------------------------------------------------
+    private Settlement createDeletedSettlement(
+            Group group,
+            User paidBy,
+            User paidTo,
+            Instant settledAt) {
+
+        Settlement settlement = Settlement.builder()
+                .group(group)
+                .paidBy(paidBy)
+                .paidTo(paidTo)
+                .createdBy(paidBy)
+                .amount(BigDecimal.valueOf(500))
+                .currency("INR")
+                .settledAt(settledAt)
+                .deleted(true)
+                .build();
+
+        entityManager.persist(settlement);
+        return settlement;
+    }
+
+    @Test
+    void findAllSettlementsBetween_shouldExcludeSoftDeletedInForwardDirection() {
+
+        // paidBy = user1 (the "A" branch of the OR)
+        createDeletedSettlement(null, user1, user2, Instant.now());
+
+        entityManager.flush();
+
+        List<Settlement> result
+                = settlementRepository.findAllSettlementsBetween(
+                        user1.getId(),
+                        user2.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findAllSettlementsBetween_shouldExcludeSoftDeletedInReverseDirection() {
+
+        // paidBy = user2 (the "B" branch of the OR). With the old operator
+        // precedence (deleted = false AND A) OR B, this row leaked through
+        // because the deleted filter never applied to the reverse direction.
+        createDeletedSettlement(null, user2, user1, Instant.now());
+
+        entityManager.flush();
+
+        List<Settlement> result
+                = settlementRepository.findAllSettlementsBetween(
+                        user1.getId(),
+                        user2.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findAllSettlementsBetween_shouldReturnOnlyNonDeletedAcrossBothDirections() {
+
+        Settlement live
+                = createSettlement(null, user1, user2, Instant.now());
+
+        createDeletedSettlement(null, user2, user1, Instant.now());
+        createDeletedSettlement(group, user1, user2, Instant.now());
+
+        entityManager.flush();
+
+        List<Settlement> result
+                = settlementRepository.findAllSettlementsBetween(
+                        user1.getId(),
+                        user2.getId());
+
+        assertThat(result).containsExactly(live);
+    }
+
+    @Test
+    void findAllSettlementsBetween_pageable_shouldExcludeSoftDeletedInReverseDirection() {
+
+        Settlement live
+                = createSettlement(null, user1, user2,
+                        Instant.parse("2025-01-01T00:00:00Z"));
+
+        createDeletedSettlement(null, user2, user1,
+                Instant.parse("2025-03-01T00:00:00Z"));
+
+        entityManager.flush();
+
+        Page<Settlement> page
+                = settlementRepository.findAllSettlementsBetween(
+                        user1.getId(),
+                        user2.getId(),
+                        PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).containsExactly(live);
+        assertThat(page.getTotalElements()).isEqualTo(1);
+    }
 }

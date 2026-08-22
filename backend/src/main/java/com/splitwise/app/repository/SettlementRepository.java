@@ -24,12 +24,12 @@ public interface SettlementRepository extends JpaRepository<Settlement, UUID> {
     List<Settlement> findDirectSettlementsBetween(@Param("u1") UUID u1, @Param("u2") UUID u2);
 
     @Query("select s from Settlement s where s.deleted = false and "
-            + "(s.paidBy.id = :u1 and s.paidTo.id = :u2) or (s.paidBy.id = :u2 and s.paidTo.id = :u1) "
+            + "((s.paidBy.id = :u1 and s.paidTo.id = :u2) or (s.paidBy.id = :u2 and s.paidTo.id = :u1)) "
             + "order by s.settledAt desc")
     List<Settlement> findAllSettlementsBetween(@Param("u1") UUID u1, @Param("u2") UUID u2);
 
     @Query("select s from Settlement s where s.deleted = false and "
-            + "(s.paidBy.id = :u1 and s.paidTo.id = :u2) or (s.paidBy.id = :u2 and s.paidTo.id = :u1) "
+            + "((s.paidBy.id = :u1 and s.paidTo.id = :u2) or (s.paidBy.id = :u2 and s.paidTo.id = :u1)) "
             + "order by s.settledAt desc")
     Page<Settlement> findAllSettlementsBetween(@Param("u1") UUID u1, @Param("u2") UUID u2, Pageable pageable);
 

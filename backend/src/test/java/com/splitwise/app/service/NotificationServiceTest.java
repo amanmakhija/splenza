@@ -31,7 +31,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -216,10 +215,13 @@ class NotificationServiceTest {
     @Test
     void notifySettlement_shouldCreateNotification() {
 
+        UUID settlementId = UUID.randomUUID();
+
         notificationService.notifySettlement(
                 otherUserId,
                 "Aman",
-                new BigDecimal("450.75"));
+                new BigDecimal("450.75"),
+                settlementId);
 
         ArgumentCaptor<Notification> captor
                 = ArgumentCaptor.forClass(Notification.class);
@@ -230,7 +232,7 @@ class NotificationServiceTest {
 
         assertEquals(Notification.Type.SETTLEMENT, saved.getType());
         assertEquals(TargetType.SETTLEMENT, saved.getTargetType());
-        assertNull(saved.getReferenceId());
+        assertEquals(settlementId, saved.getReferenceId());
         assertTrue(saved.getBody().contains("450.75"));
     }
 
@@ -309,17 +311,62 @@ class NotificationServiceTest {
     @Test
     void notifySettlement_shouldSendPushNotification() {
 
+        UUID settlementId = UUID.randomUUID();
+
         notificationService.notifySettlement(
                 otherUserId,
                 "Rahul",
-                new BigDecimal("999"));
+                new BigDecimal("999"),
+                settlementId);
 
         verify(pushNotificationService).send(
                 eq(otherUserId),
                 eq("Settlement recorded"),
                 contains("999"),
                 eq(TargetType.SETTLEMENT.name()),
-                isNull());
+                eq(settlementId));
+    }
+
+    @Test
+    void notifySettlementUpdated_shouldCreateNotificationWithReference() {
+
+        UUID settlementId = UUID.randomUUID();
+
+        notificationService.notifySettlementUpdated(
+                otherUserId,
+                "Aman",
+                new BigDecimal("120.00"),
+                settlementId);
+
+        ArgumentCaptor<Notification> captor
+                = ArgumentCaptor.forClass(Notification.class);
+
+        verify(notificationRepository).save(captor.capture());
+
+        Notification saved = captor.getValue();
+
+        assertEquals(Notification.Type.SETTLEMENT, saved.getType());
+        assertEquals(TargetType.SETTLEMENT, saved.getTargetType());
+        assertEquals(settlementId, saved.getReferenceId());
+        assertTrue(saved.getBody().contains("120.00"));
+
+        verify(pushNotificationService).send(
+                eq(otherUserId),
+                eq("Settlement updated"),
+                contains("120.00"),
+                eq(TargetType.SETTLEMENT.name()),
+                eq(settlementId));
+    }
+
+    @Test
+    void removeSettlementNotifications_shouldDeleteByReferenceAndTargetType() {
+
+        UUID settlementId = UUID.randomUUID();
+
+        notificationService.removeSettlementNotifications(settlementId);
+
+        verify(notificationRepository)
+                .deleteByReferenceIdAndTargetType(settlementId, TargetType.SETTLEMENT);
     }
 
     @Test

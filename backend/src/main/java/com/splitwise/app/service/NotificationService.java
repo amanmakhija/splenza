@@ -55,9 +55,24 @@ public class NotificationService {
     }
 
     @Transactional
-    public void notifySettlement(UUID userId, String payerName, BigDecimal amount) {
+    public void notifySettlement(UUID userId, String payerName, BigDecimal amount, UUID settlementId) {
         create(userId, Notification.Type.SETTLEMENT, TargetType.SETTLEMENT, "Settlement recorded",
-                payerName + " recorded a payment of " + amount, null);
+                payerName + " recorded a payment of " + amount, settlementId);
+    }
+
+    @Transactional
+    public void notifySettlementUpdated(UUID userId, String actorName, BigDecimal newAmount, UUID settlementId) {
+        create(userId, Notification.Type.SETTLEMENT, TargetType.SETTLEMENT, "Settlement updated",
+                actorName + " changed a settlement amount to " + newAmount, settlementId);
+    }
+
+    /**
+     * Removes any settlement notifications (recorded / updated) that point at a
+     * settlement being deleted, so a tap can't navigate to a now-gone record.
+     */
+    @Transactional
+    public void removeSettlementNotifications(UUID settlementId) {
+        notificationRepository.deleteByReferenceIdAndTargetType(settlementId, TargetType.SETTLEMENT);
     }
 
     @Transactional(readOnly = true)

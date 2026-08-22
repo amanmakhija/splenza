@@ -26,7 +26,8 @@ public class ActivityLogResponse {
 
     @Schema(description = "Type of action performed", example = "EXPENSE_CREATED",
             allowableValues = {"EXPENSE_CREATED", "EXPENSE_EDITED", "EXPENSE_DELETED",
-                "MEMBER_JOINED", "MEMBER_LEFT", "SETTLEMENT_MADE", "GROUP_CREATED", "IMPORT_COMPLETED"})
+                "MEMBER_JOINED", "MEMBER_LEFT", "SETTLEMENT_MADE", "SETTLEMENT_EDITED",
+                "SETTLEMENT_DELETED", "GROUP_CREATED", "IMPORT_COMPLETED"})
     private String actionType;
 
     @Schema(description = "ID of the entity this action relates to (expense id, settlement id, group id, etc., depending on actionType)")
