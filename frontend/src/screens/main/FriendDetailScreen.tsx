@@ -12,9 +12,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, HandCoins } from "lucide-react-native";
+import { Plus, HandCoins, Receipt } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
+import { getCategoryIcon, getCategoryChipColors } from "@/lib/categoryIcon";
 import {
   Expense,
   FriendBalanceResponse,
@@ -210,6 +211,29 @@ export function FriendDetailScreen() {
                 { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
+              {(() => {
+                const ExpenseCategoryIcon = item.data.categoryName
+                  ? getCategoryIcon(item.data.categoryName)
+                  : Receipt;
+                const chip = item.data.categoryName
+                  ? getCategoryChipColors(item.data.categoryName, theme.mode)
+                  : theme.mode === "dark"
+                    ? { background: theme.primary, icon: "#FFFFFF" }
+                    : {
+                        background: theme.primaryContainer,
+                        icon: theme.primary,
+                      };
+                return (
+                  <View
+                    style={[
+                      styles.rowIconWrap,
+                      { backgroundColor: chip.background },
+                    ]}
+                  >
+                    <ExpenseCategoryIcon size={18} color={chip.icon} />
+                  </View>
+                );
+              })()}
               <View style={styles.rowBody}>
                 <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
                   {item.data.title}
@@ -223,12 +247,30 @@ export function FriendDetailScreen() {
               </View>
             </Pressable>
           ) : (
-            <View
+            <Pressable
+              onPress={() =>
+                navigation.navigate("SettlementDetail", {
+                  settlementId: item.data.id,
+                })
+              }
               style={[
                 styles.row,
                 { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
+              <View
+                style={[
+                  styles.rowIconWrap,
+                  theme.mode === "dark"
+                    ? { backgroundColor: theme.success }
+                    : { backgroundColor: `${theme.success}33` },
+                ]}
+              >
+                <HandCoins
+                  size={18}
+                  color={theme.mode === "dark" ? "#FFFFFF" : theme.success}
+                />
+              </View>
               <View style={styles.rowBody}>
                 <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
                   {item.data.paidBy === currentUser?.id
@@ -247,7 +289,7 @@ export function FriendDetailScreen() {
               <Text style={{ color: theme.success, fontWeight: "700" }}>
                 {formatAmount(item.data.amount)}
               </Text>
-            </View>
+            </Pressable>
           )
         }
         ListEmptyComponent={
@@ -289,6 +331,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 10,
+  },
+  rowIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   rowBody: { flex: 1 },
   emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },

@@ -20,19 +20,10 @@ import {
   Users,
   ChevronRight,
   Delete,
-  Tag,
-  UtensilsCrossed,
-  Car,
-  ShoppingBag,
-  Home,
-  Film,
-  Plane,
-  HeartPulse,
-  Zap,
   ScanLine,
   Mic,
-  type LucideIcon,
 } from "lucide-react-native";
+import { getCategoryIcon } from "@/lib/categoryIcon";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
@@ -94,24 +85,6 @@ function toDateInputString(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-// Maps a category's name to a representative icon. Falls back to a generic
-// Tag icon for categories that don't match a known keyword — but this is
-// only ever called when a category IS selected, so "no category" never
-// renders any icon at all (handled at the call site, not in here).
-function getCategoryIcon(categoryName: string): LucideIcon {
-  const name = categoryName.toLowerCase();
-  if (/food|dinner|lunch|breakfast|restaurant|grocer/.test(name))
-    return UtensilsCrossed;
-  if (/transport|cab|taxi|uber|fuel|gas|car/.test(name)) return Car;
-  if (/shop|clothes|retail/.test(name)) return ShoppingBag;
-  if (/rent|home|house|utilit|electric|water/.test(name)) return Home;
-  if (/movie|entertain|film|game/.test(name)) return Film;
-  if (/travel|flight|trip|hotel/.test(name)) return Plane;
-  if (/health|medic|doctor|pharmacy/.test(name)) return HeartPulse;
-  if (/bill|electric|power/.test(name)) return Zap;
-  return Tag;
 }
 
 export function CreateExpenseScreen() {

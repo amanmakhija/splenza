@@ -207,3 +207,17 @@ export function getApiErrorCode(error: unknown) {
 export function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response;
 }
+
+/**
+ * Whether a failed query is worth an automatic retry. A permanent client
+ * error (403 forbidden, 404 not found) will fail identically on retry - all
+ * an automatic retry buys the user in that case is a longer wait before the
+ * "you can't view this" / "not found" message appears. Network hiccups and
+ * transient 5xx errors, on the other hand, genuinely can succeed on retry.
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return true;
+  const status = error.response?.status;
+  if (status === 403 || status === 404) return false;
+  return true;
+}

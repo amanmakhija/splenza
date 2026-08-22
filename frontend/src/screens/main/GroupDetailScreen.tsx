@@ -35,10 +35,13 @@ import {
   Download,
   UserPlus,
   Activity as ActivityIcon,
+  HandCoins,
+  Trash2,
   type LucideIcon,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
+import { getCategoryIcon, getCategoryChipColors } from "@/lib/categoryIcon";
 import { alert } from "@/components/AppAlert";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import {
@@ -146,6 +149,14 @@ function describeActivity(item: ActivityLogEntry): string {
       return m.paidByName && m.paidToName
         ? `${m.paidByName} paid ${m.paidToName} ₹${Number(m.amount).toFixed(2)}`
         : `${actorName} recorded a settlement`;
+    case "SETTLEMENT_EDITED":
+      return m.paidByName && m.paidToName
+        ? `${actorName} changed ${m.paidByName} → ${m.paidToName}'s settlement to ₹${Number(m.amount).toFixed(2)}`
+        : `${actorName} edited a settlement`;
+    case "SETTLEMENT_DELETED":
+      return m.paidByName && m.paidToName
+        ? `${actorName} deleted a settlement between ${m.paidByName} and ${m.paidToName}`
+        : `${actorName} deleted a settlement`;
     case "GROUP_CREATED":
       return `${actorName} created the group`;
     case "IMPORT_COMPLETED":
@@ -444,8 +455,13 @@ export function GroupDetailScreen() {
   const activityIconFor = (type: string): LucideIcon => {
     switch (type) {
       case "SETTLEMENT_MADE":
+      case "SETTLEMENT_EDITED":
         return ArrowLeftRight;
+      case "SETTLEMENT_DELETED":
+      case "EXPENSE_DELETED":
+        return Trash2;
       case "EXPENSE_CREATED":
+      case "EXPENSE_EDITED":
         return Receipt;
       case "GROUP_CREATED":
         return PartyPopper;
@@ -461,8 +477,12 @@ export function GroupDetailScreen() {
   const activityLabel = (type: string) => {
     switch (type) {
       case "SETTLEMENT_MADE":
+      case "SETTLEMENT_EDITED":
+      case "SETTLEMENT_DELETED":
         return "Settlement";
       case "EXPENSE_CREATED":
+      case "EXPENSE_EDITED":
+      case "EXPENSE_DELETED":
         return "Expense";
       case "GROUP_CREATED":
         return "Group";
@@ -820,7 +840,29 @@ export function GroupDetailScreen() {
                 if (item.type === "settlement") {
                   const s = item.data;
                   return (
-                    <View style={styles.row}>
+                    <Pressable
+                      onPress={() =>
+                        navigation.navigate("SettlementDetail", {
+                          settlementId: s.id,
+                        })
+                      }
+                      style={styles.row}
+                    >
+                      <View
+                        style={[
+                          styles.rowIconWrap,
+                          theme.mode === "dark"
+                            ? { backgroundColor: theme.success }
+                            : { backgroundColor: `${theme.success}33` },
+                        ]}
+                      >
+                        <HandCoins
+                          size={18}
+                          color={
+                            theme.mode === "dark" ? "#FFFFFF" : theme.success
+                          }
+                        />
+                      </View>
                       <View style={styles.rowBody}>
                         <Text
                           style={[
@@ -845,7 +887,7 @@ export function GroupDetailScreen() {
                       >
                         {formatAmount(s.amount)}
                       </Text>
-                    </View>
+                    </Pressable>
                   );
                 }
 
@@ -855,6 +897,17 @@ export function GroupDetailScreen() {
                   expense.participants.find((p) => p.userId === currentUser?.id)
                     ?.shareAmount ?? 0;
                 const iPaid = expense.paidBy === currentUser?.id;
+                const ExpenseCategoryIcon = expense.categoryName
+                  ? getCategoryIcon(expense.categoryName)
+                  : Receipt;
+                const categoryChip = expense.categoryName
+                  ? getCategoryChipColors(expense.categoryName, theme.mode)
+                  : theme.mode === "dark"
+                    ? { background: theme.primary, icon: "#FFFFFF" }
+                    : {
+                        background: theme.primaryContainer,
+                        icon: theme.primary,
+                      };
                 return (
                   <Pressable
                     onPress={() => {
@@ -871,6 +924,17 @@ export function GroupDetailScreen() {
                     }}
                     style={[styles.row, isPending && styles.rowPending]}
                   >
+                    <View
+                      style={[
+                        styles.rowIconWrap,
+                        { backgroundColor: categoryChip.background },
+                      ]}
+                    >
+                      <ExpenseCategoryIcon
+                        size={18}
+                        color={categoryChip.icon}
+                      />
+                    </View>
                     <View style={styles.rowBody}>
                       <Text
                         style={[styles.rowTitle, { color: theme.textPrimary }]}
@@ -1307,6 +1371,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 14,
+  },
+  rowIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   rowBody: { flex: 1, paddingRight: 12 },
   rowTitle: { fontSize: 15, fontWeight: "700" },

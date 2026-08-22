@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   ActivityIndicator,
 } from "react-native";
@@ -11,76 +10,107 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Pencil, Trash2, Receipt } from "lucide-react-native";
+import { ChevronLeft, Pencil, Trash2, HandCoins } from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
-import { Expense } from "@/types/api";
+import { Settlement } from "@/types/api";
 import { alert } from "@/components/AppAlert";
+import { AppModal } from "@/components/AppModal";
+import { TextField } from "@/components/TextField";
+import { Button } from "@/components/Button";
 import { MainStackParamList } from "@/navigation/types";
-import { getCategoryIcon, getCategoryChipColors } from "@/lib/categoryIcon";
 
-type Nav = NativeStackNavigationProp<MainStackParamList, "ExpenseDetail">;
-type Route = RouteProp<MainStackParamList, "ExpenseDetail">;
+type Nav = NativeStackNavigationProp<MainStackParamList, "SettlementDetail">;
+type Route = RouteProp<MainStackParamList, "SettlementDetail">;
 
-async function fetchExpense(
-  expenseId: string,
+async function fetchSettlement(
+  settlementId: string,
   { signal }: { signal: AbortSignal },
-): Promise<Expense> {
-  const { data } = await apiClient.get<Expense>(
-    `/api/v1/expenses/${expenseId}`,
+): Promise<Settlement> {
+  const { data } = await apiClient.get<Settlement>(
+    `/api/v1/settlements/${settlementId}`,
     { signal },
   );
   return data;
 }
 
 function formatDateLong(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", {
+  return new Date(dateStr).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 }
 
-export function ExpenseDetailScreen() {
+/**
+ * Mirrors ExpenseDetailScreen: shows a single settlement with edit/delete
+ * for whoever recorded it. Only the amount is editable here - who paid whom
+ * is fixed once a settlement is created, since changing either side would
+ * really just be a different settlement (and would silently move money
+ * between the wrong people's balances). To change who's involved, the user
+ * should delete this settlement and record a new one instead.
+ */
+export function SettlementDetailScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<Route>();
-  const { expenseId } = params;
+  const { settlementId } = params;
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
 
-  const expenseQuery = useQuery({
-    queryKey: ["expense", expenseId],
-    queryFn: ({ signal }) => fetchExpense(expenseId, { signal }),
+  const [editVisible, setEditVisible] = useState(false);
+  const [amountDraft, setAmountDraft] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const settlementQuery = useQuery({
+    queryKey: ["settlement", settlementId],
+    queryFn: ({ signal }) => fetchSettlement(settlementId, { signal }),
   });
 
-  const invalidateRelated = (expense?: Expense) => {
+  const invalidateRelated = (settlement?: Settlement) => {
     queryClient.invalidateQueries({
-      queryKey: ["group-expenses", expense?.groupId ?? undefined],
+      queryKey: ["group-balances", settlement?.groupId ?? undefined],
     });
-    queryClient.invalidateQueries({ queryKey: ["group-balances"] });
+    queryClient.invalidateQueries({
+      queryKey: ["group-settlements", settlement?.groupId ?? undefined],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["friend-balance", settlement?.paidTo],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["friend-settlements", settlement?.paidTo],
+    });
     queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
-    queryClient.invalidateQueries({ queryKey: ["friend-balance"] });
-    queryClient.invalidateQueries({ queryKey: ["my-expenses"] });
     queryClient.invalidateQueries({ queryKey: ["merged-timeline"] });
   };
 
   const deleteMutation = useMutation({
-    mutationFn: () => apiClient.delete(`/api/v1/expenses/${expenseId}`),
+    mutationFn: () => apiClient.delete(`/api/v1/settlements/${settlementId}`),
     onSuccess: () => {
-      invalidateRelated(expenseQuery.data);
+      invalidateRelated(settlementQuery.data);
       navigation.goBack();
     },
     onError: (err) => {
-      alert("Couldn't delete expense", getApiErrorMessage(err));
+      alert("Couldn't delete settlement", getApiErrorMessage(err));
     },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: (amount: number) =>
+      apiClient.patch(`/api/v1/settlements/${settlementId}`, { amount }),
+    onSuccess: () => {
+      invalidateRelated(settlementQuery.data);
+      queryClient.invalidateQueries({ queryKey: ["settlement", settlementId] });
+      setEditVisible(false);
+    },
+    onError: (err) => setEditError(getApiErrorMessage(err)),
   });
 
   const confirmDelete = () => {
     alert(
-      "Delete expense?",
-      "This will remove it for everyone in the split. This can't be undone.",
+      "Delete settlement?",
+      "This will remove the record of this payment for both people. This can't be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -92,15 +122,32 @@ export function ExpenseDetailScreen() {
     );
   };
 
+  const openEdit = () => {
+    if (!settlementQuery.data) return;
+    setAmountDraft(settlementQuery.data.amount.toFixed(2));
+    setEditError(null);
+    setEditVisible(true);
+  };
+
+  const submitEdit = () => {
+    const numeric = parseFloat(amountDraft);
+    if (!numeric || numeric <= 0) {
+      setEditError("Enter a valid amount");
+      return;
+    }
+    setEditError(null);
+    editMutation.mutate(numeric);
+  };
+
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
 
-  if (expenseQuery.isLoading || !expenseQuery.data) {
+  if (settlementQuery.isLoading || !settlementQuery.data) {
     return (
       <SafeAreaView
         style={[styles.flex, { backgroundColor: theme.background }]}
         edges={["top", "bottom"]}
       >
-        {expenseQuery.isError ? (
+        {settlementQuery.isError ? (
           <>
             <View style={styles.header}>
               <Pressable
@@ -112,7 +159,7 @@ export function ExpenseDetailScreen() {
                 <ChevronLeft size={26} color={theme.textPrimary} />
               </Pressable>
               <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
-                Expense
+                Settlement
               </Text>
               <View style={{ width: 26 }} />
             </View>
@@ -124,7 +171,7 @@ export function ExpenseDetailScreen() {
                   paddingHorizontal: 24,
                 }}
               >
-                {getApiErrorMessage(expenseQuery.error)}
+                {getApiErrorMessage(settlementQuery.error)}
               </Text>
             </View>
           </>
@@ -137,21 +184,12 @@ export function ExpenseDetailScreen() {
     );
   }
 
-  const expense = expenseQuery.data;
-  const isOwner = expense.createdBy === currentUser?.id;
-  const myParticipant = expense.participants.find(
-    (p) => p.userId === currentUser?.id,
-  );
-  const myShare = myParticipant?.shareAmount ?? 0;
-  const iPaid = expense.paidBy === currentUser?.id;
-  const CategoryIcon = expense.categoryName
-    ? getCategoryIcon(expense.categoryName)
-    : Receipt;
-  const categoryChip = expense.categoryName
-    ? getCategoryChipColors(expense.categoryName, theme.mode)
-    : theme.mode === "dark"
-      ? { background: theme.primary, icon: "#FFFFFF" }
-      : { background: theme.primaryContainer, icon: theme.primary };
+  const settlement = settlementQuery.data;
+  const isPayer = settlement.paidBy === currentUser?.id;
+  const isPayee = settlement.paidTo === currentUser?.id;
+  // Either side of a settlement can manage it - it only involves the two of
+  // them, unlike an expense which can be owned by whoever created it.
+  const canManage = isPayer || isPayee;
 
   return (
     <SafeAreaView
@@ -169,17 +207,12 @@ export function ExpenseDetailScreen() {
           <ChevronLeft size={26} color={theme.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
-          Expense
+          Settlement
         </Text>
-        {isOwner ? (
+        {canManage ? (
           <Pressable
-            onPress={() =>
-              navigation.navigate("CreateExpense", {
-                groupId: expense.groupId ?? undefined,
-                expenseId: expense.id,
-              })
-            }
-            accessibilityLabel="Edit expense"
+            onPress={openEdit}
+            accessibilityLabel="Edit settlement amount"
             accessibilityRole="button"
             hitSlop={8}
           >
@@ -190,35 +223,27 @@ export function ExpenseDetailScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.content}>
         {/* Hero */}
         <View style={styles.hero}>
           <View
             style={[
               styles.heroIconWrap,
-              { backgroundColor: categoryChip.background },
+              { backgroundColor: theme.primaryContainer },
             ]}
           >
-            <CategoryIcon size={30} color={categoryChip.icon} />
+            <HandCoins size={30} color={theme.primary} />
           </View>
           <Text style={[styles.heroTitle, { color: theme.textPrimary }]}>
-            {expense.title}
+            {isPayer
+              ? `You paid ${settlement.paidToName}`
+              : isPayee
+                ? `${settlement.paidByName} paid you`
+                : `${settlement.paidByName} paid ${settlement.paidToName}`}
           </Text>
           <Text style={[styles.heroAmount, { color: theme.textPrimary }]}>
-            {formatAmount(expense.amount)}
+            {formatAmount(settlement.amount)}
           </Text>
-          {myParticipant ? (
-            <Text
-              style={[
-                styles.heroSub,
-                { color: iPaid ? theme.success : theme.danger },
-              ]}
-            >
-              {iPaid
-                ? `You lent ${formatAmount(expense.amount - myShare)}`
-                : `Your share: ${formatAmount(myShare)}`}
-            </Text>
-          ) : null}
         </View>
 
         {/* Details card */}
@@ -228,64 +253,32 @@ export function ExpenseDetailScreen() {
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <DetailRow theme={theme} label="Paid by" value={expense.paidByName} />
+          <DetailRow
+            theme={theme}
+            label="Paid by"
+            value={settlement.paidByName}
+          />
+          <Divider theme={theme} />
+          <DetailRow
+            theme={theme}
+            label="Paid to"
+            value={settlement.paidToName}
+          />
           <Divider theme={theme} />
           <DetailRow
             theme={theme}
             label="Date"
-            value={formatDateLong(expense.expenseDate)}
+            value={formatDateLong(settlement.settledAt)}
           />
-          <Divider theme={theme} />
-          <DetailRow
-            theme={theme}
-            label="Category"
-            value={expense.categoryName ?? "None"}
-          />
-          <Divider theme={theme} />
-          <DetailRow
-            theme={theme}
-            label="Split type"
-            value={
-              expense.splitType.charAt(0) +
-              expense.splitType.slice(1).toLowerCase()
-            }
-          />
-          {expense.notes ? (
+          {settlement.note ? (
             <>
               <Divider theme={theme} />
-              <DetailRow theme={theme} label="Notes" value={expense.notes} />
+              <DetailRow theme={theme} label="Note" value={settlement.note} />
             </>
           ) : null}
         </View>
 
-        {/* Split between */}
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-          Split between {expense.participants.length}{" "}
-          {expense.participants.length === 1 ? "person" : "people"}
-        </Text>
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          {expense.participants.map((p, idx) => (
-            <View key={p.userId}>
-              {idx > 0 ? <Divider theme={theme} /> : null}
-              <View style={styles.participantRow}>
-                <Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
-                  {p.userName}
-                  {p.userId === expense.paidBy ? " (paid)" : ""}
-                </Text>
-                <Text style={{ color: theme.textSecondary, fontWeight: "700" }}>
-                  {formatAmount(p.shareAmount)}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {isOwner ? (
+        {canManage ? (
           <View style={styles.actions}>
             <Pressable
               onPress={confirmDelete}
@@ -294,20 +287,53 @@ export function ExpenseDetailScreen() {
             >
               <Trash2 size={16} color={theme.danger} />
               <Text style={{ color: theme.danger, fontWeight: "700" }}>
-                {deleteMutation.isPending ? "Deleting…" : "Delete expense"}
+                {deleteMutation.isPending ? "Deleting…" : "Delete settlement"}
               </Text>
             </Pressable>
           </View>
         ) : (
           <Text style={[styles.ownerNote, { color: theme.textMuted }]}>
-            Only{" "}
-            {expense.createdBy === expense.paidBy
-              ? expense.paidByName
-              : "the person who recorded this"}{" "}
-            can edit or delete this expense.
+            Only {settlement.paidByName} or {settlement.paidToName} can edit or
+            delete this settlement.
           </Text>
         )}
-      </ScrollView>
+      </View>
+
+      <AppModal
+        visible={editVisible}
+        onClose={() => setEditVisible(false)}
+        title="Edit amount"
+        scrollable={false}
+      >
+        <Text style={[styles.editSub, { color: theme.textSecondary }]}>
+          {isPayer
+            ? `You paid ${settlement.paidToName}`
+            : isPayee
+              ? `${settlement.paidByName} paid you`
+              : `${settlement.paidByName} paid ${settlement.paidToName}`}
+          . Only the amount can be changed - to change who's involved, delete
+          this settlement and record a new one.
+        </Text>
+        <TextField
+          label="Amount"
+          value={amountDraft}
+          onChangeText={setAmountDraft}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          autoFocus
+        />
+        {editError ? (
+          <Text style={[styles.message, { color: theme.danger }]}>
+            {editError}
+          </Text>
+        ) : null}
+        <Button
+          title="Save"
+          onPress={submitEdit}
+          loading={editMutation.isPending}
+          style={{ marginTop: 12 }}
+        />
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -366,7 +392,6 @@ const styles = StyleSheet.create({
   },
   heroTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6 },
   heroAmount: { fontSize: 34, fontWeight: "800" },
-  heroSub: { fontSize: 13, fontWeight: "600", marginTop: 8 },
 
   card: {
     borderRadius: 18,
@@ -381,14 +406,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   divider: { height: 1 },
-
-  sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10 },
-  participantRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-  },
 
   actions: { marginTop: 8 },
   deleteButton: {
@@ -405,5 +422,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 12,
     lineHeight: 18,
+  },
+
+  editSub: { fontSize: 13, lineHeight: 19, marginBottom: 16 },
+  message: {
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

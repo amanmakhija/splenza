@@ -206,6 +206,8 @@ export interface ActivityLogEntry {
     | "MEMBER_JOINED"
     | "MEMBER_LEFT"
     | "SETTLEMENT_MADE"
+    | "SETTLEMENT_EDITED"
+    | "SETTLEMENT_DELETED"
     | "GROUP_CREATED"
     | "IMPORT_COMPLETED";
   referenceId: string | null;

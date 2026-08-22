@@ -85,6 +85,9 @@ export type MainStackParamList = {
   ExpenseDetail: {
     expenseId: string;
   };
+  SettlementDetail: {
+    settlementId: string;
+  };
   AddFriend: undefined;
   SettleUp: {
     groupId?: string;

@@ -63,7 +63,20 @@ export function handleNotificationNavigation(data?: NotificationData) {
       break;
 
     case "SETTLEMENT":
-      navigationRef.navigate("Activity");
+      // Every settlement notification (created, edited) now always carries
+      // referenceId = settlementId from the backend, so this always opens
+      // the specific settlement rather than falling back to a generic list.
+      if (data.referenceId) {
+        navigationRef.navigate("SettlementDetail", {
+          settlementId: data.referenceId,
+        });
+      } else {
+        // Should not happen for anything sent after the backend started
+        // populating referenceId - only possible for a notification stored
+        // before that change. Land on the notifications list rather than
+        // silently doing nothing on tap.
+        navigationRef.navigate("Notifications");
+      }
       break;
 
     default:

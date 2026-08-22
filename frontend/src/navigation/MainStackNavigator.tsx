@@ -7,6 +7,7 @@ import { EditGroupScreen } from "@/screens/main/EditGroupScreen";
 import { GroupSettingsScreen } from "@/screens/main/GroupSettingsScreen";
 import { CreateExpenseScreen } from "@/screens/main/CreateExpenseScreen";
 import { ExpenseDetailScreen } from "@/screens/main/ExpenseDetailScreen";
+import { SettlementDetailScreen } from "@/screens/main/SettlementDetailScreen";
 import { AddFriendScreen } from "@/screens/main/AddFriendScreen";
 import { SettleUpScreen } from "@/screens/main/SettleUpScreen";
 import { NotificationsScreen } from "@/screens/main/NotificationsScreen";
@@ -35,6 +36,10 @@ export function MainStackNavigator() {
       <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
       <Stack.Screen name="CreateExpense" component={CreateExpenseScreen} />
       <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
+      <Stack.Screen
+        name="SettlementDetail"
+        component={SettlementDetailScreen}
+      />
       <Stack.Screen name="AddFriend" component={AddFriendScreen} />
       <Stack.Screen name="SettleUp" component={SettleUpScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />

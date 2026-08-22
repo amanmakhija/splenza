@@ -1,11 +1,15 @@
 import { QueryClient } from "@tanstack/react-query";
+import { isRetryableError } from "./apiClient";
 
 export const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      // Retry once, but never for a permanent client error (403/404) that
+      // will just fail the same way again - see isRetryableError.
+      retry: (failureCount, error) =>
+        failureCount < 1 && isRetryableError(error),
       staleTime: 30_000,
       // gcTime controls how long an unused query stays in memory before
       // being dropped - it must be at least as long as the persister's
