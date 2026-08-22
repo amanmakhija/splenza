@@ -1,8 +1,29 @@
 const rows = [
-  { label: "Add an expense", old: "Open app, tap add, type amount, select people, adjust shares", new: "Say it in one sentence" },
-  { label: "Itemize a group bill", old: "Manually split every item by hand", new: "AI reads the receipt for you" },
-  { label: "Settle up with 5 people", old: "5+ separate payments back and forth", new: "Simplified to the fewest payments" },
-  { label: "Remembering who paid what", old: "Scroll through history", new: "Ask, and Splenza tells you" },
+  {
+    label: "Add an expense",
+    old: "Open app, tap add, type amount, select people, adjust shares",
+    new: "Say it in one sentence",
+  },
+  {
+    label: "Itemize a group bill",
+    old: "Manually split every item by hand",
+    new: "AI reads the receipt for you",
+  },
+  {
+    label: "Settle up with 5 people",
+    old: "5+ separate payments back and forth",
+    new: "Simplified to the fewest payments",
+  },
+  {
+    label: "Remembering who paid what",
+    old: "Scroll through history",
+    new: "Ask, and Splenza tells you",
+  },
+  {
+    label: "No internet connection",
+    old: "Can't add expenses until you're back online",
+    new: "Add offline, auto-syncs when connected",
+  },
 ];
 
 export default function Comparison() {
@@ -43,7 +64,13 @@ export default function Comparison() {
               <div className="flex items-start gap-2 bg-accent-soft/40 px-5 py-5 text-ink sm:px-7">
                 <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full bg-accent text-bg">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </span>
                 <span className="font-medium">{r.new}</span>

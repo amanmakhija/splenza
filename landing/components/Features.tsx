@@ -1,24 +1,59 @@
 function IconMic() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="2" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <rect
+        x="9"
+        y="2"
+        width="6"
+        height="12"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M5 11a7 7 0 0 0 14 0M12 18v3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 function IconReceipt() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M9 8h6M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 8h6M9 12h6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 function IconArrows() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M4 8h13M17 8l-3-3M17 8l-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M20 16H7M7 16l3 3M7 16l3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 8h13M17 8l-3-3M17 8l-3 3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 16H7M7 16l3 3M7 16l3-3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -26,24 +61,57 @@ function IconGroup() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
       <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="2" />
-      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
       <circle cx="17" cy="7" r="2.4" stroke="currentColor" strokeWidth="2" />
-      <path d="M15.5 14.2c2.6.4 4.5 2.7 4.5 5.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M15.5 14.2c2.6.4 4.5 2.7 4.5 5.8"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 function IconBell() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M6 10a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path
+        d="M6 10a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
       <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
-function IconSpark() {
+function IconOffline() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M5 12.5a9 9 0 0 1 14 0"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 15.5a5 5 0 0 1 8 0"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M2 8.5A13 13 0 0 1 22 8.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeOpacity="0.45"
+      />
+      <circle cx="12" cy="19" r="1.4" fill="currentColor" />
     </svg>
   );
 }
@@ -52,8 +120,7 @@ const features = [
   {
     icon: IconMic,
     title: "Voice entry",
-    body:
-      "\u201cI paid for dinner, about \u20b91,000, Himanshu just had juice.\u201d Splenza understands casual, natural sentences and does the math.",
+    body: "\u201cI paid for dinner, about \u20b91,000, Himanshu just had juice.\u201d Splenza understands casual, natural sentences and does the math.",
     tone: "emerald" as const,
     span: "md:col-span-2",
   },
@@ -76,17 +143,16 @@ const features = [
     tone: "emerald" as const,
   },
   {
-    icon: IconBell,
-    title: "Gentle reminders",
-    body: "Splenza nudges the right person at the right time — never awkward, always on time.",
+    icon: IconOffline,
+    title: "Works offline",
+    body: "No signal, no problem. Add expenses with no internet connection and Splenza syncs everything automatically the moment you're back online.",
     tone: "violet" as const,
   },
   {
-    icon: IconSpark,
-    title: "More AI, every update",
-    body: "Spending insights, smart categorization, and predictive splitting are on the way.",
+    icon: IconBell,
+    title: "Gentle reminders",
+    body: "Splenza nudges the right person at the right time — never awkward, always on time.",
     tone: "emerald" as const,
-    span: "md:col-span-2",
   },
 ];
 

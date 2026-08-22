@@ -1,10 +1,12 @@
 import Logo from "./Logo";
 import ScrollLink from "./ScrollLink";
+import PlayStoreButton from "./PlayStoreButton";
 
 const links = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "#faq", label: "FAQ" },
+  { href: "#download", label: "iOS waitlist" },
 ] as const;
 
 export default function Nav() {
@@ -23,12 +25,7 @@ export default function Nav() {
             </ScrollLink>
           ))}
         </nav>
-        <ScrollLink
-          href="#download"
-          className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg transition-opacity hover:opacity-85"
-        >
-          Get early access
-        </ScrollLink>
+        <PlayStoreButton className="!px-4 !py-2.5" />
       </div>
     </header>
   );

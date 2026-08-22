@@ -1,5 +1,6 @@
 import ReceiptDemo from "./ReceiptDemo";
 import ScrollLink from "./ScrollLink";
+import PlayStoreButton from "./PlayStoreButton";
 
 export default function Hero() {
   return (
@@ -13,7 +14,7 @@ export default function Hero() {
         <div className="mb-8 flex justify-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-line px-3.5 py-1.5 text-xs font-medium text-ink2">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            Launching on Android first
+            Live now on Android
           </div>
         </div>
 
@@ -30,12 +31,7 @@ export default function Hero() {
         </p>
 
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <ScrollLink
-            href="#download"
-            className="inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3.5 text-sm font-medium text-bg transition-opacity hover:opacity-85"
-          >
-            Get early access
-          </ScrollLink>
+          <PlayStoreButton className="h-14" />
           <ScrollLink
             href="#how-it-works"
             className="inline-flex items-center gap-2 rounded-full border border-line px-6 py-3.5 text-sm font-medium text-ink transition-colors hover:bg-stripe"
@@ -45,7 +41,10 @@ export default function Hero() {
         </div>
 
         <p className="mt-5 text-center text-xs text-ink3">
-          Free to join · iOS waitlist open too
+          Free to download ·{" "}
+          <ScrollLink href="#download" className="underline hover:text-ink2">
+            Join the iOS waitlist
+          </ScrollLink>
         </p>
 
         <div className="relative mt-20">

@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s | Splenza",
   },
   description:
-    "Splenza is the AI-powered Splitwise alternative. Speak a payment, scan a receipt, or type it in — Splenza itemizes the bill and simplifies who owes who. Free waitlist open now for Android, iOS coming soon.",
+    "Splenza is the AI-powered Splitwise alternative. Speak a payment, scan a receipt, or type it in — Splenza itemizes the bill and simplifies who owes who. Now live on Android, free to download. iOS waitlist open now.",
   keywords: [
     "split bills app",
     "expense splitting app",
@@ -105,6 +105,7 @@ const jsonLd = {
     price: "0",
     priceCurrency: "USD",
   },
+  downloadUrl: "https://play.google.com/store/apps/details?id=com.splenza.app",
   url: SITE_URL,
 };
 
