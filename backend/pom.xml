@@ -182,6 +182,15 @@
             <artifactId>google-auth-library-oauth2-http</artifactId>
             <version>1.23.0</version>
         </dependency>
+
+        <!-- String similarity (Jaro-Winkler) for the recurrence-detection job's
+        fuzzy title matching - deterministic, in-memory, no LLM. commons-lang3
+        (its transitive dep) is already managed by the Spring Boot parent. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.12.0</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -91,6 +91,27 @@ app:
       - https://getsplenza.in
       - https://www.getsplenza.in
 
+recurring:
+  # Recurring-payment execution: fires due rules daily (auto-creates expenses
+  # and/or sends reminders).
+  execution:
+    enabled: ${RECURRING_EXECUTION_ENABLED:true}
+    cron: ${RECURRING_EXECUTION_CRON:0 0 6 * * *}       # 06:00 UTC daily
+  # Nightly deterministic recurrence-detection job (no LLM). dry-run runs the
+  # full pipeline but persists nothing, logging candidates for validation.
+  detection:
+    enabled: ${RECURRING_DETECTION_ENABLED:true}
+    dry-run: ${RECURRING_DETECTION_DRY_RUN:false}
+    cron: ${RECURRING_DETECTION_CRON:0 30 3 * * *}      # 03:30 UTC daily
+  window-months: ${RECURRING_WINDOW_MONTHS:18}
+  min-confidence: ${RECURRING_MIN_CONFIDENCE:0.90}
+  dismiss-cooldown-days: ${RECURRING_DISMISS_COOLDOWN_DAYS:60}
+  max-suggestions-per-cluster: ${RECURRING_MAX_SUGGESTIONS_PER_CLUSTER:2}
+  weights:
+    regularity: 0.45
+    repetition: 0.30
+    consistency: 0.25
+
 management:
   endpoints:
     web:

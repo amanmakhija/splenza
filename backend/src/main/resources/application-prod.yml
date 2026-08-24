@@ -89,6 +89,19 @@ firebase:
   enabled: ${FIREBASE_ENABLED:false}
   credentials: ${FIREBASE_CREDENTIALS}
 
+# Recurrence DETECTION safety pin. The rest of the recurring feature (CRUD +
+# execution) is live from the first deploy, but the nightly detection job starts
+# in dry-run: it runs the full pipeline and logs candidate clusters + confidence
+# scores WITHOUT persisting any suggestion to a real user. Pinned here in version
+# control (not left to a deploy-time env var) so this safe-first-run state
+# survives redeploys, new engineers, and from-scratch environment rebuilds.
+# DELIBERATELY flip to false only after someone has eyeballed a real dry-run's
+# logged output. Verify it took effect by grepping the boot log for
+# "Loaded recurring config:" and confirming dryRun=true.
+recurring:
+  detection:
+    dry-run: true
+
 logging:
   level:
     root: INFO

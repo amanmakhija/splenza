@@ -9,6 +9,7 @@ public enum TargetType {
     EXPENSE,
     SETTLEMENT,
     FRIEND,
-    PROFILE
+    PROFILE,
+    RECURRING
 
 }

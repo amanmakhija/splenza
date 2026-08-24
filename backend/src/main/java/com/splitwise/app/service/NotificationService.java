@@ -3,6 +3,7 @@ package com.splitwise.app.service;
 import com.splitwise.app.entity.Expense;
 import com.splitwise.app.entity.ExpenseParticipant;
 import com.splitwise.app.entity.Notification;
+import com.splitwise.app.entity.RecurringPayment;
 import com.splitwise.app.entity.User;
 import com.splitwise.app.repository.NotificationRepository;
 import com.splitwise.app.repository.UserRepository;
@@ -64,6 +65,42 @@ public class NotificationService {
     public void notifySettlementUpdated(UUID userId, String actorName, BigDecimal newAmount, UUID settlementId) {
         create(userId, Notification.Type.SETTLEMENT, TargetType.SETTLEMENT, "Settlement updated",
                 actorName + " changed a settlement amount to " + newAmount, settlementId);
+    }
+
+    /**
+     * The rule's owner: an expense was just auto-generated from a recurring rule.
+     * Participants of that expense are notified separately through
+     * {@link #notifyExpenseAdded}. referenceId is the rule so the tap opens it.
+     */
+    @Transactional
+    public void notifyRecurringGenerated(UUID ownerId, RecurringPayment rule, UUID expenseId) {
+        create(ownerId, Notification.Type.RECURRING_GENERATED, TargetType.RECURRING,
+                "Recurring payment added: " + rule.getTitle(),
+                "\"" + rule.getTitle() + "\" for " + rule.getAmount() + " was added automatically.",
+                rule.getId());
+    }
+
+    /**
+     * The rule's owner: a non-auto-create rule is due today - a nudge to add the
+     * expense manually.
+     */
+    @Transactional
+    public void notifyRecurringDue(UUID ownerId, RecurringPayment rule) {
+        create(ownerId, Notification.Type.RECURRING_DUE, TargetType.RECURRING,
+                "Recurring payment due: " + rule.getTitle(),
+                "Time to add \"" + rule.getTitle() + "\" for " + rule.getAmount() + ".",
+                rule.getId());
+    }
+
+    /**
+     * The rule's owner: a reminder ahead of the due date (reminderDaysBefore).
+     */
+    @Transactional
+    public void notifyRecurringUpcoming(UUID ownerId, RecurringPayment rule) {
+        create(ownerId, Notification.Type.RECURRING_REMINDER, TargetType.RECURRING,
+                "Upcoming: " + rule.getTitle(),
+                "\"" + rule.getTitle() + "\" (" + rule.getAmount() + ") is due on " + rule.getNextOccurrenceDate() + ".",
+                rule.getId());
     }
 
     /**

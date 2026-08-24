@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,4 +53,16 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID>, JpaSpec
     // direct group_id column.
     @Query("select e.id from Expense e where e.group.id = :groupId")
     List<UUID> findAllIdsByGroupId(@Param("groupId") UUID groupId);
+
+    // --- Recurrence detection (nightly job) ---
+    // A user's own expenses (they created it) inside the detection window,
+    // oldest first so the analyzer can walk them chronologically.
+    List<Expense> findByCreatedByIdAndDeletedFalseAndExpenseDateGreaterThanEqualOrderByExpenseDateAsc(
+            UUID createdById, LocalDate cutoff);
+
+    // Distinct users who have created any (non-deleted) expense in the window -
+    // the set of users worth running detection for on a given night.
+    @Query("select distinct e.createdBy.id from Expense e "
+            + "where e.deleted = false and e.expenseDate >= :cutoff")
+    List<UUID> findDistinctCreatorIdsSince(@Param("cutoff") LocalDate cutoff);
 }
