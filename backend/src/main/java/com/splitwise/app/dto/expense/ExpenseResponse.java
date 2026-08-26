@@ -64,4 +64,7 @@ public class ExpenseResponse {
 
     @Schema(description = "Each participant's resolved share of the total")
     private List<ExpenseParticipantResponse> participants;
+
+    @Schema(description = "ID of the recurring payment rule that auto-generated this expense, or null if it was added manually")
+    private UUID recurringPaymentId;
 }
