@@ -61,7 +61,7 @@ public class ExpenseService {
     }
 
     private ExpenseResponse createInternal(UUID actingUserId, CreateExpenseRequest request,
-                                           boolean recordActivity, UUID recurringPaymentId) {
+            boolean recordActivity, UUID recurringPaymentId) {
         validateParticipantsAndAccess(actingUserId, request.getGroupId(), request);
 
         Category category = request.getCategoryId() != null
@@ -395,6 +395,7 @@ public class ExpenseService {
                 .percentage(p.getPercentage())
                 .shares(p.getShares())
                 .build()).collect(Collectors.toList()))
+                .recurringPaymentId(e.getRecurringPaymentId())
                 .build();
     }
 }
