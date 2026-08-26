@@ -15,6 +15,11 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 interface AddExpensePickerSheetProps {
   visible: boolean;
   onClose: () => void;
+  /** Extra CreateExpense params merged into the navigation call, e.g.
+   * `{ openRecurringToggle: true }` when entering from the Recurring
+   * Payments screen - CreateExpense still needs the groupId/friendId this
+   * sheet resolves, so callers can't skip straight past it. */
+  extraParams?: Partial<MainStackParamList["CreateExpense"]>;
 }
 
 /**
@@ -29,6 +34,7 @@ interface AddExpensePickerSheetProps {
 export function AddExpensePickerSheet({
   visible,
   onClose,
+  extraParams,
 }: AddExpensePickerSheetProps) {
   const { theme } = useAppTheme();
   const navigation = useNavigation<Nav>();
@@ -64,12 +70,13 @@ export function AddExpensePickerSheet({
   const handlePick = (row: Row) => {
     onClose();
     if (row.kind === "group") {
-      navigation.navigate("CreateExpense", { groupId: row.id });
+      navigation.navigate("CreateExpense", { groupId: row.id, ...extraParams });
     } else {
       navigation.navigate("CreateExpense", {
         friendId: row.id,
         friendName: row.name,
         friendPhotoUrl: row.imageUrl,
+        ...extraParams,
       });
     }
   };

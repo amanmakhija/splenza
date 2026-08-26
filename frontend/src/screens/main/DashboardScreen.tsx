@@ -18,6 +18,11 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { AddExpensePickerSheet } from "@/components/AddExpensePickerSheet";
+import { RecurringSuggestionCard } from "@/components/RecurringSuggestionCard";
+import {
+  useRecurringSuggestionsQuery,
+  useDismissRecurringSuggestionMutation,
+} from "@/hooks/useRecurringSuggestionsQuery";
 import { DashboardSummary, FriendBalanceResponse } from "@/types/api";
 import { Logo } from "@/components/Logo";
 import { Avatar } from "@/components/Avatar";
@@ -64,6 +69,16 @@ export function DashboardScreen() {
     queryKey: ["dashboard-summary"],
     queryFn: ({ signal }) => fetchSummary({ signal }),
   });
+
+  // Highest-confidence pending "make this recurring" suggestion, if any -
+  // only one is ever shown at a time so the dashboard doesn't get noisy.
+  const suggestionsQuery = useRecurringSuggestionsQuery();
+  const dismissSuggestionMutation = useDismissRecurringSuggestionMutation();
+  const topSuggestion = useMemo(() => {
+    const list = suggestionsQuery.data ?? [];
+    if (!list.length) return null;
+    return [...list].sort((a, b) => b.confidenceScore - a.confidenceScore)[0];
+  }, [suggestionsQuery.data]);
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
 
@@ -173,6 +188,20 @@ export function DashboardScreen() {
           {isLoading ? "—" : formatAmount(netBalance)}
         </Text>
       </View>
+
+      {/* Recurring-payment suggestion, if any high-confidence one is pending */}
+      {topSuggestion ? (
+        <RecurringSuggestionCard
+          suggestion={topSuggestion}
+          loading={dismissSuggestionMutation.isPending}
+          onAccept={() =>
+            navigation.navigate("RecurringPaymentForm", {
+              fromSuggestionId: topSuggestion.id,
+            })
+          }
+          onDismiss={() => dismissSuggestionMutation.mutate(topSuggestion.id)}
+        />
+      ) : null}
 
       {/* Balances — single unified card, matching the mockup */}
       <View style={styles.body}>

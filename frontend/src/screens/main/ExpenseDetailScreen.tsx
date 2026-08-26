@@ -11,7 +11,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Pencil, Trash2, Receipt } from "lucide-react-native";
+import {
+  ChevronLeft,
+  Pencil,
+  Trash2,
+  Receipt,
+  Repeat,
+} from "lucide-react-native";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { useAuthStore } from "@/store/authStore";
@@ -287,6 +293,35 @@ export function ExpenseDetailScreen() {
 
         {isOwner ? (
           <View style={styles.actions}>
+            {expense.recurringPaymentId ? (
+              <Pressable
+                onPress={() =>
+                  navigation.navigate("RecurringPaymentDetail", {
+                    id: expense.recurringPaymentId as string,
+                  })
+                }
+                style={[styles.recurringButton, { borderColor: theme.primary }]}
+              >
+                <Repeat size={16} color={theme.primary} />
+                <Text style={{ color: theme.primary, fontWeight: "700" }}>
+                  Added by a recurring payment
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() =>
+                  navigation.navigate("RecurringPaymentForm", {
+                    fromExpenseId: expense.id,
+                  })
+                }
+                style={[styles.recurringButton, { borderColor: theme.primary }]}
+              >
+                <Repeat size={16} color={theme.primary} />
+                <Text style={{ color: theme.primary, fontWeight: "700" }}>
+                  Make this recurring
+                </Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={confirmDelete}
               disabled={deleteMutation.isPending}
@@ -390,7 +425,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
 
-  actions: { marginTop: 8 },
+  actions: { marginTop: 8, gap: 10 },
+  recurringButton: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
   deleteButton: {
     flexDirection: "row",
     gap: 8,

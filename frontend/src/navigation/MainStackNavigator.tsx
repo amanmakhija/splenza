@@ -24,6 +24,9 @@ import { DeletedGroupsScreen } from "@/screens/main/DeletedGroupsScreen";
 import { GroupMembersScreen } from "@/screens/main/GroupMembersScreen";
 import { NotificationSettingsScreen } from "@/screens/main/NotificationSettingsScreen";
 import { BuyCreditsScreen } from "@/screens/main/BuyCreditsScreen";
+import { RecurringPaymentsScreen } from "@/screens/main/RecurringPaymentsScreen";
+import { RecurringPaymentDetailScreen } from "@/screens/main/RecurringPaymentDetailScreen";
+import { RecurringPaymentFormScreen } from "@/screens/main/RecurringPaymentFormScreen";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -67,6 +70,19 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="BuyCredits"
         component={BuyCreditsScreen}
+        options={{ presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="RecurringPayments"
+        component={RecurringPaymentsScreen}
+      />
+      <Stack.Screen
+        name="RecurringPaymentDetail"
+        component={RecurringPaymentDetailScreen}
+      />
+      <Stack.Screen
+        name="RecurringPaymentForm"
+        component={RecurringPaymentFormScreen}
         options={{ presentation: "modal" }}
       />
     </Stack.Navigator>

@@ -163,6 +163,9 @@ export function CreateExpenseScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [isSuggestingCategory, setIsSuggestingCategory] = useState(false);
   const [voiceSheetVisible, setVoiceSheetVisible] = useState(false);
+  const [makeRecurring, setMakeRecurring] = useState(
+    Boolean(params.openRecurringToggle),
+  );
 
   const creditsQuery = useAiCredits("RECEIPT_SCAN");
   const voiceCreditsQuery = useAiCredits("VOICE_EXPENSE");
@@ -355,6 +358,35 @@ export function CreateExpenseScreen() {
 
     if (isEditMode) {
       updateMutation.mutate(payload);
+      return;
+    }
+
+    if (makeRecurring) {
+      // Hand the fully-validated expense shape to the recurring-payment
+      // form instead of creating a one-off expense - only frequency and
+      // start date are left for the user to fill in there.
+      navigation.replace("RecurringPaymentForm", {
+        prefill: {
+          title: payload.title as string,
+          amount: payload.amount as number,
+          currency: payload.currency as string,
+          categoryId: payload.categoryId as string | null,
+          groupId: payload.groupId as string | null,
+          paidBy: payload.paidBy as string,
+          splitType: payload.splitType as SplitType,
+          participants: payload.participants as Array<{
+            userId: string;
+            shareAmount?: number;
+            percentage?: number;
+            shares?: number;
+          }>,
+          peopleInfo: allParticipants.map((p) => ({
+            userId: p.userId,
+            name: p.name,
+            profilePictureUrl: p.profilePictureUrl,
+          })),
+        },
+      });
       return;
     }
 
@@ -632,7 +664,7 @@ export function CreateExpenseScreen() {
                 opacity: isSaving ? 0.5 : 1,
               }}
             >
-              {isSaving ? "Saving…" : "Save"}
+              {isSaving ? "Saving…" : makeRecurring ? "Next" : "Save"}
             </Text>
           </Pressable>
         }
@@ -810,6 +842,22 @@ export function CreateExpenseScreen() {
               }}
             />
           )}
+
+          {!isEditMode ? (
+            <>
+              <View
+                style={[styles.rowDivider, { backgroundColor: theme.border }]}
+              />
+              <View style={styles.recurringRow}>
+                <Checkbox
+                  label="Make this recurring"
+                  subLabel="We'll set it up on the next screen - just pick how often"
+                  checked={makeRecurring}
+                  onToggle={() => setMakeRecurring((v) => !v)}
+                />
+              </View>
+            </>
+          ) : null}
 
           <View
             style={[styles.rowDivider, { backgroundColor: theme.border }]}
@@ -1229,6 +1277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   rowDivider: { height: 1 },
+  recurringRow: { paddingVertical: 4 },
   rowIconWrap: {
     width: 30,
     height: 30,

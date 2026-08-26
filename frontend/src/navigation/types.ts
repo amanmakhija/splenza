@@ -1,4 +1,4 @@
-import { AuthResponse } from "@/types/api";
+import { AuthResponse, SplitType } from "@/types/api";
 import { NavigatorScreenParams } from "@react-navigation/native";
 
 export type AuthStackParamList = {
@@ -81,6 +81,10 @@ export type MainStackParamList = {
     friendName?: string;
     friendPhotoUrl?: string | null;
     expenseId?: string;
+    /** Pre-checks the "make this recurring" toggle - used when entering
+     * from the Recurring Payments "+" button, since a recurring rule now
+     * always needs a full expense shape (group/paidBy/split) as its basis. */
+    openRecurringToggle?: boolean;
   };
   ExpenseDetail: {
     expenseId: string;
@@ -111,6 +115,39 @@ export type MainStackParamList = {
   };
   SetPassword: undefined;
   BuyCredits: undefined;
+  RecurringPayments: undefined;
+  RecurringPaymentDetail: { id: string };
+  RecurringPaymentForm: {
+    editId?: string;
+    fromExpenseId?: string;
+    fromSuggestionId?: string;
+    /** Full expense shape handed off from CreateExpenseScreen when the user
+     * checks "make this recurring" instead of saving a one-off expense.
+     * Only frequency/startDate/autoCreate/reminders are left for the user
+     * to fill in on this screen. */
+    prefill?: {
+      title: string;
+      amount: number;
+      currency: string;
+      categoryId: string | null;
+      groupId: string | null;
+      paidBy: string;
+      splitType: SplitType;
+      participants: Array<{
+        userId: string;
+        shareAmount?: number;
+        percentage?: number;
+        shares?: number;
+      }>;
+      /** Names/photos for paidBy + everyone in `participants`, so the
+       * recurring form can render a people picker without another fetch. */
+      peopleInfo: Array<{
+        userId: string;
+        name: string;
+        profilePictureUrl?: string | null;
+      }>;
+    };
+  };
 };
 
 export type RootStackParamList = {

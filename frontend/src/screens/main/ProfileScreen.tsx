@@ -18,6 +18,7 @@ import {
   Bell,
   FileUp,
   Moon,
+  Repeat,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -56,6 +57,11 @@ export function ProfileScreen() {
       label: "Payment Methods",
       icon: <Wallet size={18} color={theme.textMuted} />,
       onPress: () => navigation.navigate("PaymentMethods"),
+    },
+    {
+      label: "Recurring Payments",
+      icon: <Repeat size={18} color={theme.textMuted} />,
+      onPress: () => navigation.navigate("RecurringPayments"),
     },
     {
       label: "Help & Support",
