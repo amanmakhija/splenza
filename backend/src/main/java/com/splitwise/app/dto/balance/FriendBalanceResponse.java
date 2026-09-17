@@ -26,4 +26,7 @@ public class FriendBalanceResponse {
     @Schema(description = "Net amount. Positive = friend owes you. Negative = you owe friend. Zero = settled up",
             example = "-15.00")
     private BigDecimal netAmount;
+
+    @Schema(description = "The friend's own UPI VPA, or null if they haven't set one", example = "priya@okhdfcbank")
+    private String upiId;
 }

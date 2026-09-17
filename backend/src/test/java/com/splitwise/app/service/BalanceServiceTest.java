@@ -682,6 +682,52 @@ class BalanceServiceTest {
     }
 
     @Test
+    void getFriendBalance_shouldIncludeFriendUpiIdWhenSet() {
+
+        userB.setUpiId("bob@ybl");
+
+        when(expenseRepository.findAllForUser(userA.getId()))
+                .thenReturn(List.of());
+
+        when(settlementRepository.findAllSettlementsBetween(
+                userA.getId(),
+                userB.getId()))
+                .thenReturn(List.of());
+
+        when(userRepository.findById(userB.getId()))
+                .thenReturn(Optional.of(userB));
+
+        FriendBalanceResponse response
+                = balanceService.getFriendBalance(
+                        userA.getId(),
+                        userB.getId());
+
+        assertEquals("bob@ybl", response.getUpiId());
+    }
+
+    @Test
+    void getFriendBalance_shouldReturnNullUpiIdWhenFriendHasNotSetOne() {
+
+        when(expenseRepository.findAllForUser(userA.getId()))
+                .thenReturn(List.of());
+
+        when(settlementRepository.findAllSettlementsBetween(
+                userA.getId(),
+                userB.getId()))
+                .thenReturn(List.of());
+
+        when(userRepository.findById(userB.getId()))
+                .thenReturn(Optional.of(userB));
+
+        FriendBalanceResponse response
+                = balanceService.getFriendBalance(
+                        userA.getId(),
+                        userB.getId());
+
+        assertNull(response.getUpiId());
+    }
+
+    @Test
     void getFriendBalance_shouldThrowWhenFriendMissing() {
 
         when(expenseRepository.findAllForUser(any()))

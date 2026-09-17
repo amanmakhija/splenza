@@ -123,6 +123,7 @@ public class BalanceService {
                 .friendName(friend.getName())
                 .friendProfilePictureUrl(friend.getProfilePictureUrl())
                 .netAmount(net.setScale(2, RoundingMode.HALF_UP))
+                .upiId(friend.getUpiId())
                 .build();
     }
 
