@@ -59,6 +59,10 @@ public class BalanceService {
         Map<UUID, String> names = new HashMap<>();
         usersById.forEach((id, u) -> names.put(id, u.getName()));
         List<DebtEdge> simplified = debtSimplificationService.simplify(net, names);
+        simplified.forEach(edge -> {
+            User toUser = usersById.get(edge.getToUserId());
+            edge.setToUserUpiId(toUser != null ? toUser.getUpiId() : null);
+        });
 
         return GroupBalanceResponse.builder()
                 .groupId(groupId)

@@ -186,6 +186,59 @@ class BalanceServiceTest {
     }
 
     @Test
+    void getGroupBalances_shouldPopulateToUserUpiIdOnSimplifiedDebts() {
+
+        userA.setUpiId("alice@ybl");
+
+        when(groupMemberRepository.findByGroupIdAndLeftAtIsNull(groupId))
+                .thenReturn(List.of(
+                        member(userA),
+                        member(userB)
+                ));
+
+        when(expenseRepository.findByGroupIdAndDeletedFalseOrderByExpenseDateDesc(groupId))
+                .thenReturn(List.of());
+
+        when(settlementRepository.findByGroupIdOrderBySettledAtDesc(groupId))
+                .thenReturn(List.of());
+
+        DebtEdge edgeToUserWithUpi = DebtEdge.builder()
+                .fromUserId(userB.getId())
+                .fromUserName(userB.getName())
+                .toUserId(userA.getId())
+                .toUserName(userA.getName())
+                .amount(new BigDecimal("50.00"))
+                .build();
+
+        DebtEdge edgeToUserWithoutUpi = DebtEdge.builder()
+                .fromUserId(userA.getId())
+                .fromUserName(userA.getName())
+                .toUserId(userB.getId())
+                .toUserName(userB.getName())
+                .amount(new BigDecimal("10.00"))
+                .build();
+
+        when(debtSimplificationService.simplify(anyMap(), anyMap()))
+                .thenReturn(List.of(edgeToUserWithUpi, edgeToUserWithoutUpi));
+
+        GroupBalanceResponse response
+                = balanceService.getGroupBalances(groupId);
+
+        assertEquals(
+                "alice@ybl",
+                response.getSimplifiedDebts().stream()
+                        .filter(e -> e.getToUserId().equals(userA.getId()))
+                        .findFirst().get()
+                        .getToUserUpiId());
+
+        assertNull(
+                response.getSimplifiedDebts().stream()
+                        .filter(e -> e.getToUserId().equals(userB.getId()))
+                        .findFirst().get()
+                        .getToUserUpiId());
+    }
+
+    @Test
     void getGroupBalances_shouldApplySettlement() {
 
         when(groupMemberRepository.findByGroupIdAndLeftAtIsNull(groupId))

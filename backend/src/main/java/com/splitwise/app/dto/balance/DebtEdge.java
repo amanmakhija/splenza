@@ -28,4 +28,8 @@ public class DebtEdge {
 
     @Schema(description = "Amount to be paid to settle this edge", example = "25.00")
     private BigDecimal amount;
+
+    @Schema(description = "UPI VPA of the user being paid (toUserId), or null if they haven't set one",
+            example = "priya@okhdfcbank")
+    private String toUserUpiId;
 }
