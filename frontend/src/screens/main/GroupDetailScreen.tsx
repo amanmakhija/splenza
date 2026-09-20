@@ -36,6 +36,7 @@ import {
   UserPlus,
   Activity as ActivityIcon,
   HandCoins,
+  Wallet,
   Trash2,
   type LucideIcon,
 } from "lucide-react-native";
@@ -43,6 +44,7 @@ import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { getCategoryIcon, getCategoryChipColors } from "@/lib/categoryIcon";
 import { alert } from "@/components/AppAlert";
+import { AppModal } from "@/components/AppModal";
 import { useGroupQuery } from "@/hooks/useGroupQuery";
 import {
   ActivityLogEntry,
@@ -55,6 +57,7 @@ import {
   Settlement,
 } from "@/types/api";
 import { useAuthStore } from "@/store/authStore";
+import { useUpiPayment } from "@/hooks/useUpiPayment";
 import {
   useOfflineQueueStore,
   PendingExpense,
@@ -271,6 +274,7 @@ function buildPendingDisplayExpense(
     createdAt: item.createdAt,
     updatedAt: item.createdAt,
     participants,
+    recurringPaymentId: null,
   };
 }
 
@@ -280,6 +284,12 @@ export function GroupDetailScreen() {
   const { params } = useRoute<Route>();
   const { groupId } = params;
   const currentUser = useAuthStore((s) => s.user);
+  const { payViaUpi } = useUpiPayment();
+  const [settleModalOpen, setSettleModalOpen] = useState(false);
+  const [settleStep, setSettleStep] = useState<"pick-person" | "pick-method">(
+    "pick-person",
+  );
+  const [selectedDebt, setSelectedDebt] = useState<DebtEdge | null>(null);
   const pendingOfflineExpenses = useOfflineQueueStore((s) =>
     s.items.filter((i) => i.groupId === groupId),
   );
@@ -401,6 +411,62 @@ export function GroupDetailScreen() {
     queryKey: ["group-balances", groupId],
     queryFn: ({ signal }) => fetchGroupBalances(groupId, { signal }),
   });
+
+  // Everyone the current user owes money to in this group, per the
+  // suggested (simplified) settlements. Drives the single "Settle up" CTA
+  // and its modal, replacing what used to be a Settle/Pay UPI button pair
+  // repeated on every row.
+  const myDebts = (balancesQuery.data?.simplifiedDebts ?? []).filter(
+    (d) => d.fromUserId === currentUser?.id,
+  );
+
+  const openSettleModal = () => {
+    if (myDebts.length === 0) return;
+    if (myDebts.length === 1) {
+      setSelectedDebt(myDebts[0]);
+      setSettleStep("pick-method");
+    } else {
+      setSelectedDebt(null);
+      setSettleStep("pick-person");
+    }
+    setSettleModalOpen(true);
+  };
+
+  const handleRecordSettlement = () => {
+    if (!selectedDebt) return;
+    setSettleModalOpen(false);
+    navigation.navigate("SettleUp", {
+      groupId,
+      paidTo: selectedDebt.toUserId,
+      paidToName: selectedDebt.toUserName,
+      suggestedAmount: selectedDebt.amount,
+      initialNote: "Cash",
+    });
+  };
+
+  const handlePayUpiThenRecord = () => {
+    const debt = selectedDebt;
+    const upiId = debt?.toUserUpiId;
+    if (!debt || !upiId) return;
+    setSettleModalOpen(false);
+    payViaUpi(
+      {
+        payeeVpa: upiId,
+        payeeName: debt.toUserName,
+        amount: debt.amount,
+        note: "Splenza settlement",
+      },
+      () =>
+        navigation.navigate("SettleUp", {
+          groupId,
+          paidTo: debt.toUserId,
+          paidToName: debt.toUserName,
+          suggestedAmount: debt.amount,
+          initialNote: "UPI",
+        }),
+    );
+  };
+
   const totalExpensesQuery = useQuery({
     queryKey: ["group-expense-total", groupId],
     queryFn: ({ signal }) => fetchGroupExpenseTotal(groupId, { signal }),
@@ -699,6 +765,16 @@ export function GroupDetailScreen() {
           </Animated.View>
         )}
       </View>
+
+      {myDebts.length > 0 ? (
+        <Pressable
+          onPress={openSettleModal}
+          style={[styles.settleUpCta, { backgroundColor: theme.primary }]}
+        >
+          <HandCoins size={17} color="#fff" />
+          <Text style={styles.settleUpCtaText}>Settle up</Text>
+        </Pressable>
+      ) : null}
 
       {pendingOfflineExpenses.length > 0 ? (
         <Pressable
@@ -999,19 +1075,10 @@ export function GroupDetailScreen() {
         <ScrollableBalances
           theme={theme}
           balancesQuery={balancesQuery}
-          currentUserId={currentUser?.id}
           formatAmount={formatAmount}
           onScroll={handleListScroll}
           onScrollBeginDrag={handleScrollBeginDrag}
           onScrollSettle={handleScrollSettle}
-          onSettle={(debt) =>
-            navigation.navigate("SettleUp", {
-              groupId,
-              paidTo: debt.toUserId,
-              paidToName: debt.toUserName,
-              suggestedAmount: debt.amount,
-            })
-          }
         />
       ) : (
         <View style={styles.body}>
@@ -1086,6 +1153,75 @@ export function GroupDetailScreen() {
           <Plus color="#fff" size={26} />
         </Pressable>
       )}
+
+      <AppModal
+        visible={settleModalOpen}
+        onClose={() => setSettleModalOpen(false)}
+        title={
+          settleStep === "pick-person" ? "Who are you paying?" : "Settle up"
+        }
+        scrollable={settleStep === "pick-person"}
+      >
+        {settleStep === "pick-person" ? (
+          myDebts.map((debt, idx) => (
+            <Pressable
+              key={idx}
+              onPress={() => {
+                setSelectedDebt(debt);
+                setSettleStep("pick-method");
+              }}
+              style={[styles.pickPersonRow, { borderColor: theme.border }]}
+            >
+              <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>
+                {debt.toUserName}
+              </Text>
+              <Text style={{ color: theme.textPrimary, fontWeight: "700" }}>
+                {formatAmount(debt.amount)}
+              </Text>
+            </Pressable>
+          ))
+        ) : selectedDebt ? (
+          <View style={{ gap: 12 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+              Paying {selectedDebt.toUserName} ·{" "}
+              {formatAmount(selectedDebt.amount)}
+            </Text>
+            {selectedDebt.toUserUpiId ? (
+              <Pressable
+                onPress={handlePayUpiThenRecord}
+                style={[
+                  styles.methodButton,
+                  { backgroundColor: theme.primary },
+                ]}
+              >
+                <Wallet size={18} color="#fff" />
+                <Text style={styles.methodButtonText}>
+                  Pay via UPI & record
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={handleRecordSettlement}
+              style={[styles.methodButton, { backgroundColor: theme.owed }]}
+            >
+              <HandCoins size={18} color="#fff" />
+              <Text style={styles.methodButtonText}>
+                Record a settlement (cash)
+              </Text>
+            </Pressable>
+            {myDebts.length > 1 ? (
+              <Pressable
+                onPress={() => setSettleStep("pick-person")}
+                style={{ alignItems: "center", paddingVertical: 8 }}
+              >
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+                  ← Choose someone else
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -1096,9 +1232,7 @@ export function GroupDetailScreen() {
 interface ScrollableBalancesProps {
   theme: ReturnType<typeof useAppTheme>["theme"];
   balancesQuery: UseQueryResult<GroupBalanceResponse>;
-  currentUserId: string | undefined;
   formatAmount: (n: number) => string;
-  onSettle: (debt: DebtEdge) => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollBeginDrag: () => void;
   onScrollSettle: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -1107,9 +1241,7 @@ interface ScrollableBalancesProps {
 function ScrollableBalances({
   theme,
   balancesQuery,
-  currentUserId,
   formatAmount,
-  onSettle,
   onScroll,
   onScrollBeginDrag,
   onScrollSettle,
@@ -1171,29 +1303,14 @@ function ScrollableBalances({
                             pays {debt.toUserName}
                           </Text>
                         </View>
-                        <View style={{ alignItems: "flex-end", gap: 6 }}>
-                          <Text
-                            style={{
-                              color: theme.textPrimary,
-                              fontWeight: "700",
-                            }}
-                          >
-                            {formatAmount(debt.amount)}
-                          </Text>
-                          {debt.fromUserId === currentUserId ? (
-                            <Pressable
-                              onPress={() => onSettle(debt)}
-                              style={[
-                                styles.settleButton,
-                                { backgroundColor: theme.primary },
-                              ]}
-                            >
-                              <Text style={styles.settleButtonText}>
-                                Settle
-                              </Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
+                        <Text
+                          style={{
+                            color: theme.textPrimary,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {formatAmount(debt.amount)}
+                        </Text>
                       </View>
                     </View>
                   ),
@@ -1394,8 +1511,33 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10 },
 
-  settleButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  settleButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  settleUpCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingVertical: 13,
+    borderRadius: 14,
+  },
+  settleUpCtaText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  pickPersonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  methodButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+  },
+  methodButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   fab: {
     position: "absolute",

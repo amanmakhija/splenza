@@ -1,17 +1,21 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Check, ShieldCheck } from "lucide-react-native";
-import * as RNIap from "react-native-iap";
+import {
+  useIAP,
+  ErrorCode,
+  type Purchase,
+  type Product,
+} from "react-native-iap";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient, getApiErrorMessage } from "@/lib/apiClient";
 import { alert } from "@/components/AppAlert";
@@ -19,18 +23,6 @@ import { Button } from "@/components/Button";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { useAiCredits, useInvalidateAiCredits } from "@/hooks/useAiCredits";
 import { CreditPackage } from "@/types/api";
-
-// Derived structurally from the library's actual function signatures rather
-// than importing `RNIap.ProductPurchase`/`RNIap.Product` by name - those
-// named types aren't reliably resolvable across react-native-iap versions
-// when TypeScript follows the package's `"react-native"` source-file export
-// path instead of its compiled `.d.ts` (this bit us with a "has no exported
-// member" error). Deriving from the function signatures works regardless of
-// which named types the package chooses to export.
-type PlayPurchase = Parameters<
-  Parameters<typeof RNIap.purchaseUpdatedListener>[0]
->[0];
-type PlayProduct = Awaited<ReturnType<typeof RNIap.getProducts>>[number];
 
 async function fetchPackages({
   signal,
@@ -49,13 +41,10 @@ async function fetchPackages({
  * do we consume the purchase on-device (see `finishTransaction` below) - if we
  * consumed it first and the app died before this request landed, the user would
  * have paid without ever getting credits, with no way to retry. */
-async function verifyPurchase(purchase: PlayPurchase) {
+async function verifyPurchase(purchase: Purchase) {
   await apiClient.post("/api/v1/ai-credits/purchases/verify", {
     productId: purchase.productId,
     purchaseToken: purchase.purchaseToken,
-    // Included for completeness/debugging - purchaseToken is what the backend
-    // actually verifies against the Play Developer API.
-    transactionReceipt: purchase.transactionReceipt,
   });
 }
 
@@ -66,12 +55,20 @@ async function verifyPurchase(purchase: PlayPurchase) {
  * Console; `CreditPackage.googlePlayProductId` maps each one to its SKU.
  *
  * Flow: fetch products from Play -> user picks one -> requestPurchase ->
- * purchaseUpdatedListener fires -> send the purchase to our backend to
- * verify server-side against the Play Developer API and grant credits ->
- * only then finishTransaction (consumable) so the item becomes
- * re-purchasable. If the app is killed mid-flow, `getAvailablePurchases` on
- * mount picks up anything left unfinished and resumes verification, so a
- * user is never left having paid without receiving credits.
+ * onPurchaseSuccess fires -> send the purchase to our backend to verify
+ * server-side against the Play Developer API and grant credits -> only then
+ * finishTransaction (consumable) so the item becomes re-purchasable.
+ *
+ * Note: unlike the old react-native-iap API, this version's restore/resume
+ * API (getAvailablePurchases) explicitly excludes consumables (per the
+ * library's own docs), so we can't use it to pick back up an
+ * interrupted-but-unfinished credit purchase after an app kill. In practice
+ * Google Play Billing itself re-delivers any not-yet-acknowledged purchase
+ * through the same purchase-update event the moment the connection
+ * (re)initializes, which is exactly what `onPurchaseSuccess` below is wired
+ * to - so an interrupted purchase still gets picked up as soon as this
+ * screen is reopened and the connection comes back up, without needing a
+ * separate manual restore step.
  */
 export function BuyCreditsScreen() {
   const { theme } = useAppTheme();
@@ -82,10 +79,8 @@ export function BuyCreditsScreen() {
   const creditsQuery = useAiCredits("RECEIPT_SCAN");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [connectionFailed, setConnectionFailed] = useState(false);
-  const [storeProducts, setStoreProducts] = useState<PlayProduct[]>([]);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [productsFetched, setProductsFetched] = useState(false);
   const packagesRef = useRef<CreditPackage[]>([]);
 
   const packagesQuery = useQuery({
@@ -97,20 +92,29 @@ export function BuyCreditsScreen() {
     packagesRef.current = packagesQuery.data ?? [];
   }, [packagesQuery.data]);
 
-  const finishPurchase = useCallback(
-    async (purchase: PlayPurchase, matchedPackageId: string | null) => {
+  const {
+    connected,
+    products,
+    fetchProducts,
+    requestPurchase,
+    finishTransaction,
+  } = useIAP({
+    onPurchaseSuccess: async (purchase) => {
+      const matched = packagesRef.current.find(
+        (p) => p.googlePlayProductId === purchase.productId,
+      );
       try {
         await verifyPurchase(purchase);
-        await RNIap.finishTransaction({ purchase, isConsumable: true });
+        await finishTransaction({ purchase, isConsumable: true });
         invalidateCredits();
         setPurchasingId(null);
         alert("Credits added", "Your AI credits have been topped up.");
-        if (matchedPackageId) navigation.goBack();
+        if (matched) navigation.goBack();
       } catch (err) {
-        // Deliberately do NOT finishTransaction here - if verification failed
-        // (e.g. a network blip), leave the purchase unfinished so it's picked
-        // up again by getAvailablePurchases next time this screen mounts,
-        // instead of silently losing the user's money.
+        // Deliberately do NOT finishTransaction here - if verification
+        // failed (e.g. a network blip), leave the purchase unfinished so
+        // Google Play redelivers it the next time the connection
+        // initializes, instead of silently losing the user's money.
         setPurchasingId(null);
         alert(
           "Couldn't confirm purchase",
@@ -118,91 +122,64 @@ export function BuyCreditsScreen() {
         );
       }
     },
-    [invalidateCredits, navigation],
-  );
-
-  useEffect(() => {
-    let purchaseUpdateSub: { remove: () => void } | null = null;
-    let purchaseErrorSub: { remove: () => void } | null = null;
-
-    (async () => {
-      try {
-        await RNIap.initConnection();
-        if (Platform.OS === "android") {
-          await RNIap.flushFailedPurchasesCachedAsPendingAndroid().catch(
-            () => {},
-          );
-        }
-        setConnected(true);
-
-        // Resume any purchase that completed but never got verified+finished
-        // (e.g. app was killed right after payment).
-        const pending = await RNIap.getAvailablePurchases();
-        for (const purchase of pending) {
-          const matched = packagesRef.current.find(
-            (p) => p.googlePlayProductId === purchase.productId,
-          );
-          finishPurchase(purchase, matched?.id ?? null);
-        }
-      } catch {
-        // Most commonly: no Google Play Store available on this device/emulator
-        // (e.g. a non-Play AVD image), or Play Store isn't signed in/initialized.
-        // Surface this instead of just silently disabling the buy button forever.
-        setConnected(false);
-        setConnectionFailed(true);
-      }
-    })();
-
-    purchaseUpdateSub = RNIap.purchaseUpdatedListener((purchase) => {
-      const matched = packagesRef.current.find(
-        (p) => p.googlePlayProductId === purchase.productId,
-      );
-      finishPurchase(purchase, matched?.id ?? null);
-    });
-
-    purchaseErrorSub = RNIap.purchaseErrorListener((error) => {
+    onPurchaseError: (error) => {
       setPurchasingId(null);
-      // User-cancelled is not an error worth surfacing.
-      if (error.code !== "E_USER_CANCELLED") {
+      if (error.code !== ErrorCode.UserCancelled) {
         alert(
           "Purchase failed",
           error.message || "Something went wrong. Please try again.",
         );
       }
-    });
+    },
+  });
 
-    return () => {
-      purchaseUpdateSub?.remove();
-      purchaseErrorSub?.remove();
-      RNIap.endConnection();
-    };
-  }, [finishPurchase]);
-
-  // Once our backend's package list is in, fetch the matching Play Store
-  // product details (localized price, currency) for each one.
+  // Once our backend's package list is in and the store connection is up,
+  // fetch the matching Play Store product details (localized price, etc.)
+  // for each one.
   useEffect(() => {
     if (!connected || !packagesQuery.data?.length) return;
-    RNIap.getProducts({
+    fetchProducts({
       skus: packagesQuery.data.map((p) => p.googlePlayProductId),
+      type: "in-app",
     })
-      .then(setStoreProducts)
-      .catch(() => {});
-  }, [connected, packagesQuery.data]);
+      .catch(() => {})
+      .finally(() => setProductsFetched(true));
+  }, [connected, packagesQuery.data, fetchProducts]);
+
+  // A package only shows up here if Play actually returned a matching
+  // product for it - if a product was deactivated/removed in Play Console
+  // (or never went live), Play simply won't include it in `products`, and
+  // we hide it rather than let someone try to buy something Play will
+  // reject. Until the fetch has settled we show everything the backend
+  // returned so the list isn't empty while still loading.
+  const availablePackages = !productsFetched
+    ? packagesQuery.data
+    : packagesQuery.data?.filter((pkg) =>
+        products.some((p) => p.id === pkg.googlePlayProductId),
+      );
+  const noActiveProducts =
+    connected &&
+    productsFetched &&
+    (packagesQuery.data?.length ?? 0) > 0 &&
+    (availablePackages?.length ?? 0) === 0;
 
   useEffect(() => {
-    if (!selectedId && packagesQuery.data?.length) {
-      const popular = packagesQuery.data.find((p) => p.badge);
-      setSelectedId((popular ?? packagesQuery.data[0]).id);
+    if (!selectedId && availablePackages?.length) {
+      const popular = availablePackages.find((p) => p.badge);
+      setSelectedId((popular ?? availablePackages[0]).id);
     }
-  }, [packagesQuery.data, selectedId]);
+  }, [availablePackages, selectedId]);
 
   const handleBuy = async () => {
-    const pkg = packagesQuery.data?.find((p) => p.id === selectedId);
+    const pkg = availablePackages?.find((p) => p.id === selectedId);
     if (!pkg) return;
     setPurchasingId(pkg.id);
     try {
-      await RNIap.requestPurchase({ skus: [pkg.googlePlayProductId] });
-      // Result arrives via purchaseUpdatedListener above, not this promise.
+      await requestPurchase({
+        request: { google: { skus: [pkg.googlePlayProductId] } },
+        type: "in-app",
+      });
+      // Result arrives via onPurchaseSuccess/onPurchaseError above, not this promise.
     } catch (err) {
       setPurchasingId(null);
       if (!(err instanceof Error) || !err.message.includes("cancel")) {
@@ -214,9 +191,12 @@ export function BuyCreditsScreen() {
     }
   };
 
+  const storeProductFor = (pkg: CreditPackage): Product | undefined =>
+    products.find((sp) => sp.id === pkg.googlePlayProductId);
+
   const localizedPriceFor = (pkg: CreditPackage) =>
-    storeProducts.find((sp) => sp.productId === pkg.googlePlayProductId)
-      ?.localizedPrice ?? `₹${(pkg.priceInPaise / 100).toFixed(0)}`;
+    storeProductFor(pkg)?.displayPrice ??
+    `₹${(pkg.priceInPaise / 100).toFixed(0)}`;
 
   return (
     <SafeAreaView
@@ -250,8 +230,19 @@ export function BuyCreditsScreen() {
       <View style={styles.list}>
         {packagesQuery.isLoading ? (
           <ActivityIndicator color={theme.primary} />
+        ) : noActiveProducts ? (
+          <View
+            style={[
+              styles.pausedBox,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.pausedText, { color: theme.textSecondary }]}>
+              Buying credits is paused for now. Please check back later.
+            </Text>
+          </View>
         ) : (
-          packagesQuery.data?.map((pkg) => {
+          availablePackages?.map((pkg) => {
             const selected = pkg.id === selectedId;
             return (
               <Pressable
@@ -299,7 +290,7 @@ export function BuyCreditsScreen() {
       </View>
 
       <View style={styles.footer}>
-        {connectionFailed ? (
+        {!connected ? (
           <Text style={[styles.connectionError, { color: theme.danger }]}>
             Couldn't connect to Google Play. Make sure you're signed into a
             Google account and the Play Store app is set up on this device, then
@@ -308,7 +299,12 @@ export function BuyCreditsScreen() {
         ) : null}
         <Button
           title={purchasingId ? "Processing…" : "Buy selected pack"}
-          disabled={!selectedId || !connected || purchasingId !== null}
+          disabled={
+            !selectedId ||
+            !connected ||
+            purchasingId !== null ||
+            noActiveProducts
+          }
           onPress={handleBuy}
         />
         <View style={styles.secureRow}>
@@ -337,6 +333,14 @@ const styles = StyleSheet.create({
   introSub: { fontSize: 13, textAlign: "center", lineHeight: 19 },
   balance: { fontSize: 12, fontWeight: "600", marginTop: 14 },
   list: { paddingHorizontal: 20, paddingTop: 24, gap: 10 },
+  pausedBox: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  pausedText: { fontSize: 13, textAlign: "center", lineHeight: 19 },
   packageRow: {
     flexDirection: "row",
     justifyContent: "space-between",

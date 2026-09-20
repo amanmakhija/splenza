@@ -12,7 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, HandCoins, Receipt } from "lucide-react-native";
+import { Plus, HandCoins, Receipt, Wallet } from "lucide-react-native";
+import { useUpiPayment } from "@/hooks/useUpiPayment";
 import { useAppTheme } from "@/theme/ThemeContext";
 import { apiClient } from "@/lib/apiClient";
 import { getCategoryIcon, getCategoryChipColors } from "@/lib/categoryIcon";
@@ -105,7 +106,29 @@ export function FriendDetailScreen() {
   });
 
   const netAmount = balanceQuery.data?.netAmount ?? 0;
+  const youOweAmount = netAmount < 0 ? Math.abs(netAmount) : 0;
+  const friendUpiId = balanceQuery.data?.upiId ?? null;
   const formatAmount = (n: number) => `₹${Math.abs(n).toFixed(2)}`;
+  const { payViaUpi } = useUpiPayment();
+
+  const handlePayViaUpi = () => {
+    if (!friendUpiId || youOweAmount <= 0) return;
+    payViaUpi(
+      {
+        payeeVpa: friendUpiId,
+        payeeName: friendName,
+        amount: youOweAmount,
+        note: `Splenza settlement`,
+      },
+      () =>
+        navigation.navigate("SettleUp", {
+          paidTo: friendId,
+          paidToName: friendName,
+          suggestedAmount: youOweAmount,
+          initialNote: "UPI",
+        }),
+    );
+  };
   const isRefetching = timeline.isRefetching || balanceQuery.isRefetching;
   const refetchAll = () => {
     balanceQuery.refetch();
@@ -170,6 +193,15 @@ export function FriendDetailScreen() {
             >
               <HandCoins size={16} color="#fff" />
               <Text style={styles.actionText}>Settle up</Text>
+            </Pressable>
+          ) : null}
+          {youOweAmount > 0 && friendUpiId ? (
+            <Pressable
+              onPress={handlePayViaUpi}
+              style={[styles.actionButton, { backgroundColor: theme.primary }]}
+            >
+              <Wallet size={16} color="#fff" />
+              <Text style={styles.actionText}>Pay via UPI</Text>
             </Pressable>
           ) : null}
         </View>
@@ -313,12 +345,20 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
   },
-  actionsRow: { flexDirection: "row", gap: 10, marginTop: 16 },
+  actionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 16,
+  },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    paddingHorizontal: 14,
+    flexGrow: 1,
+    minWidth: "31%",
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
   },

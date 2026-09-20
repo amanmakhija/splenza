@@ -98,6 +98,11 @@ export type MainStackParamList = {
     paidTo: string;
     paidToName: string;
     suggestedAmount?: number;
+    /** Preselects a quick-note chip on the redesigned Settle Up screen -
+     * e.g. "UPI" when arriving from the Pay via UPI flow, "Cash" from the
+     * cash-settlement flow. Falls back to no preselection if omitted or if
+     * it doesn't match one of the built-in chip labels. */
+    initialNote?: string;
   };
   Notifications: undefined;
   ImportCsv: undefined;

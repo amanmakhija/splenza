@@ -388,6 +388,8 @@ export interface DebtEdge {
   toUserId: string;
   toUserName: string;
   amount: number;
+  /** UPI VPA of the person being paid, if they've set one - null otherwise. */
+  toUserUpiId: string | null;
 }
 
 export interface GroupBalanceResponse {
@@ -401,6 +403,10 @@ export interface FriendBalanceResponse {
   friendName: string;
   netAmount: number;
   friendProfilePictureUrl: string;
+  /** UPI VPA the friend has set for receiving payments, if any - used to
+   * autofill the UPI intent when paying them directly. Null if they haven't
+   * set one. */
+  upiId: string | null;
 }
 
 export interface DashboardSummary {
